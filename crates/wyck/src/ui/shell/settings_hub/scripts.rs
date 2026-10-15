@@ -4,8 +4,8 @@ use super::{
     AnyElement, Context, IconName, SettingsHub, button, controls, div, form, indicators, prefs, px,
     theme, tokens,
 };
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 impl SettingsHub {
     pub(super) fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -175,7 +175,7 @@ impl SettingsHub {
             .child(form::note(
                 format!(
                     "Open the editor from the button in the header{}. Export a script from the editor to share it.",
-                    crate::ui::kit::hints::suffix("toggle_indicator_editor")
+                    wyck_ui_kit::hints::suffix("toggle_indicator_editor")
                 ),
             ))
             .into_any_element()

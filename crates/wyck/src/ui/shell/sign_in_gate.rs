@@ -13,10 +13,10 @@ use gpui::{
 use crate::app::broker::Environment;
 use crate::app::sign_in::rules::redirect_uri;
 use crate::app::sign_in::{AccountChoice, CALLBACK_PORT, Failure, Phase, SignIn};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{self, InputEvent, InputState};
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{anim, button, controls, field, icon, layout, theme, tokens};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{self, InputEvent, InputState};
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{anim, button, controls, field, icon, layout, theme, tokens};
 
 gpui::actions!(wyck_sign_in, [Dismiss]);
 
@@ -355,7 +355,7 @@ impl SignInGate {
             .child(
                 button::primary(
                     "gate-submit",
-crate::ui::kit::button::Fill::Accent, crate::ui::kit::button::Size::Lg,
+wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
                     submit_label,
                     cx.listener(|this, _, _window, cx| this.submit(cx)),
                 )
@@ -460,8 +460,8 @@ crate::ui::kit::button::Fill::Accent, crate::ui::kit::button::Size::Lg,
             .child(
                 button::primary(
                     "gate-connect-account",
-                    crate::ui::kit::button::Fill::Accent,
-                    crate::ui::kit::button::Size::Lg,
+                    wyck_ui_kit::button::Fill::Accent,
+                    wyck_ui_kit::button::Size::Lg,
                     "Connect this account",
                     cx.listener(|this, _, _window, cx| {
                         this.sign_in.update(cx, |s, cx| s.connect_chosen(cx));

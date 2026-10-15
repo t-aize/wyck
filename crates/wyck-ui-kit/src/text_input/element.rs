@@ -7,7 +7,7 @@ use gpui::{
 };
 
 use super::TextInput;
-use crate::ui::kit::theme;
+use crate::theme;
 
 pub(super) struct TextElement {
     input: Entity<TextInput>,

@@ -5,8 +5,8 @@ use super::{
     AnyElement, Context, Entry, Frame, IconName, Item, Offset, OrderTicket, SharedString,
     Smoothing, TicketEvent, Window, card, controls, div, hint, icon, number, px, theme, tokens,
 };
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 /// The multiples of the ATR offered as shortcuts for the ATR stop.
 const ATR_CHOICES: [f64; 4] = [1.0, 1.5, 2.0, 3.0];
@@ -122,7 +122,7 @@ impl OrderTicket {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .child(crate::ui::kit::input::number(state)),
+                            .child(wyck_ui_kit::input::number(state)),
                     )
                     .child(self.unit_menu(stop, &f.currency, window, cx))
                     .into_any_element(),

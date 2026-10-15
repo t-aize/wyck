@@ -4,11 +4,11 @@ use super::{PANE_HEIGHTS, StudyEditor, grouped};
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::study::kind::StudyKind;
 use crate::ui::features::chart::study::spec::{Placement, PlotKind};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, form, number, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div};
 use wyck_drawings::model::style::{DASHES, WIDTHS};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, form, number, tokens};
 
 impl StudyEditor {
     pub(super) fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
@@ -436,7 +436,7 @@ impl StudyEditor {
         rows.push(form::field(
             "Name",
             Some("Leave empty to use the indicator name"),
-            crate::ui::kit::field::text(&self.name),
+            wyck_ui_kit::field::text(&self.name),
         ));
         let axis = self.target.clone();
         rows.push(form::field(

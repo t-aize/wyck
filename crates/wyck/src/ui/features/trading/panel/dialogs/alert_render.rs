@@ -4,12 +4,12 @@ use super::alert_editor::{AlertEditor, watchable};
 use crate::app::alerts::model::source::{PnlScope, PriceKind};
 use crate::app::alerts::sound::SoundKind;
 use crate::app::alerts::{Condition, Source, Trigger};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::menu::{Entry, Item};
-use crate::ui::kit::{button, controls, form, form::Head, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
 use wyck_indicators::config::StudyConfig;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::menu::{Entry, Item};
+use wyck_ui_kit::{button, controls, form, form::Head, modal, number, theme, tokens};
 
 impl Render for AlertEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -357,8 +357,8 @@ impl Render for AlertEditor {
         ));
 
         let message = vec![
-            form::block(crate::ui::kit::input::text(&self.message)),
-            form::block(crate::ui::kit::input::text(&self.tag)),
+            form::block(wyck_ui_kit::input::text(&self.message)),
+            form::block(wyck_ui_kit::input::text(&self.tag)),
         ];
 
         // What it did before.

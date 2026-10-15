@@ -5,8 +5,8 @@ use super::{
     AREA_H, AREA_W, CELL, ColorPanel, Drag, GAP, HUE_H, MAX_SAVED, Saved, marker, small_label,
     surface,
 };
-use crate::ui::kit::focus::Keyboard;
-use crate::ui::kit::theme;
+use crate::focus::Keyboard;
+use crate::theme;
 use gpui::prelude::*;
 use gpui::{
     Context, Entity, MouseButton, SharedString, Window, div, hsla, linear_color_stop,
@@ -92,7 +92,7 @@ impl Render for ColorPanel {
             .flex()
             .flex_row()
             .w(px(44.))
-            .h(px(crate::ui::kit::tokens::height::control()))
+            .h(px(crate::tokens::height::control()))
             .rounded_md()
             .overflow_hidden()
             .border_1()
@@ -107,7 +107,7 @@ impl Render for ColorPanel {
                     .items_center()
                     .gap_1()
                     .child(small_label(label))
-                    .child(div().w(px(56.)).child(crate::ui::kit::input::text(state)))
+                    .child(div().w(px(56.)).child(crate::input::text(state)))
             };
             div()
                 .flex()
@@ -121,11 +121,7 @@ impl Render for ColorPanel {
                         .gap_2()
                         .child(preview)
                         .child(small_label("HEX"))
-                        .child(
-                            div()
-                                .flex_1()
-                                .child(crate::ui::kit::input::text(&fields.hex)),
-                        ),
+                        .child(div().flex_1().child(crate::input::text(&fields.hex))),
                 )
                 .child(
                     div()
@@ -182,7 +178,7 @@ impl Render for ColorPanel {
         );
         let save_this = this.clone();
 
-        crate::ui::kit::menu::parts::panel(AREA_W + 24.0)
+        crate::menu::parts::panel(AREA_W + 24.0)
             .on_mouse_down_out(cx.listener(|this, _event, window, cx| {
                 // A click on the swatch itself closes the panel through the swatch.
                 if !this.swatch_hovered
@@ -216,7 +212,7 @@ impl Render for ColorPanel {
                             .justify_between()
                             .child(small_label("SAVED"))
                             .child(
-                                crate::ui::kit::button::dense("color-save")
+                                crate::button::dense("color-save")
                                     .icon(IconName::Plus)
                                     .label("Save this color")
                                     .disabled(!can_save)
@@ -232,7 +228,7 @@ impl Render for ColorPanel {
                             .h(px(CELL))
                             .flex()
                             .items_center()
-                            .text_size(px(crate::ui::kit::tokens::text::body()))
+                            .text_size(px(crate::tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child("Colors you save show here")
                     } else {

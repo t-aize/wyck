@@ -4,9 +4,9 @@ use super::{
     AnyElement, Context, EditorEvent, Entry, FontWeight, IconName, IndicatorEditor, Item,
     Placement, SharedString, TEMPLATES, Window, div, icon, layout, px, theme, tokens,
 };
-use crate::ui::kit::button::Button;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::button::Button;
+use wyck_ui_kit::prelude::Disableable;
 
 impl IndicatorEditor {
     pub(super) fn tool_button(
@@ -17,7 +17,7 @@ impl IndicatorEditor {
         tip: impl Into<SharedString>,
         enabled: bool,
     ) -> Button {
-        let button = crate::ui::kit::button::dense(id)
+        let button = wyck_ui_kit::button::dense(id)
             .icon(icon)
             .tooltip(tip)
             .disabled(!enabled);
@@ -129,7 +129,7 @@ impl IndicatorEditor {
                     Some("Save"),
                     gpui::SharedString::from(format!(
                         "Save{}",
-                        crate::ui::kit::hints::suffix("editor_save")
+                        wyck_ui_kit::hints::suffix("editor_save")
                     )),
                     has_doc && dirty,
                 )
@@ -144,7 +144,7 @@ impl IndicatorEditor {
                     Some("Add to chart"),
                     gpui::SharedString::from(format!(
                         "Save, and put it on the active chart{}",
-                        crate::ui::kit::hints::suffix("editor_add_to_chart")
+                        wyck_ui_kit::hints::suffix("editor_add_to_chart")
                     )),
                     has_doc,
                 )
@@ -205,7 +205,7 @@ impl IndicatorEditor {
                     Some("Reference"),
                     gpui::SharedString::from(format!(
                         "Every function of the language{}",
-                        crate::ui::kit::hints::suffix("editor_reference")
+                        wyck_ui_kit::hints::suffix("editor_reference")
                     )),
                     true,
                 )

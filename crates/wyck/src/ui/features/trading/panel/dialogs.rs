@@ -4,13 +4,13 @@
 pub mod alert_editor;
 pub mod alert_render;
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
 
 use crate::app::account::Account;
-use crate::ui::kit::{button, form, form::Head, modal, number, tokens};
+use wyck_ui_kit::{button, form, form::Head, modal, number, tokens};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Target {

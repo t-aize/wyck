@@ -6,6 +6,8 @@
 pub mod app;
 #[cfg(test)]
 mod keymap_guard;
+#[cfg(test)]
+mod no_inline_colors;
 pub mod ui;
 
 use std::borrow::Cow;
@@ -17,11 +19,11 @@ use gpui_kit::component::Root;
 use app::appearance;
 use app::scripts;
 use app::updates;
-use ui::assets;
 use ui::features::indicators;
 use ui::shell::app_view::AppView;
 use wyck_platform::build_info::{self, BuildMode};
 use wyck_platform::logging;
+use wyck_ui_kit::assets;
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -70,12 +72,12 @@ pub fn run() {
                     if !migrated.is_empty() {
                         tracing::info!(?migrated, "brought the saved documents to this version");
                     }
-                    appearance::init(paths.documents(), ui::kit::theme::put_in_force, cx);
+                    appearance::init(paths.documents(), wyck_ui_kit::theme::put_in_force, cx);
                     scripts::init(Some(paths), cx);
                     keep_a_daily_copy(paths, cx);
                 }
                 None => {
-                    crate::ui::kit::theme::apply(cx);
+                    wyck_ui_kit::theme::apply(cx);
                     scripts::init(None, cx);
                 }
             }

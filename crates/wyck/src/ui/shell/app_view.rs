@@ -16,10 +16,10 @@ use crate::app::sign_in::config::load_config;
 use crate::app::sign_in::{Connection, SignIn, SignInEvent};
 use crate::app::storage::ProfileId;
 use crate::app::system::runtime;
-use crate::ui::kit::{button, layout, theme, toast, tokens};
 use crate::ui::shell::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use crate::ui::shell::locked_frame;
 use crate::ui::shell::sign_in_gate::SignInGate;
+use wyck_ui_kit::{button, layout, theme, toast, tokens};
 
 /// The session on screen.
 struct Open {
@@ -204,8 +204,8 @@ impl AppView {
                     )
                     .child(button::primary(
                         "startup-quit",
-                        crate::ui::kit::button::Fill::Accent,
-                        crate::ui::kit::button::Size::Lg,
+                        wyck_ui_kit::button::Fill::Accent,
+                        wyck_ui_kit::button::Size::Lg,
                         "Quit Wyck",
                         |_, _window, cx| cx.quit(),
                     )),
@@ -244,7 +244,7 @@ impl Render for AppView {
             .font_family(appearance::font(cx))
             // Only where the system draws no title bar (a Wayland desktop without server-side
             // decorations): there the window would have no title and no buttons.
-            .children(crate::ui::kit::window_bar::fallback(window))
+            .children(wyck_ui_kit::window_bar::fallback(window))
             // `min_h_0`: without it this box never gets shorter than what the screen inside asks
             // for, and a tall bottom panel pushes the dashboard out of the window.
             .child(
@@ -257,6 +257,6 @@ impl Render for AppView {
             )
             // The settings panels. The sheets, dialogs and notices of gpui-component are drawn by
             // the window's `Root`, above everything in this view.
-            .child(crate::ui::kit::modal::host(cx))
+            .child(wyck_ui_kit::modal::host(cx))
     }
 }

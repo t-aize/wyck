@@ -29,7 +29,7 @@ pub fn lines(
     profit: &dyn Fn(i64) -> Option<f64>,
     currency: &str,
 ) -> HashMap<i64, Vec<ChartLine>> {
-    let palette = crate::ui::kit::theme::colors();
+    let palette = wyck_ui_kit::theme::colors();
     let mut out: HashMap<i64, Vec<ChartLine>> = HashMap::new();
     let line = |id, price, color, label: String, dash, draggable, closable| ChartLine {
         id,
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(entry.label, "Buy 1");
         assert_eq!(
             entry.detail,
-            Some(("-12.50 USD".into(), crate::ui::kit::theme::colors().down))
+            Some(("-12.50 USD".into(), wyck_ui_kit::theme::colors().down))
         );
         assert!(!entry.draggable && entry.closable);
         let stop = first.iter().find(|l| l.id == LineId::StopLoss(5)).unwrap();

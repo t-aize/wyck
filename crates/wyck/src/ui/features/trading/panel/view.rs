@@ -8,12 +8,12 @@ use super::AccountPanel;
 use super::data::{self, Ctx, Tone};
 use crate::app::account::Status;
 use crate::app::prefs::panel::Tab;
-use crate::ui::kit::confirm::{Tone as AskTone, confirm_as};
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{button, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Role, Window, div, px};
 use std::rc::Rc;
+use wyck_ui_kit::confirm::{Tone as AskTone, confirm_as};
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{button, theme, tokens};
 
 /// What a button of a row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;

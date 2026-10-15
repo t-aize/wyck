@@ -10,8 +10,8 @@ use super::{
 use crate::app::storage::backup::Contents;
 use crate::app::storage::backup::store::BackupStore;
 use crate::app::storage::scripts::ScriptStore;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 /// The most copies the page lists.
 const LISTED_COPIES: usize = 8;
@@ -105,7 +105,7 @@ impl SettingsHub {
                 Some(
                     "One file: your look, charts and indicators, drawings and their saved looks, favorites, watchlists and alerts. No sign-in is in it",
                 ),
-                crate::ui::kit::button::accent("backup-export")
+                wyck_ui_kit::button::accent("backup-export")
                     .icon(IconName::FileDown)
                     .label("Export")
                     .on_click(move |_, window, cx| {
@@ -117,7 +117,7 @@ impl SettingsHub {
                 Some(
                     "Checked first, then applied when wyck starts again. What it replaces is saved first as a copy you can restore",
                 ),
-                crate::ui::kit::button::quiet("backup-import")
+                wyck_ui_kit::button::quiet("backup-import")
                     .icon(IconName::FileUp)
                     .label("Import")
                     .on_click(move |_, window, cx| {
@@ -148,7 +148,7 @@ impl SettingsHub {
                     .gap_2()
                     .pt_2()
                     .child(
-                        crate::ui::kit::button::accent("backup-restart")
+                        wyck_ui_kit::button::accent("backup-restart")
                             .icon(IconName::RefreshCw)
                             .label("Restart now")
                             .on_click(move |_, _window, cx| {
@@ -157,7 +157,7 @@ impl SettingsHub {
                             }),
                     )
                     .child(
-                        crate::ui::kit::button::quiet("backup-cancel")
+                        wyck_ui_kit::button::quiet("backup-cancel")
                             .label("Cancel the import")
                             .on_click(move |_, _window, cx| {
                                 cancel.update(cx, |e, cx| e.cancel_import(cx));
@@ -201,7 +201,7 @@ impl SettingsHub {
             Some(
                 "Kept in the backups folder, next to the automatic ones (one a day, the last seven)",
             ),
-            crate::ui::kit::button::quiet("backup-save-copy")
+            wyck_ui_kit::button::quiet("backup-save-copy")
                 .icon(IconName::Archive)
                 .label("Save a copy")
                 .on_click({
@@ -229,7 +229,7 @@ impl SettingsHub {
                         .flex_row()
                         .gap_1()
                         .child(
-                            crate::ui::kit::button::quiet(("backup-restore", index))
+                            wyck_ui_kit::button::quiet(("backup-restore", index))
                                 .icon(IconName::RotateCcw)
                                 .label("Restore")
                                 .disabled(entry.sealed)
@@ -239,7 +239,7 @@ impl SettingsHub {
                                 }),
                         )
                         .child(
-                            crate::ui::kit::button::quiet(("backup-delete", index))
+                            wyck_ui_kit::button::quiet(("backup-delete", index))
                                 .icon(IconName::Trash)
                                 .on_click(move |_, _window, cx| {
                                     let id = delete_id.clone();
@@ -266,7 +266,7 @@ impl SettingsHub {
                 Some(
                     "Appearance, layout, charts and their indicators, favorites, ticket settings, drawings and their saved looks, watchlists and alerts: all of it goes back to how it is on a fresh install, for every account. Your indicator scripts and your sign-in are not touched",
                 ),
-                crate::ui::kit::button::danger("settings-reset-all")
+                wyck_ui_kit::button::danger("settings-reset-all")
                     .icon(IconName::TriangleAlert)
                     .label("Reset everything")
                     .on_click(move |_, window, cx| {

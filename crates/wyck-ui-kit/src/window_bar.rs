@@ -8,7 +8,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Decorations, Window, div, px};
 use gpui_kit::component::TitleBar;
 
-use crate::ui::kit::{theme, tokens};
+use crate::{theme, tokens};
 
 /// The bar to put above the content, or `None` when the system draws its own.
 pub fn fallback(window: &Window) -> Option<AnyElement> {

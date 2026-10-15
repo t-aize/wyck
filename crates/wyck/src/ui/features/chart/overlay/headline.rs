@@ -3,8 +3,6 @@
 use super::rgb;
 use crate::ui::features::chart::events::ChartEvent;
 use crate::ui::features::chart::{Chart, Load, Older};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
 use wyck_chart::ChartKind;
@@ -12,6 +10,8 @@ use wyck_chart::Series;
 use wyck_chart::supports;
 use wyck_chart::{Geometry, axis_h, axis_w};
 use wyck_market::format_price;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{anim, button, controls, icon, theme, tokens};
 
 impl Chart {
     /// The button that folds the lines of the indicators away, or brings them back. Folded, it
@@ -334,7 +334,7 @@ impl Chart {
                     )
                     .child(
                         div()
-                            .max_w(px(crate::ui::kit::tokens::measure::note()))
+                            .max_w(px(wyck_ui_kit::tokens::measure::note()))
                             .text_center()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::chart_muted())
@@ -343,11 +343,11 @@ impl Chart {
                     .child(
                         div()
                             .pt_1()
-                            .w(px(crate::ui::kit::tokens::measure::action()))
+                            .w(px(wyck_ui_kit::tokens::measure::action()))
                             .child(button::primary(
                                 ("chart-retry", self.id),
-                                crate::ui::kit::button::Fill::Accent,
-                                crate::ui::kit::button::Size::Md,
+                                wyck_ui_kit::button::Fill::Accent,
+                                wyck_ui_kit::button::Size::Md,
                                 "Try again",
                                 cx.listener(|this, _event, _window, cx| this.retry(cx)),
                             )),
@@ -370,7 +370,7 @@ impl Chart {
             out.push(
                 div()
                     .absolute()
-                    .left(px(crate::ui::kit::tokens::space::md()))
+                    .left(px(wyck_ui_kit::tokens::space::md()))
                     .bottom(px(axis_h() + 8.0))
                     .flex()
                     .flex_row()

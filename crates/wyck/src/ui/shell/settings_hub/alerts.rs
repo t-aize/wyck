@@ -6,8 +6,8 @@ use super::{
 };
 use crate::app::alerts::sound;
 use crate::app::alerts::sound::SoundKind;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 /// The volumes offered, in percent.
 const VOLUMES: [(&str, u8); 5] = [
@@ -94,7 +94,7 @@ impl SettingsHub {
                     .gap_2()
                     .children(file_name.map(|name| {
                         div()
-                            .max_w(px(crate::ui::kit::tokens::measure::caption()))
+                            .max_w(px(wyck_ui_kit::tokens::measure::caption()))
                             .truncate()
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())

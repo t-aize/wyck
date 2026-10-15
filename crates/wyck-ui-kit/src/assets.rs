@@ -13,11 +13,11 @@ use gpui_kit::assets::AllAssets;
 
 /// Inter (SIL Open Font License; see `assets/fonts/LICENSE.txt`), registered once at startup in
 /// `run` and used everywhere as the app's font.
-pub const FONT: &[u8] = include_bytes!("../../assets/fonts/Inter.ttf");
+pub const FONT: &[u8] = include_bytes!("../assets/fonts/Inter.ttf");
 
 /// The mark of the app with its outline, 256 px high, for the screens that show it. Made from
 /// `assets/brand/source-logo.png` by `scripts/make_brand_assets.py`.
-const LOGO: &[u8] = include_bytes!("../../assets/logo.png");
+const LOGO: &[u8] = include_bytes!("../assets/logo.png");
 
 /// The path the logo is served under, for `img(..)`.
 pub const LOGO_PATH: &str = "brand/logo.png";

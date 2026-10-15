@@ -15,7 +15,7 @@ use gpui::{
 use gpui_kit::assets::IconName;
 use gpui_kit::component::input::{InputEvent, InputState};
 
-use crate::ui::kit::{icon, theme, tokens};
+use crate::{icon, theme, tokens};
 
 /// What the picker says when a font is picked: its name, or `None` for the default font.
 pub struct FontChosen(pub Option<String>);
@@ -226,7 +226,7 @@ impl Render for FontPicker {
             .flex()
             .flex_col()
             .gap_2()
-            .child(crate::ui::kit::input::text(&self.filter))
+            .child(crate::input::text(&self.filter))
             .child(
                 div()
                     .rounded_md()

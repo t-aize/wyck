@@ -146,13 +146,15 @@ impl IndicatorEditor {
             .border_r_1()
             .border_color(theme::border_hairline())
             .bg(theme::fg_alpha(0.02))
-            .child(div().p_2().child(
-                crate::ui::kit::input::dense(&self.filter).prefix(icon::tinted(
-                    IconName::Search,
-                    14.,
-                    theme::muted_fg(),
-                )),
-            ))
+            .child(
+                div()
+                    .p_2()
+                    .child(wyck_ui_kit::input::dense(&self.filter).prefix(icon::tinted(
+                        IconName::Search,
+                        14.,
+                        theme::muted_fg(),
+                    ))),
+            )
             .child(list)
             .children(file_menu.popup(menu_items, Placement::Cursor, window, cx))
             .into_any_element()
@@ -164,7 +166,7 @@ impl IndicatorEditor {
         number: usize,
         indented: bool,
         match_at: Option<(usize, usize)>,
-        menu: &crate::ui::kit::menu::Menu,
+        menu: &wyck_ui_kit::menu::Menu,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = entry.id.clone();
@@ -231,7 +233,7 @@ impl IndicatorEditor {
             )
             .children(unsaved.then(|| {
                 div()
-                    .size(px(crate::ui::kit::tokens::swatch::dot()))
+                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())
             }))
@@ -241,7 +243,7 @@ impl IndicatorEditor {
     /// The entries of the menu of a right click on a script.
     pub(super) fn file_menu_items(
         &self,
-        menu: &crate::ui::kit::menu::Menu,
+        menu: &wyck_ui_kit::menu::Menu,
         cx: &mut Context<Self>,
     ) -> Vec<Item> {
         let Some(id) = self.menu_target.clone() else {
@@ -313,7 +315,7 @@ impl IndicatorEditor {
             .id("editor-prompt-card")
             // A click on the card is its own: it must not reach the veil, which closes the prompt.
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .w(px(crate::ui::kit::tokens::measure::card()))
+            .w(px(wyck_ui_kit::tokens::measure::card()))
             .p_4()
             .flex()
             .flex_col()
@@ -336,7 +338,7 @@ impl IndicatorEditor {
                     .text_color(theme::muted_fg())
                     .child(text)
             }))
-            .child(crate::ui::kit::input::text(&prompt.input))
+            .child(wyck_ui_kit::input::text(&prompt.input))
             .child(
                 div()
                     .flex()
@@ -344,14 +346,14 @@ impl IndicatorEditor {
                     .justify_end()
                     .gap_1()
                     .child(
-                        crate::ui::kit::button::dense("editor-prompt-cancel")
+                        wyck_ui_kit::button::dense("editor-prompt-cancel")
                             .label("Cancel")
                             .on_click(move |_, _window, cx| {
                                 cancel.update(cx, |e, cx| e.cancel_prompt(cx));
                             }),
                     )
                     .child(
-                        crate::ui::kit::button::accent("editor-prompt-ok")
+                        wyck_ui_kit::button::accent("editor-prompt-ok")
                             .label("OK")
                             .on_click(move |_, window, cx| {
                                 ok.update(cx, |e, cx| e.commit_prompt(window, cx));

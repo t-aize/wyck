@@ -6,8 +6,8 @@ use super::{
     AnyElement, Context, FontChosen, FontPicker, IconName, SettingsHub, SharedString, Window,
     appearance, controls, div, form, px, rgb, theme,
 };
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 impl SettingsHub {
     pub(super) fn interface_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -50,7 +50,7 @@ impl SettingsHub {
         );
 
         // The colors of the charts have their own page and their own reset.
-        let reset = crate::ui::kit::button::quiet("settings-reset-look")
+        let reset = wyck_ui_kit::button::quiet("settings-reset-look")
             .icon(IconName::RotateCcw)
             .label("Reset the interface")
             .disabled(a.font == appearance::DEFAULT_FONT && a.animations && a.ui_scale == 100)

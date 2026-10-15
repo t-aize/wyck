@@ -245,14 +245,14 @@ impl Chart {
     /// Adds an indicator, with its defaults.
     pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
         if self.settings.studies.len() >= self.max_studies {
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Warning,
+                wyck_ui_kit::toast::Kind::Warning,
                 "Indicator limit reached",
                 format!(
                     "This chart allows {} indicators. Change the limit in Settings{}.",
                     self.max_studies,
-                    crate::ui::kit::hints::suffix("open_settings")
+                    wyck_ui_kit::hints::suffix("open_settings")
                 ),
             );
             return;

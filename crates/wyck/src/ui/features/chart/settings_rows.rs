@@ -2,13 +2,13 @@
 //! switch, a typed number. Each one applies its change to the chart at once, like the rest of
 //! the chart settings panel.
 
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
+use wyck_ui_kit::input::InputState;
 
 use super::Chart;
-use crate::ui::kit::{controls, form, number, tokens};
 use wyck_chart::ChartSettings;
+use wyck_ui_kit::{controls, form, number, tokens};
 
 pub(super) fn edit(
     chart: &Entity<Chart>,

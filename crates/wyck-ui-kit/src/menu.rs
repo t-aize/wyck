@@ -31,8 +31,8 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 
-use crate::ui::kit::tokens::{menu as size, text};
-use crate::ui::kit::{controls, icon, theme};
+use crate::tokens::{menu as size, text};
+use crate::{controls, icon, theme};
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 

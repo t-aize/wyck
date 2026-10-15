@@ -47,7 +47,7 @@ impl SettingsHub {
         let mut rows = vec![form::field(
             "Interface font",
             Some("Any font installed on this computer. Inter comes with the app"),
-            crate::ui::kit::button::quiet("settings-font-open")
+            wyck_ui_kit::button::quiet("settings-font-open")
                 .icon(IconName::Type)
                 .label(SharedString::from(a.font.clone()))
                 .toggled(self.font_open)
@@ -106,14 +106,14 @@ impl SettingsHub {
                     .items_center()
                     .child(
                         div()
-                            .w(px(crate::ui::kit::tokens::HAIRLINE))
+                            .w(px(wyck_ui_kit::tokens::HAIRLINE))
                             .h(px(above))
                             .bg(color),
                     )
                     .child(div().w(px(CANDLE_BODY_WIDTH)).h(px(body)).bg(color))
                     .child(
                         div()
-                            .w(px(crate::ui::kit::tokens::HAIRLINE))
+                            .w(px(wyck_ui_kit::tokens::HAIRLINE))
                             .h(px(below))
                             .bg(color),
                     ),

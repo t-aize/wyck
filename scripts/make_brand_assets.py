@@ -4,7 +4,8 @@
     crates/wyck/assets/brand/source-icon.png   the mark on a black square (the app icon)
     crates/wyck/assets/brand/source-logo.png   the mark with its outline on a transparent background
 
-Writes crates/wyck/assets/app-icon.{png,ico,icns} and crates/wyck/assets/logo.png (what the app shows, 256 px high).
+Writes crates/wyck/assets/app-icon.{png,ico,icns} and crates/wyck-ui-kit/assets/logo.png (what the app
+shows, 256 px high).
 Needs Pillow. Run it again when a source image changes, and commit the results.
 """
 from pathlib import Path
@@ -13,6 +14,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "crates" / "wyck" / "assets"
+LOGO = ROOT / "crates" / "wyck-ui-kit" / "assets" / "logo.png"
 
 
 def rounded(image: Image.Image, size: int, radius_share: float = 0.22) -> Image.Image:
@@ -48,7 +50,7 @@ def make_logo() -> None:
     logo = trimmed(Image.open(ASSETS / "brand" / "source-logo.png").convert("RGBA"))
     height = 256
     width = round(logo.width * height / logo.height)
-    logo.resize((width, height), Image.LANCZOS).save(ASSETS / "logo.png", optimize=True)
+    logo.resize((width, height), Image.LANCZOS).save(LOGO, optimize=True)
 
 
 def main() -> None:

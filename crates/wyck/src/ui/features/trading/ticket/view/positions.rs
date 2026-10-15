@@ -4,10 +4,10 @@ use super::{
     Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, Tone,
     card, card_head, confirm_as, div, hint, math, px, text_button, theme, tokens,
 };
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::prelude::Selectable;
-use crate::ui::kit::prelude::StyledExt as _;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::prelude::Selectable;
+use wyck_ui_kit::prelude::StyledExt as _;
 
 impl OrderTicket {
     /// What is open on the symbol, with what can be done to it.
@@ -24,7 +24,7 @@ impl OrderTicket {
                            enabled: bool,
                            on: bool,
                            run: Action| {
-            crate::ui::kit::button::dense(id)
+            wyck_ui_kit::button::dense(id)
                 .when(!enabled, |button| button.cursor_not_allowed())
                 .icon(icon)
                 .tooltip(tip)

@@ -24,7 +24,7 @@ use gpui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::ui::kit::{anim, theme};
+use crate::{anim, theme};
 
 gpui::actions!(
     wyck_text_input,
@@ -362,7 +362,7 @@ impl Render for TextInput {
             } else {
                 theme::border_subtle()
             })
-            .text_size(px(crate::ui::kit::tokens::text::title()))
+            .text_size(px(crate::tokens::text::title()))
             .text_color(theme::fg())
             .child(element::TextElement::new(cx.entity()));
 

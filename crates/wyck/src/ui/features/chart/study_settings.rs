@@ -13,11 +13,11 @@ use super::study::config::StudyConfig;
 use super::study::kind::StudyKind;
 use super::study::spec::{InputKind, Placement};
 use super::study::style::{FillStyle, LevelStyle};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{InputEvent, InputState};
+use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number, theme};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[

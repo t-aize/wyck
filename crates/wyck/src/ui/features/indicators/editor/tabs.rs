@@ -1,12 +1,12 @@
 //! The open tabs of the editor: opening, closing, and what the check says about the text.
 
 use super::{CHECK_DELAY, Doc, IndicatorEditor, new_state, show_diagnostics};
-use crate::ui::kit::confirm::{Tone, confirm_as};
-use crate::ui::kit::input::InputEvent;
 use gpui::{Context, Window};
 use wyck_indicators::custom::Problem;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::run::Script;
+use wyck_ui_kit::confirm::{Tone, confirm_as};
+use wyck_ui_kit::input::InputEvent;
 
 impl IndicatorEditor {
     /// Opens the script `id` in a tab (or goes to its tab).

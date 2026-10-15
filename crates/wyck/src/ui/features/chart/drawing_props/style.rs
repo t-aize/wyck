@@ -5,9 +5,9 @@ use super::{
     MeasureFlag, Swatch, Tool, Window, controls, div, form, icon_key, number, px, tokens,
     wave_label, wave_names,
 };
-use crate::ui::kit::field;
-use crate::ui::kit::form::Row;
 use gpui::prelude::*;
+use wyck_ui_kit::field;
+use wyck_ui_kit::form::Row;
 
 /// The width of the field where a look is named.
 const TEMPLATE_NAME_WIDTH: f32 = 170.0;
@@ -215,9 +215,9 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .min_h(px(crate::ui::kit::tokens::height::row()))
+                    .min_h(px(wyck_ui_kit::tokens::height::row()))
                     .child(
-                        crate::ui::kit::button::quiet(("props-template", index))
+                        wyck_ui_kit::button::quiet(("props-template", index))
                             .icon(IconName::Bookmark)
                             .label(name.clone())
                             .tooltip("Apply this look to the drawing")
@@ -227,7 +227,7 @@ impl DrawingProps {
                     )
                     .child(div().flex_1())
                     .child(
-                        crate::ui::kit::button::dense(("props-template-delete", index))
+                        wyck_ui_kit::button::dense(("props-template-delete", index))
                             .icon(IconName::X)
                             .tooltip("Forget this look")
                             .on_click(move |_, _window, cx| {
@@ -249,10 +249,10 @@ impl DrawingProps {
                 .child(
                     div()
                         .w(px(TEMPLATE_NAME_WIDTH))
-                        .child(crate::ui::kit::input::text(&self.template_name)),
+                        .child(wyck_ui_kit::input::text(&self.template_name)),
                 )
                 .child(
-                    crate::ui::kit::button::accent("props-template-save")
+                    wyck_ui_kit::button::accent("props-template-save")
                         .icon(IconName::BookmarkPlus)
                         .label("Save")
                         .on_click(move |_, window, cx| {
@@ -293,16 +293,16 @@ impl DrawingProps {
         if saved {
             self.template_name
                 .update(cx, |state, cx| state.set_value("", window, cx));
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Success,
+                wyck_ui_kit::toast::Kind::Success,
                 "Look saved",
                 format!("{} is in the saved looks of this tool.", name.trim()),
             );
         } else {
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Warning,
+                wyck_ui_kit::toast::Kind::Warning,
                 "Give the look a name",
                 "Type a name first, then save.",
             );

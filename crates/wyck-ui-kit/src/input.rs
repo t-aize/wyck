@@ -5,7 +5,7 @@
 
 use gpui::{Entity, Styled as _, px};
 
-use crate::ui::kit::tokens;
+use crate::tokens;
 
 use gpui_kit::component::Sizable;
 pub use gpui_kit::component::highlighter::{Diagnostic, DiagnosticSeverity};

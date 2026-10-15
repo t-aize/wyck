@@ -2,14 +2,14 @@
 
 use super::{ExportDialog, human_bytes, mono};
 use crate::ui::features::chart::settings_rows::named;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
 use wyck_chart::ExportOptions;
 use wyck_chart::PREVIEW_ROWS;
 use wyck_chart::{Content, Order, RangeKind};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{form, theme, tokens};
 
 impl ExportDialog {
     pub(super) fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -120,7 +120,7 @@ impl ExportDialog {
             let down = this.clone();
             let gone = this.clone();
             let icon_button = |id: String, icon: IconName, tip: &'static str| {
-                crate::ui::kit::button::quiet(SharedString::from(id))
+                wyck_ui_kit::button::quiet(SharedString::from(id))
                     .icon(icon)
                     .tooltip(tip)
             };
@@ -133,7 +133,7 @@ impl ExportDialog {
                     .py_2()
                     .child(
                         div()
-                            .w(px(crate::ui::kit::tokens::field::select()))
+                            .w(px(wyck_ui_kit::tokens::field::select()))
                             .flex_none()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
@@ -221,7 +221,7 @@ impl ExportDialog {
             );
         }
         let reset = this.clone();
-        let standard = crate::ui::kit::button::quiet("col-standard")
+        let standard = wyck_ui_kit::button::quiet("col-standard")
             .label("Standard columns")
             .on_click(move |_, _, cx| {
                 reset.update(cx, |d, cx| {

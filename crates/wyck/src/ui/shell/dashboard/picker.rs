@@ -16,12 +16,12 @@ mod rows;
 use std::ops::Range;
 use std::time::Duration;
 
-use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     Context, Entity, Focusable, MouseButton, ScrollStrategy, Subscription, UniformListScrollHandle,
     Window, div, px, relative, uniform_list,
 };
+use wyck_ui_kit::icon::IconName;
 
 use super::catalog::{Class, Entry};
 use super::details::{self, Detail};
@@ -29,7 +29,7 @@ use super::lists::{self, ListEditor, Scope};
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::app::broker::Error as ApiError;
 use crate::app::system::runtime;
-use crate::ui::kit::{anim, button, icon, text_input::TextInput, theme, tokens};
+use wyck_ui_kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
 /// The width of the symbol picker.
 const PICKER_WIDTH: f32 = 1160.0;
@@ -195,8 +195,8 @@ impl Dashboard {
         let action = highlighted.as_ref().map(|entry| {
             button::primary(
                 "pick-symbol",
-                crate::ui::kit::button::Fill::Accent,
-                crate::ui::kit::button::Size::Md,
+                wyck_ui_kit::button::Fill::Accent,
+                wyck_ui_kit::button::Size::Md,
                 if is_current {
                     format!("Stay on {}", entry.name)
                 } else {
@@ -360,7 +360,7 @@ impl Dashboard {
                     .pb_3()
                     .children(list_chips),
             )
-            .child(crate::ui::kit::layout::rule_h())
+            .child(wyck_ui_kit::layout::rule_h())
             .child(
                 div()
                     .flex_1()
@@ -380,7 +380,7 @@ impl Dashboard {
             .flex()
             .justify_center()
             .items_center()
-            .py(px(crate::ui::kit::tokens::space::xl()))
+            .py(px(wyck_ui_kit::tokens::space::xl()))
             .bg(theme::veil())
             .occlude()
             .on_mouse_down(

@@ -1,10 +1,10 @@
 //! The account menu that hangs from the header, and the figures in it.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{anim, button, layout, menu, theme, tokens};
 use crate::ui::shell::dashboard::{Conn, Dashboard, DashboardEvent, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{anim, button, layout, menu, theme, tokens};
 
 impl Dashboard {
     /// The account's figures and the connection, for the account menu.
@@ -85,10 +85,10 @@ impl Dashboard {
             )
             .child(self.menu_figures(cx))
             .child(
-                crate::ui::kit::button::outlined("open-settings")
+                wyck_ui_kit::button::outlined("open-settings")
                     .w_full()
                     .icon(IconName::Settings)
-                    .label(gpui::SharedString::from(format!("Settings {}", crate::ui::kit::hints::suffix("open_settings"))))
+                    .label(gpui::SharedString::from(format!("Settings {}", wyck_ui_kit::hints::suffix("open_settings"))))
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.close_menus();
                         cx.notify();
@@ -100,7 +100,7 @@ impl Dashboard {
                         );
                     })),
             )
-            .child(crate::ui::kit::layout::rule_h())
+            .child(wyck_ui_kit::layout::rule_h())
             .child(
                 div()
                     .text_size(px(tokens::text::body()))
@@ -113,16 +113,16 @@ impl Dashboard {
             .child(
                 button::primary(
                     "disconnect-account",
-crate::ui::kit::button::Fill::Danger, crate::ui::kit::button::Size::Md,
+wyck_ui_kit::button::Fill::Danger, wyck_ui_kit::button::Size::Md,
                     "Disconnect",
                     cx.listener(|this, _event, window, cx| {
                         this.close_menus();
                         cx.notify();
                         let dashboard = cx.entity();
-                        crate::ui::kit::confirm::confirm_as(
+                        wyck_ui_kit::confirm::confirm_as(
                             window,
                             cx,
-                            crate::ui::kit::confirm::Tone::Danger,
+                            wyck_ui_kit::confirm::Tone::Danger,
                             "Disconnect?",
                             "The saved sign-in is removed from this device. You can connect again anytime.",
                             move |_window, cx| {

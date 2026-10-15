@@ -6,12 +6,12 @@ use crate::ui::features::trading::panel::data::{Column, Row, RowKind, Table};
 use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
 use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
 use crate::ui::features::trading::panel::{AccountPanel, PanelEvent};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, Role, SharedString, div, px};
 use std::rc::Rc;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{button, icon, theme, tokens};
 
 /// A small button of a row.
 fn icon_button(
@@ -227,7 +227,7 @@ impl AccountPanel {
         }
 
         let body = if rows.is_empty() {
-            let alerts_empty = match crate::ui::kit::hints::hint("add_alert") {
+            let alerts_empty = match wyck_ui_kit::hints::hint("add_alert") {
                 Some(keys) => format!(
                     "No alert. Right click a chart, or press {keys}, to add one at a price."
                 ),

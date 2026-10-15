@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{Div, Rgba, SharedString, div, px};
 use gpui_kit::assets::IconName;
 
-use crate::ui::kit::{anim, icon, theme, tokens};
+use crate::{anim, icon, theme, tokens};
 
 /// The raised panel most screens center their content in.
 pub fn card() -> Div {
@@ -35,7 +35,7 @@ pub fn icon_tile(name: IconName, tile: f32, glyph: f32, bg: Rgba, fg: Rgba) -> D
 }
 
 /// A labeled field wrapper: an icon and a small caption above whatever's given as the field. For a
-/// label beside the control, as in the settings panels, use [`crate::ui::kit::form::field`].
+/// label beside the control, as in the settings panels, use [`crate::form::field`].
 pub fn stacked_field(
     icon_name: IconName,
     label: impl Into<SharedString>,
@@ -50,7 +50,7 @@ pub fn stacked_field(
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(crate::ui::kit::tokens::text::emphasis()))
+                .text_size(px(crate::tokens::text::emphasis()))
                 .text_color(theme::fg())
                 .child(icon::plain(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
@@ -82,7 +82,7 @@ pub fn error_banner(
                 .flex_row()
                 .items_start()
                 .gap_2()
-                .text_size(px(crate::ui::kit::tokens::text::emphasis()))
+                .text_size(px(crate::tokens::text::emphasis()))
                 .text_color(theme::destructive())
                 .child(icon::tinted(
                     IconName::TriangleAlert,
@@ -93,7 +93,7 @@ pub fn error_banner(
         )
         .child(
             div()
-                .text_size(px(crate::ui::kit::tokens::text::body()))
+                .text_size(px(crate::tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(detail.into()),
         );
@@ -110,7 +110,7 @@ pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl In
         .py(px(2.))
         .rounded_sm()
         .bg(tint)
-        .text_size(px(crate::ui::kit::tokens::text::caption()))
+        .text_size(px(crate::tokens::text::caption()))
         .text_color(color)
         .child(label.into())
 }
@@ -131,7 +131,7 @@ pub fn status_dot(color: Rgba) -> impl IntoElement {
 
 /// The mark of the app, `side` pixels wide, with room kept for its height.
 pub fn brand_mark(side: f32) -> impl IntoElement {
-    gpui::img(crate::ui::assets::LOGO_PATH)
+    gpui::img(crate::assets::LOGO_PATH)
         .size(px(side))
         .flex_shrink_0()
         .object_fit(gpui::ObjectFit::Contain)

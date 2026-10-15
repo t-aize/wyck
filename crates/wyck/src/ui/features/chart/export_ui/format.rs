@@ -2,8 +2,6 @@
 
 use super::ExportDialog;
 use crate::ui::features::chart::settings_rows::named;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
 use wyck_chart::ColumnKey;
@@ -13,6 +11,8 @@ use wyck_chart::{
     Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, PriceDigits, Quote,
     TimeFormat,
 };
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{form, theme, tokens};
 
 impl ExportDialog {
     pub(super) fn format_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -246,7 +246,7 @@ impl ExportDialog {
                         .child(name),
                 )
                 .child(
-                    crate::ui::kit::button::quiet(SharedString::from(format!("preset-use-{id}")))
+                    wyck_ui_kit::button::quiet(SharedString::from(format!("preset-use-{id}")))
                         .label("Use")
                         .on_click(move |_, window, cx| {
                             let options = options.clone();
@@ -254,7 +254,7 @@ impl ExportDialog {
                         }),
                 )
                 .children(deletable.then(|| {
-                    crate::ui::kit::button::quiet(SharedString::from(format!("preset-del-{id}")))
+                    wyck_ui_kit::button::quiet(SharedString::from(format!("preset-del-{id}")))
                         .icon(IconName::Trash)
                         .tooltip("Delete this preset")
                         .on_click(move |_, _, cx| {
@@ -305,7 +305,7 @@ impl ExportDialog {
                     tokens::field::text(),
                 ))
                 .child(
-                    crate::ui::kit::button::accent("preset-save")
+                    wyck_ui_kit::button::accent("preset-save")
                         .label("Save")
                         .on_click(move |_, window, cx| {
                             let name = name_state.read(cx).value().to_string();

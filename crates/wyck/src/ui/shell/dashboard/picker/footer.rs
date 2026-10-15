@@ -3,8 +3,8 @@
 use gpui::prelude::*;
 use gpui::{div, px};
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{icon, theme, tokens};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{icon, theme, tokens};
 
 /// A key cap: `Esc`, or an icon for an arrow key.
 pub(super) fn key_cap(content: impl IntoElement) -> gpui::Div {
@@ -13,7 +13,7 @@ pub(super) fn key_cap(content: impl IntoElement) -> gpui::Div {
         .flex_none()
         .items_center()
         .justify_center()
-        .min_w(px(crate::ui::kit::tokens::height::tiny()))
+        .min_w(px(wyck_ui_kit::tokens::height::tiny()))
         .h(px(tokens::height::tiny()))
         .px_2()
         .rounded_md()
@@ -54,7 +54,7 @@ pub(super) fn footer(shown: usize, total: usize) -> gpui::Div {
         .flex_row()
         .items_center()
         .justify_between()
-        .h(px(crate::ui::kit::tokens::height::row()))
+        .h(px(wyck_ui_kit::tokens::height::row()))
         .px_4()
         .border_t_1()
         .border_color(theme::border_hairline())

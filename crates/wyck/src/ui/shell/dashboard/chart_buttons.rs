@@ -6,10 +6,10 @@ use gpui::{Context, SharedString, Window, div};
 
 use super::Dashboard;
 use crate::ui::features::chart::{Chart, kind_icon};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::menu::{Menu, Placement};
-use crate::ui::kit::prelude::Selectable;
-use crate::ui::kit::{button, tokens};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::menu::{Menu, Placement};
+use wyck_ui_kit::prelude::Selectable;
+use wyck_ui_kit::{button, tokens};
 
 impl Dashboard {
     /// The chart type, the indicators and the quick list of indicators, for the active chart.

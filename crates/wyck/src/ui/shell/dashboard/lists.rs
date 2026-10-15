@@ -5,16 +5,16 @@
 //! The lists themselves live in the [`Workspace`](crate::app::workspace::Workspace), which saves
 //! them; this file only shows them and turns clicks into edits of them.
 
-use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, Context, Entity, Focusable, MouseButton, SharedString, Subscription, Window, div,
     px,
 };
+use wyck_ui_kit::icon::IconName;
 
 use super::Dashboard;
 use crate::app::workspace::{NameError, Watchlists};
-use crate::ui::kit::{button, controls, icon, text_input::TextInput, theme, tokens};
+use wyck_ui_kit::{button, controls, icon, text_input::TextInput, theme, tokens};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,7 +213,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("rename-list", index as u64),
-                    crate::ui::kit::button::Size::Md,
+                    wyck_ui_kit::button::Size::Md,
                     IconName::Pencil,
                     "Rename the list",
                 )
@@ -225,7 +225,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("delete-list", index as u64),
-                    crate::ui::kit::button::Size::Md,
+                    wyck_ui_kit::button::Size::Md,
                     IconName::Trash,
                     "Delete the list",
                 )
@@ -253,7 +253,7 @@ pub(super) fn list_chips(
                 .gap_2()
                 .child(
                     div()
-                        .w(px(crate::ui::kit::tokens::field::text()))
+                        .w(px(wyck_ui_kit::tokens::field::text()))
                         .child(editor.input.clone()),
                 )
                 .child(

@@ -5,6 +5,7 @@
 //! gpui-kit component or spell out a color themselves.
 
 pub mod anim;
+pub mod assets;
 pub mod button;
 pub mod color_picker;
 pub mod confirm;
@@ -19,8 +20,6 @@ pub mod input;
 pub mod layout;
 pub mod menu;
 pub mod modal;
-#[cfg(test)]
-mod no_inline_colors;
 pub mod number;
 pub mod prelude;
 pub mod text_input;

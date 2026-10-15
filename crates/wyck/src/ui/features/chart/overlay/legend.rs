@@ -4,12 +4,12 @@ use super::rgb;
 use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
 use crate::ui::features::chart::study::spec::{Placement, PlotKind, ValueFormat};
 use crate::ui::features::chart::{Chart, study_settings};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
 use wyck_chart::{Geometry, axis_w};
 use wyck_chart::{compact, format_value, signed};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, icon, theme, tokens};
 
 impl Chart {
     /// The background of a button of the legend while the pointer is over it. It is made from the
@@ -100,7 +100,7 @@ impl Chart {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(crate::ui::kit::tokens::height::tiny()))
+                .size(px(wyck_ui_kit::tokens::height::tiny()))
                 .rounded_sm()
                 .cursor_pointer()
                 .hover(move |s| s.bg(hover))
@@ -218,8 +218,8 @@ impl Chart {
         let right = axis_w() + 8.0;
         let mut main = div()
             .absolute()
-            .top(px(crate::ui::kit::tokens::space::sm()))
-            .left(px(crate::ui::kit::tokens::space::sm()))
+            .top(px(wyck_ui_kit::tokens::space::sm()))
+            .left(px(wyck_ui_kit::tokens::space::sm()))
             .right(px(right))
             .flex()
             .flex_col()
@@ -244,7 +244,7 @@ impl Chart {
                 div()
                     .absolute()
                     .top(px(band.top as f32 + 3.0))
-                    .left(px(crate::ui::kit::tokens::space::sm()))
+                    .left(px(wyck_ui_kit::tokens::space::sm()))
                     .child(self.study_row(pane.study, index, cx))
                     .into_any_element(),
             );
@@ -361,7 +361,7 @@ impl Chart {
         Some(
             div()
                 .id(("market-status", self.id))
-                .size(px(crate::ui::kit::tokens::height::tiny()))
+                .size(px(wyck_ui_kit::tokens::height::tiny()))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -371,7 +371,7 @@ impl Chart {
                 .tooltip(controls::tooltip(text.clone()))
                 .child(
                     div()
-                        .size(px(crate::ui::kit::tokens::swatch::dot()))
+                        .size(px(wyck_ui_kit::tokens::swatch::dot()))
                         .rounded_full()
                         .bg(color)
                         .when(!status.is_open(), |el| {

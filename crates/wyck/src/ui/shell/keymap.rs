@@ -20,10 +20,10 @@ use gpui::{Action, App, DummyKeyboardMapper, KeyBinding, KeyBindingContextPredic
 use crate::app::shortcuts::{Chord, Resolved, ShortcutPrefs, canonical};
 use crate::ui::features::chart as c;
 use crate::ui::features::indicators::editor as e;
-use crate::ui::kit::modal::CloseModal;
-use crate::ui::kit::text_input as t;
 use crate::ui::shell::dashboard as d;
 use crate::ui::shell::sign_in_gate::Dismiss;
+use wyck_ui_kit::modal::CloseModal;
+use wyck_ui_kit::text_input as t;
 
 /// Where the actions of the dashboard work: the key context of the dashboard.
 const DASHBOARD: &str = "Dashboard";
@@ -342,7 +342,7 @@ pub fn apply(prefs: &ShortcutPrefs, cx: &mut App) {
         map.add_bindings(kept);
         map.add_bindings(bound);
     }
-    crate::ui::kit::hints::set(hints);
+    wyck_ui_kit::hints::set(hints);
     cx.refresh_windows();
 }
 

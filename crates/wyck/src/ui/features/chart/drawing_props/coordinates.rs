@@ -47,7 +47,7 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(crate::ui::kit::tokens::height::row()))
+                    .h(px(wyck_ui_kit::tokens::height::row()))
                     .child(
                         div()
                             .w(px(tokens::field::number()))
@@ -58,12 +58,12 @@ impl DrawingProps {
                     .child(
                         div()
                             .w(px(tokens::field::wide()))
-                            .when(price_on, |el| el.child(crate::ui::kit::input::text(price))),
+                            .when(price_on, |el| el.child(wyck_ui_kit::input::text(price))),
                     )
                     .child(
                         div()
                             .flex_1()
-                            .when(time_on, |el| el.child(crate::ui::kit::input::text(time))),
+                            .when(time_on, |el| el.child(wyck_ui_kit::input::text(time))),
                     )
                     .into_any_element(),
             );

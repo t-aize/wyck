@@ -3,10 +3,10 @@
 use super::{DrawingProps, Tab};
 
 use crate::ui::features::chart::object_tree::tool_icon;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{button, form, form::Head, modal, theme};
 use gpui::prelude::*;
 use gpui::{Context, Window, div};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{button, form, form::Head, modal, theme};
 
 impl DrawingProps {
     pub(super) fn tabs(&self) -> Vec<Tab> {

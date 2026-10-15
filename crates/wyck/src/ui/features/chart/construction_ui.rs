@@ -2,8 +2,8 @@
 //! prices of a bar they read, the reversal of Renko and its wicks, the width of Kagi lines, the
 //! look of the X and O, and the look of the bricks. Every change applies at once.
 
-use crate::ui::kit::input::InputState;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
+use wyck_ui_kit::input::InputState;
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, named, number, switch};
@@ -31,7 +31,7 @@ pub(super) fn inputs<T: 'static>(
     let t = chart.read(cx).settings.transform;
     let mut numbers = Numbers::new(chart, window, cx);
     let renko_reversal = numbers.add(
-        crate::ui::kit::number::Kind::Count,
+        wyck_ui_kit::number::Kind::Count,
         f64::from(t.renko_reversal),
         (1.0, 10.0),
         |s, v| {
@@ -39,7 +39,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let brick_width = numbers.add(
-        crate::ui::kit::number::Kind::Share,
+        wyck_ui_kit::number::Kind::Share,
         f64::from(t.brick_width) * 100.0,
         (20.0, 100.0),
         |s, v| {
@@ -47,13 +47,13 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let brick_opacity = numbers.add(
-        crate::ui::kit::number::Kind::Share,
+        wyck_ui_kit::number::Kind::Share,
         f64::from(t.brick_opacity) * 100.0,
         (10.0, 100.0),
         |s, v| s.transform.brick_opacity = (v / 100.0) as f32,
     );
     let kagi_thick = numbers.add(
-        crate::ui::kit::number::Kind::LineWidth,
+        wyck_ui_kit::number::Kind::LineWidth,
         f64::from(t.kagi_thick),
         (0.5, 8.0),
         |s, v| {
@@ -61,7 +61,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let kagi_thin = numbers.add(
-        crate::ui::kit::number::Kind::LineWidth,
+        wyck_ui_kit::number::Kind::LineWidth,
         f64::from(t.kagi_thin),
         (0.5, 8.0),
         |s, v| {
@@ -69,7 +69,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let pnf_glyph = numbers.add(
-        crate::ui::kit::number::Kind::Share,
+        wyck_ui_kit::number::Kind::Share,
         f64::from(t.pnf_glyph) * 100.0,
         (30.0, 100.0),
         |s, v| {
@@ -77,7 +77,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let pnf_line = numbers.add(
-        crate::ui::kit::number::Kind::LineWidth,
+        wyck_ui_kit::number::Kind::LineWidth,
         f64::from(t.pnf_line),
         (0.0, 6.0),
         |s, v| {

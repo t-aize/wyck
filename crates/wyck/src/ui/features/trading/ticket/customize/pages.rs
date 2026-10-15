@@ -2,12 +2,12 @@
 
 use super::{Customizer, PRESET_MODES};
 use crate::app::prefs::ticket::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
-use crate::ui::kit::field;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{controls, form, number, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
+use wyck_ui_kit::field;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{controls, form, number, tokens};
 
 impl Customizer {
     pub(super) fn panel_page(&self, layout: &Layout, cx: &Context<Self>) -> AnyElement {
@@ -104,7 +104,7 @@ impl Customizer {
                         .items_center()
                         .gap_1()
                         .child(
-                            crate::ui::kit::button::dense(SharedString::from(format!(
+                            wyck_ui_kit::button::dense(SharedString::from(format!(
                                 "{id}-up-{index}"
                             )))
                             .icon(IconName::ChevronUp)
@@ -119,7 +119,7 @@ impl Customizer {
                             }),
                         )
                         .child(
-                            crate::ui::kit::button::dense(SharedString::from(format!(
+                            wyck_ui_kit::button::dense(SharedString::from(format!(
                                 "{id}-down-{index}"
                             )))
                             .icon(IconName::ChevronDown)
@@ -191,7 +191,7 @@ impl Customizer {
         let number = |index: usize| {
             div()
                 .w(px(tokens::field::wide()))
-                .child(crate::ui::kit::input::number(&self.numbers[index]))
+                .child(wyck_ui_kit::input::number(&self.numbers[index]))
         };
         form::page()
             .child(form::group(

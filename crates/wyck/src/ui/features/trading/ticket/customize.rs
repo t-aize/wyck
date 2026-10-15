@@ -1,22 +1,22 @@
 //! The panel that customizes the order ticket: where it sits and how wide it is, which blocks
 //! show and in what order, the shortcuts under the volume, and what a new order starts with.
 //!
-//! It is built like the other settings panels (see [`crate::ui::kit::form`]) and shows in the
+//! It is built like the other settings panels (see [`wyck_ui_kit::form`]) and shows in the
 //! same modal. Every change applies to the ticket at once and is remembered; there is nothing to
 //! confirm. The numbers are read as they are typed, and a value that is not a number leaves the
 //! setting as it was.
 
 mod pages;
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, Subscription, Window};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{InputEvent, InputState};
 
 use super::OrderTicket;
 use crate::app::prefs::ticket::Layout;
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number};
 use wyck_trading::math::SizeMode;
+use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
 const PRESET_MODES: [(SizeMode, &str, &str); 5] = [

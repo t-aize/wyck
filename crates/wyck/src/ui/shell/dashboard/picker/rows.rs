@@ -4,10 +4,10 @@ use gpui::prelude::*;
 use gpui::{Context, FontWeight, MouseMoveEvent, Stateful, div, px};
 
 use super::{RESULT_COLUMN_WIDTH, ROW_HEIGHT};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{icon, theme, tokens};
 use crate::ui::shell::dashboard::catalog::{Class, Entry};
 use crate::ui::shell::dashboard::{Dashboard, lists, marks};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{icon, theme, tokens};
 
 /// A filter chip: one asset class, or `None` for all of them.
 pub(super) fn class_chip(
@@ -124,7 +124,7 @@ pub(super) fn symbol_row(
         )
         .child(
             div()
-                .w(px(crate::ui::kit::tokens::space::lg()))
+                .w(px(wyck_ui_kit::tokens::space::lg()))
                 .flex_none()
                 .children(active.then(|| icon::tinted(IconName::Check, 16., theme::accent()))),
         );

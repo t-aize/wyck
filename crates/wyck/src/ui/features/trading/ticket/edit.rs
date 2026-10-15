@@ -3,10 +3,10 @@
 use super::helpers::{nice, offset_kind, side_of, size_kind};
 use super::{Kind, OrderTicket, TicketEvent};
 use crate::app::account::Busy;
-use crate::ui::kit::number;
 use gpui::{Context, Window};
 use wyck_trading::math;
 use wyck_trading::math::{Offset, SizeMode};
+use wyck_ui_kit::number;
 
 impl OrderTicket {
     /// Whether a side can be picked: a followed drawing is a long or a short, not both.

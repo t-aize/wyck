@@ -16,13 +16,13 @@ use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::panel::PanelEvent;
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
-use crate::ui::kit::{
-    confirm::{Tone, confirm_as},
-    toast, tokens,
-};
 use gpui::prelude::*;
 use gpui::{Context, Window};
 use wyck_trading::math;
+use wyck_ui_kit::{
+    confirm::{Tone, confirm_as},
+    toast, tokens,
+};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {

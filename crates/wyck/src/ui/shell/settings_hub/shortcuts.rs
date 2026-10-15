@@ -12,8 +12,8 @@ use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div,
 
 use super::{IconName, SettingsHub, button, form, theme, tokens};
 use crate::app::shortcuts::{Chord, ChordError, Held, MAX_KEYS_PER_ACTION, clashes, taken_by};
-use crate::ui::kit::input::InputState;
 use crate::ui::shell::keymap::{self, Def, Group, Kind};
+use wyck_ui_kit::input::InputState;
 
 /// The key being waited for: which action, and which of its keys (`None` adds one).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,7 +157,7 @@ impl SettingsHub {
                 let this = cx.entity();
                 button::icon(
                     SharedString::from(format!("shortcuts-reset-{group:?}")),
-                    crate::ui::kit::button::Size::Md,
+                    wyck_ui_kit::button::Size::Md,
                     IconName::RotateCcw,
                     "Back to the defaults of this group",
                 )
@@ -255,7 +255,7 @@ impl SettingsHub {
         for key in keys {
             chips = chips.child(chip(key.clone()));
         }
-        chips = chips.child(crate::ui::kit::icon::tinted(
+        chips = chips.child(wyck_ui_kit::icon::tinted(
             IconName::Lock,
             13.,
             theme::muted_fg(),
@@ -269,7 +269,7 @@ impl SettingsHub {
         for key in keys {
             chips = chips.child(chip(key.clone()));
         }
-        chips = chips.child(crate::ui::kit::icon::tinted(
+        chips = chips.child(wyck_ui_kit::icon::tinted(
             IconName::Lock,
             13.,
             theme::muted_fg(),
@@ -421,7 +421,7 @@ impl SettingsHub {
             controls = controls.child(
                 button::icon(
                     SharedString::from(format!("shortcut-{id}-clear")),
-                    crate::ui::kit::button::Size::Md,
+                    wyck_ui_kit::button::Size::Md,
                     IconName::Eraser,
                     "Leave without a key",
                 )

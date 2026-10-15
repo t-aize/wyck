@@ -9853,6 +9853,7 @@ dependencies = [
  "wyck-platform",
  "wyck-storage",
  "wyck-trading",
+ "wyck-ui-kit",
 ]
 
 [[package]]
@@ -9981,6 +9982,18 @@ dependencies = [
  "tracing",
  "wyck-core",
  "wyck-market",
+]
+
+[[package]]
+name = "wyck-ui-kit"
+version = "0.2.1"
+dependencies = [
+ "gpui-kit",
+ "gpui-pre",
+ "rust-embed",
+ "tracing",
+ "unicode-segmentation",
+ "wyck-core",
 ]
 
 [[package]]

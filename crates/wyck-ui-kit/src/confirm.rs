@@ -1,5 +1,5 @@
 //! The question the app asks before it does something it cannot take back: send an order, close a
-//! position. It is a small dialog in the modal (see [`crate::ui::kit::modal`]), with the same look as the
+//! position. It is a small dialog in the modal (see [`crate::modal`]), with the same look as the
 //! settings panels.
 //!
 //! The dialog says how serious the question is with a [`Tone`]: the icon, the colors of the header
@@ -13,8 +13,8 @@ use gpui::{App, Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::StyledExt as _;
 
-use crate::ui::kit::form::{self, Head, Tint};
-use crate::ui::kit::{button, modal, theme, tokens};
+use crate::form::{self, Head, Tint};
+use crate::{button, modal, theme, tokens};
 
 /// The width of the dialog.
 const WIDTH: f32 = 440.0;
@@ -309,7 +309,7 @@ impl Render for Confirm {
                     .border_color(theme::amber())
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::fg())
-                    .child(crate::ui::kit::icon::tinted(
+                    .child(crate::icon::tinted(
                         IconName::TriangleAlert,
                         tokens::text::title(),
                         theme::amber(),

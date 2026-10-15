@@ -5,11 +5,6 @@ use crate::ui::features::chart::lines::to_real;
 use crate::ui::features::chart::{
     Chart, DrawingCommand, Menu, chart_settings_ui, export_ui, indicator_picker,
 };
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{
-    menu::{self as popup, Entry, Item},
-    tokens,
-};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
@@ -18,6 +13,11 @@ use wyck_chart::Zone;
 use wyck_chart::{Geometry, axis_h};
 use wyck_drawings::book::Order;
 use wyck_market::format_price;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{
+    menu::{self as popup, Entry, Item},
+    tokens,
+};
 
 impl Chart {
     /// The items for the drawing under the pointer, at the top of the right-click menu.
@@ -202,7 +202,7 @@ impl Chart {
             let mut alerts: Vec<Item> = vec![
                 Entry::new(format!("Add alert at {text}"))
                     .icon(IconName::BellPlus)
-                    .hint(crate::ui::kit::hints::hint("add_alert").unwrap_or_default())
+                    .hint(wyck_ui_kit::hints::hint("add_alert").unwrap_or_default())
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
             ];
@@ -272,12 +272,12 @@ impl Chart {
                 vec![
                     Entry::new("Copy indicators")
                         .icon(IconName::Copy)
-                        .hint(crate::ui::kit::hints::hint("copy_indicators").unwrap_or_default())
+                        .hint(wyck_ui_kit::hints::hint("copy_indicators").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
                         .into(),
                     Entry::new("Paste on this chart")
                         .icon(IconName::ClipboardPaste)
-                        .hint(crate::ui::kit::hints::hint("paste_to_chart").unwrap_or_default())
+                        .hint(wyck_ui_kit::hints::hint("paste_to_chart").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
                         .into(),
                 ],
@@ -297,12 +297,12 @@ impl Chart {
                 vec![
                     Entry::new("Take a picture of the chart")
                         .icon(IconName::Camera)
-                        .hint(crate::ui::kit::hints::hint("screenshot").unwrap_or_default())
+                        .hint(wyck_ui_kit::hints::hint("screenshot").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
                         .into(),
                     Entry::new("Take a picture of all the charts")
                         .icon(IconName::Images)
-                        .hint(crate::ui::kit::hints::hint("screenshot_all").unwrap_or_default())
+                        .hint(wyck_ui_kit::hints::hint("screenshot_all").unwrap_or_default())
                         .disabled(self.layout_charts < 2)
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
                         .into(),
@@ -355,7 +355,7 @@ impl Chart {
         // The zone opens from the corner at the bottom right.
         let positioned = div()
             .absolute()
-            .right(px(crate::ui::kit::tokens::space::xs()))
+            .right(px(wyck_ui_kit::tokens::space::xs()))
             .bottom(px(axis_h() + 4.0))
             .child(card);
         Some(

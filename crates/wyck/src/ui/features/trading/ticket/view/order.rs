@@ -7,9 +7,9 @@ use super::{
     TicketEvent, Window, card, card_head, controls, customize, div, format_units, hint, icon, math,
     nice, number, or_money, popup, px, stop_limit_price, text_button, theme, tint, tokens,
 };
-use crate::ui::kit::focus::Keyboard as _;
-use crate::ui::kit::prelude::StyledExt as _;
 use gpui::prelude::*;
+use wyck_ui_kit::focus::Keyboard as _;
+use wyck_ui_kit::prelude::StyledExt as _;
 
 impl OrderTicket {
     /// A button that opens a list under it, showing what is picked. It is the height and the
@@ -280,7 +280,7 @@ impl OrderTicket {
                             .flex_row()
                             .items_center()
                             .child(
-                                crate::ui::kit::button::quiet("ticket-customize")
+                                wyck_ui_kit::button::quiet("ticket-customize")
                                     .icon(IconName::SlidersHorizontal)
                                     .tooltip("Customize the panel")
                                     .on_click(move |_, window, cx| {
@@ -288,7 +288,7 @@ impl OrderTicket {
                                     }),
                             )
                             .child(
-                                crate::ui::kit::button::quiet("ticket-close")
+                                wyck_ui_kit::button::quiet("ticket-close")
                                     .icon(IconName::X)
                                     .tooltip("Close the ticket")
                                     .on_click(
@@ -524,7 +524,7 @@ impl OrderTicket {
                                 },
                             ),
                         ))
-                        .child(crate::ui::kit::input::text(&self.price))
+                        .child(wyck_ui_kit::input::text(&self.price))
                         .into_any_element()
                 })
             })
@@ -546,7 +546,7 @@ impl OrderTicket {
                                 .text_color(theme::muted_fg())
                                 .children(limit_at.map(|p| format!("limit at {p}"))),
                         ))
-                        .child(crate::ui::kit::input::number(&self.slippage)),
+                        .child(wyck_ui_kit::input::number(&self.slippage)),
                 )
             })
             .into_any_element()
@@ -570,7 +570,7 @@ impl OrderTicket {
                 "Size",
                 Some(self.size_menu(&f.currency, window, cx)),
             ))
-            .child(crate::ui::kit::input::number(&self.size))
+            .child(wyck_ui_kit::input::number(&self.size))
             .when(has_presets, |el| el.child(presets))
             .children(size_note.map(|note| {
                 div()

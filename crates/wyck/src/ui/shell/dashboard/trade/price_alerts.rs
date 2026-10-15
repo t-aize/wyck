@@ -6,10 +6,10 @@ use crate::app::alerts;
 use crate::app::market_data::now_ms;
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading::panel::Tab;
-use crate::ui::kit::toast;
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::Context;
 use wyck_market::PRICE_SCALE;
+use wyck_ui_kit::toast;
 
 impl Dashboard {
     /// Gives the alerts what they read from the account: how the symbols they watch are written
@@ -156,7 +156,7 @@ impl Dashboard {
                 "No alert added",
                 format!(
                     "The limit is {limit} alerts. Change it in Settings{}.",
-                    crate::ui::kit::hints::suffix("open_settings")
+                    wyck_ui_kit::hints::suffix("open_settings")
                 ),
             ),
         }
@@ -230,7 +230,7 @@ impl Dashboard {
                 "No alert added",
                 format!(
                     "The limit is {limit} alerts. Change it in Settings{}.",
-                    crate::ui::kit::hints::suffix("open_settings")
+                    wyck_ui_kit::hints::suffix("open_settings")
                 ),
             ),
         }

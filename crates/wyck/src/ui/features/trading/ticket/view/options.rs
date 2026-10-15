@@ -6,9 +6,9 @@ use super::{
     AnyElement, Context, Entry, Frame, IconName, Kind, OrderTicket, Span, Tif, Window, card,
     controls, div, hint, icon, number, px, theme, tokens,
 };
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::prelude::StyledExt as _;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::prelude::StyledExt as _;
 
 impl OrderTicket {
     /// The expiry of a pending order, the slippage of a market one, the trailing and the
@@ -135,7 +135,7 @@ impl OrderTicket {
                                 .child(
                                     div()
                                         .flex_1()
-                                        .child(crate::ui::kit::input::number(&self.expiry)),
+                                        .child(wyck_ui_kit::input::number(&self.expiry)),
                                 )
                                 .child(span_menu),
                         )
@@ -171,7 +171,7 @@ impl OrderTicket {
         .when(!stop_on, |el| {
             el.child(hint("Turn the stop loss on to use these."))
         })
-        .child(crate::ui::kit::input::text(&self.comment))
+        .child(wyck_ui_kit::input::text(&self.comment))
         .into_any_element()
     }
 }

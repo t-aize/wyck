@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{div, px};
 
 use super::layouts::Layout;
-use crate::ui::kit::theme;
+use wyck_ui_kit::theme;
 
 /// The corner of one chart in the icon of a layout.
 const CELL_RADIUS: f32 = 1.5;

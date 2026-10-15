@@ -5,9 +5,9 @@ use super::{
     LabelSide, LevelText, SharedString, Swatch, Textarea, Tool, VAlign, Window, controls, div,
     form, px, theme, tokens,
 };
-use crate::ui::kit::field;
-use crate::ui::kit::form::Row;
 use gpui::prelude::*;
+use wyck_ui_kit::field;
+use wyck_ui_kit::form::Row;
 
 /// The height of the box where a label is typed.
 const LABEL_BOX_HEIGHT: f32 = 72.0;
@@ -232,7 +232,7 @@ impl DrawingProps {
         let mut rows = vec![form::field(
             "Font",
             Some("Any font installed on this computer"),
-            crate::ui::kit::button::quiet("props-font-open")
+            wyck_ui_kit::button::quiet("props-font-open")
                 .icon(IconName::Type)
                 .label(SharedString::from(family))
                 .toggled(self.font_open)

@@ -2,8 +2,6 @@
 
 use super::{ChartSettingsEditor, ColorKey, edit_chart, size_mode, size_value};
 use crate::ui::features::chart::{construction_ui, footprint_ui, overlay, tpo_ui, volume_ui};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, form, icon, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
 use wyck_chart::BoxSize;
@@ -11,6 +9,8 @@ use wyck_chart::quote_unit;
 use wyck_chart::{ChartKind, ChartSettings, ScaleMode};
 use wyck_chart::{CrosshairStyle, ScaleMargin};
 use wyck_market::PRICE_SCALE;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, form, icon, number, theme, tokens};
 
 impl ChartSettingsEditor {
     pub(super) fn kind_tiles(&self, current: ChartKind) -> AnyElement {
@@ -28,7 +28,7 @@ impl ChartSettingsEditor {
                 wrap = wrap.child(
                     div()
                         .id(SharedString::from(format!("chart-kind-{}", kind.code())))
-                        .w(px(crate::ui::kit::tokens::field::select()))
+                        .w(px(wyck_ui_kit::tokens::field::select()))
                         .h(px(tokens::height::large()))
                         .flex()
                         .flex_row()

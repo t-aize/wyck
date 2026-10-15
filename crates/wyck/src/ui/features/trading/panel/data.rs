@@ -12,10 +12,10 @@ pub mod positions;
 use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 use crate::app::prefs::panel::Tab;
-use crate::ui::kit::tokens;
 use wyck_chart::Zone;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, format_amount};
+use wyck_ui_kit::tokens;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

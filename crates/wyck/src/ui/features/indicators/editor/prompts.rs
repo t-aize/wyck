@@ -3,11 +3,11 @@
 use super::{Ask, IndicatorEditor, Prompt};
 use crate::app::scripts as indicators;
 use crate::app::scripts::folder::LibraryError;
-use crate::ui::kit::confirm::{Tone, confirm_as};
-use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{Context, Task, Window};
 use wyck_indicators::custom::templates::{TEMPLATES, Template};
+use wyck_ui_kit::confirm::{Tone, confirm_as};
+use wyck_ui_kit::input::{InputEvent, InputState};
 
 impl IndicatorEditor {
     /// Asks for a name for a new script made from the template `template`.

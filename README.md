@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Wyck" width="120">
+  <img src="crates/wyck-ui-kit/assets/logo.png" alt="Wyck" width="120">
 </p>
 
 # wyck
@@ -25,9 +25,9 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, shown only to identify the
-instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
-next to it).
+marks bundled in `crates/wyck-ui-kit/assets/marks` are trademarks of their owners, shown only to
+identify the instrument being traded, and are used under the license of each set (see the
+`LICENSE.txt` next to it).
 
 ## Install
 

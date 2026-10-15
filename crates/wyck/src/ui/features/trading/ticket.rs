@@ -50,14 +50,14 @@ pub use crate::app::prefs::ticket as prefs;
 use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::events::{PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::number;
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math;
 use wyck_trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
 use wyck_trading::plan;
 use wyck_trading::plan::ExitPlan;
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::number;
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;

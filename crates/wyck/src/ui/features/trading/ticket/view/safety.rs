@@ -54,7 +54,7 @@ impl OrderTicket {
                             .child(
                                 div()
                                     .flex_none()
-                                    .pt(px(crate::ui::kit::tokens::HAIRLINE))
+                                    .pt(px(wyck_ui_kit::tokens::HAIRLINE))
                                     .child(icon::tinted(
                                         IconName::ShieldAlert,
                                         13.,

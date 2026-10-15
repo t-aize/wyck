@@ -31,7 +31,6 @@ pub use crate::app::workspace::layouts;
 use crate::app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
 use crate::ui::features::chart::{Chart, ChartLine, LineId};
-use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
@@ -44,6 +43,7 @@ use wyck_drawings::model::tool::{Group, Tool};
 use wyck_indicators::config::StudyConfig;
 use wyck_market::LiveBarTracker;
 use wyck_market::Timeframe;
+use wyck_ui_kit::{text_input::TextInput, theme};
 
 /// How many recent tools and colors are kept.
 const MAX_RECENT_TOOLS: usize = 8;

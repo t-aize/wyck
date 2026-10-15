@@ -19,11 +19,6 @@ pub mod tabs;
 use crate::app::scripts as indicators;
 use crate::app::workspace::Saver;
 use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::input::LanguageConfig;
-use crate::ui::kit::input::{
-    AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
-};
-use crate::ui::kit::input::{Diagnostic, DiagnosticSeverity};
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, MouseMoveEvent, Subscription, Task, Window,
@@ -35,6 +30,11 @@ use std::rc::Rc;
 use std::time::Duration;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::{Problem, Severity};
+use wyck_ui_kit::input::LanguageConfig;
+use wyck_ui_kit::input::{
+    AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
+};
+use wyck_ui_kit::input::{Diagnostic, DiagnosticSeverity};
 
 actions!(
     wyck_indicator_editor,

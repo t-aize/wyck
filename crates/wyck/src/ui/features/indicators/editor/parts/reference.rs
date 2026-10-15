@@ -115,7 +115,7 @@ impl IndicatorEditor {
                             .child("REFERENCE"),
                     )
                     .child(
-                        crate::ui::kit::input::dense(&self.reference_filter).prefix(icon::tinted(
+                        wyck_ui_kit::input::dense(&self.reference_filter).prefix(icon::tinted(
                             IconName::Search,
                             14.,
                             theme::muted_fg(),

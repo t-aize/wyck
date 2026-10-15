@@ -6,10 +6,10 @@ use crate::ui::features::chart::study::custom::library::registry;
 use crate::ui::features::chart::study::custom::{Problem, Severity};
 use crate::ui::features::chart::study::kind::StudyKind;
 use crate::ui::features::chart::study::spec::{InputKind, SOURCES};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{button, controls, form, icon, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{button, controls, form, icon, modal, number, theme, tokens};
 
 impl StudyEditor {
     pub(super) fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
@@ -105,7 +105,7 @@ impl StudyEditor {
                         .map(|(_, state)| {
                             let field = div()
                                 .w(px(tokens::field::text()))
-                                .child(crate::ui::kit::input::text(state));
+                                .child(wyck_ui_kit::input::text(state));
                             if input.kind == InputKind::Timeframe {
                                 timeframe_picks(
                                     key,
@@ -211,7 +211,7 @@ impl StudyEditor {
                 .gap_2()
                 .child(
                     div()
-                        .max_w(px(crate::ui::kit::tokens::measure::caption()))
+                        .max_w(px(wyck_ui_kit::tokens::measure::caption()))
                         .truncate()
                         .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())

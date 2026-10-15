@@ -12,13 +12,13 @@ use std::path::{Path, PathBuf};
 /// The files that read keys by hand, with what they read. Their keys are in `keymap::HANDLED`.
 const READS_KEYS: &[&str] = &[
     // Up, Down, Enter and Escape in a menu.
-    "ui/kit/menu.rs",
+    "wyck-ui-kit/src/menu.rs",
     // Up, Down and Enter to choose an account.
-    "ui/shell/sign_in_gate.rs",
+    "wyck/src/ui/shell/sign_in_gate.rs",
     // Escape to give up naming a script.
-    "ui/features/indicators/editor/parts/explorer.rs",
+    "wyck/src/ui/features/indicators/editor/parts/explorer.rs",
     // The key being awaited by the page that sets the shortcuts.
-    "ui/shell/settings_hub/shortcuts.rs",
+    "wyck/src/ui/shell/settings_hub/shortcuts.rs",
 ];
 
 const BY_HAND: &[&str] = &[
@@ -42,10 +42,15 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// The sources of the crates that hold screens, named from the `crates` folder.
+const SCREEN_CRATES: &[&str] = &["wyck/src", "wyck-ui-kit/src"];
+
 fn sources() -> Vec<(String, String)> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let mut files = Vec::new();
-    rust_files(&root, &mut files);
+    for krate in SCREEN_CRATES {
+        rust_files(&root.join(krate), &mut files);
+    }
     files
         .into_iter()
         .filter_map(|file| {
@@ -56,7 +61,7 @@ fn sources() -> Vec<(String, String)> {
                 .replace('\\', "/");
             Some((name, fs::read_to_string(&file).ok()?))
         })
-        .filter(|(name, _)| name != "keymap_guard.rs")
+        .filter(|(name, _)| name != "wyck/src/keymap_guard.rs")
         .collect()
 }
 
@@ -64,7 +69,7 @@ fn sources() -> Vec<(String, String)> {
 fn every_binding_is_declared_in_the_table_of_the_keymap() {
     let strays: Vec<String> = sources()
         .into_iter()
-        .filter(|(name, _)| name != "ui/shell/keymap.rs")
+        .filter(|(name, _)| name != "wyck/src/ui/shell/keymap.rs")
         .filter(|(_, text)| text.contains("KeyBinding::new(") || text.contains(".bind_keys("))
         .map(|(name, _)| name)
         .collect();
@@ -80,7 +85,7 @@ fn keys_read_by_hand_are_told_in_the_keymap() {
     let undeclared: Vec<&str> = sources
         .iter()
         .filter(|(name, text)| {
-            name != "ui/shell/keymap.rs"
+            name != "wyck/src/ui/shell/keymap.rs"
                 && !READS_KEYS.contains(&name.as_str())
                 && BY_HAND.iter().any(|p| text.contains(p))
         })

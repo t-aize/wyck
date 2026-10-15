@@ -13,10 +13,10 @@ use crate::app::system::runtime;
 use crate::app::system::runtime::RecvError;
 use crate::ui::features::chart::Chart;
 use crate::ui::features::multichart::{MultiChartEvent, SymbolRef};
-use crate::ui::kit::toast;
 use gpui::{Context, SharedString};
 use std::sync::Arc;
 use wyck_market::Spot;
+use wyck_ui_kit::toast;
 
 impl Dashboard {
     pub(super) fn on_active_chart(

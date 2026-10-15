@@ -17,11 +17,6 @@ mod visibility;
 use super::Chart;
 use super::GROUPS;
 use crate::app::drawings::Drawings;
-use crate::ui::kit::field::{SliderField, ValueChanged};
-use crate::ui::kit::font_picker::{FontChosen, FontPicker};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
-use crate::ui::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use wyck_chart::Zone;
@@ -34,6 +29,11 @@ use wyck_drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
 use wyck_drawings::wave_names;
 use wyck_market::PRICE_SCALE;
 use wyck_trading::atr_stop::{AtrStop, Smoothing};
+use wyck_ui_kit::field::{SliderField, ValueChanged};
+use wyck_ui_kit::font_picker::{FontChosen, FontPicker};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{InputEvent, InputState, Textarea, TextareaState};
+use wyck_ui_kit::{controls, form, modal, number, theme, tokens};
 
 pub struct PropsContext {
     pub zone: Zone,

@@ -3,7 +3,7 @@
 //! grid, the canvas, the time zone, the trading lines, and the indicators it holds.
 //!
 //! It is built from the same frame as the panels of the indicators and the drawings (see
-//! [`crate::ui::kit::form`]). Every change applies at once, so the chart behind the panel shows
+//! [`wyck_ui_kit::form`]). Every change applies at once, so the chart behind the panel shows
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
@@ -11,15 +11,15 @@ pub mod data_pages;
 pub mod look_pages;
 
 use super::{Chart, construction_ui, footprint_ui, tpo_ui, volume_ui};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
 use wyck_chart::ChartColors;
 use wyck_chart::Rgba;
 use wyck_chart::{BoxSize, TransformSettings};
 use wyck_chart::{ChartKind, ChartSettings};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
 
 /// The tallest the list of time zones grows before it scrolls.
 const ZONE_LIST_MAX: f32 = 380.0;
@@ -455,7 +455,7 @@ impl ChartSettingsEditor {
             },
         );
         let back = value.is_some().then(|| {
-            crate::ui::kit::button::quiet(SharedString::from(format!("chart-color-reset-{key:?}")))
+            wyck_ui_kit::button::quiet(SharedString::from(format!("chart-color-reset-{key:?}")))
                 .icon(IconName::RotateCcw)
                 .tooltip("Back to the color of the theme")
                 .on_click(move |_, _window, cx| {

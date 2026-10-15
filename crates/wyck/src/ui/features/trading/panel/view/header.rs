@@ -4,12 +4,12 @@ use super::tone_color;
 use crate::app::prefs::panel::Tab;
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::panel::data::Tone;
-use crate::ui::kit::prelude::StyledExt as _;
-use crate::ui::kit::{focus::Keyboard, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
 use wyck_core::format::grouped;
 use wyck_trading::math::format_amount;
+use wyck_ui_kit::prelude::StyledExt as _;
+use wyck_ui_kit::{focus::Keyboard, theme, tokens};
 
 impl AccountPanel {
     pub(super) fn tab_button(

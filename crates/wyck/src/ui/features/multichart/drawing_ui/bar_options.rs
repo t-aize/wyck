@@ -4,13 +4,13 @@ use super::style_bar::BarState;
 
 use crate::ui::features::chart::DrawingCommand;
 use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{layout, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
 use wyck_drawings::look::Cap;
 use wyck_drawings::model::tool::Tool;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{layout, menu as popup, theme, tokens};
 
 impl MultiChart {
     #[inline(never)]
@@ -25,7 +25,7 @@ impl MultiChart {
             let (left, right) = (style.extend_left, style.extend_right);
             bar = bar
                 .child(
-                    crate::ui::kit::button::quiet("draw-extend-left")
+                    wyck_ui_kit::button::quiet("draw-extend-left")
                         .icon(IconName::ArrowLeftToLine)
                         .tooltip("Extend to the left")
                         .toggled(left)
@@ -36,7 +36,7 @@ impl MultiChart {
                         })),
                 )
                 .child(
-                    crate::ui::kit::button::quiet("draw-extend-right")
+                    wyck_ui_kit::button::quiet("draw-extend-right")
                         .icon(IconName::ArrowRightToLine)
                         .tooltip("Extend to the right")
                         .toggled(right)
@@ -50,7 +50,7 @@ impl MultiChart {
         if tool.has_end_cap() {
             let arrow = style.caps.end == Cap::Arrow;
             bar = bar.child(
-                crate::ui::kit::button::quiet("draw-end-arrow")
+                wyck_ui_kit::button::quiet("draw-end-arrow")
                     .icon(IconName::MoveRight)
                     .tooltip("Arrow at the end")
                     .toggled(arrow)
@@ -75,7 +75,7 @@ impl MultiChart {
             let bold = style.bold;
             bar = bar
                 .child(
-                    crate::ui::kit::button::quiet("draw-text-smaller")
+                    wyck_ui_kit::button::quiet("draw-text-smaller")
                         .icon(IconName::Minus)
                         .tooltip("Smaller text")
                         .on_click(cx.listener(|this, _event, _window, cx| {
@@ -88,7 +88,7 @@ impl MultiChart {
                 )
                 .child(
                     div()
-                        .min_w(px(crate::ui::kit::tokens::height::tiny()))
+                        .min_w(px(wyck_ui_kit::tokens::height::tiny()))
                         .flex()
                         .justify_center()
                         .text_size(px(tokens::text::small()))
@@ -96,7 +96,7 @@ impl MultiChart {
                         .child(format!("{}", size.round() as u32)),
                 )
                 .child(
-                    crate::ui::kit::button::quiet("draw-text-bigger")
+                    wyck_ui_kit::button::quiet("draw-text-bigger")
                         .icon(IconName::Plus)
                         .tooltip("Bigger text")
                         .on_click(cx.listener(|this, _event, _window, cx| {
@@ -108,7 +108,7 @@ impl MultiChart {
                         })),
                 )
                 .child(
-                    crate::ui::kit::button::quiet("draw-text-bold")
+                    wyck_ui_kit::button::quiet("draw-text-bold")
                         .icon(IconName::Bold)
                         .tooltip("Bold")
                         .toggled(bold)
@@ -143,7 +143,7 @@ impl MultiChart {
         if tool.is_position() {
             bar = bar
                 .child(
-                    crate::ui::kit::button::accent("draw-trade")
+                    wyck_ui_kit::button::accent("draw-trade")
                         .icon(IconName::ArrowLeftRight)
                         .label(if tool == Tool::LongPosition {
                             "Buy"
@@ -156,7 +156,7 @@ impl MultiChart {
                         })),
                 )
                 .child(
-                    crate::ui::kit::button::quiet("draw-flip")
+                    wyck_ui_kit::button::quiet("draw-flip")
                         .icon(IconName::ArrowUpDown)
                         .tooltip(if tool == Tool::LongPosition {
                             "Flip to a short position"
@@ -261,7 +261,7 @@ impl MultiChart {
                 div()
                     .relative()
                     .child(
-                        crate::ui::kit::button::quiet("draw-look")
+                        wyck_ui_kit::button::quiet("draw-look")
                             .icon(IconName::Palette)
                             .tooltip("Save or reuse this look")
                             .on_click(move |_event, _window, cx| toggle.toggle(cx)),
@@ -287,7 +287,7 @@ impl MultiChart {
         let (locked, hidden, id) = (st.locked, st.hidden, st.id);
         bar = bar
             .child(
-                crate::ui::kit::button::quiet("draw-settings")
+                wyck_ui_kit::button::quiet("draw-settings")
                     .icon(IconName::Settings2)
                     .tooltip("Settings (double click)")
                     .on_click(cx.listener(move |this, _event, window, cx| {
@@ -296,7 +296,7 @@ impl MultiChart {
                     })),
             )
             .child(
-                crate::ui::kit::button::quiet("draw-hide")
+                wyck_ui_kit::button::quiet("draw-hide")
                     .icon(if hidden {
                         IconName::Eye
                     } else {
@@ -309,7 +309,7 @@ impl MultiChart {
                     })),
             )
             .child(
-                crate::ui::kit::button::quiet("draw-lock")
+                wyck_ui_kit::button::quiet("draw-lock")
                     .icon(if locked {
                         IconName::Lock
                     } else {
@@ -322,16 +322,16 @@ impl MultiChart {
                     ),
             )
             .child(
-                crate::ui::kit::button::quiet("draw-copy")
+                wyck_ui_kit::button::quiet("draw-copy")
                     .icon(IconName::Copy)
                     .tooltip(gpui::SharedString::from(format!(
                         "Duplicate{}",
-                        crate::ui::kit::hints::suffix("duplicate_drawing")
+                        wyck_ui_kit::hints::suffix("duplicate_drawing")
                     )))
                     .on_click(cx.listener(|this, _event, _window, cx| this.duplicate_drawing(cx))),
             )
             .child(
-                crate::ui::kit::button::quiet("draw-delete")
+                wyck_ui_kit::button::quiet("draw-delete")
                     .icon(IconName::Trash)
                     .tooltip("Delete (Del)")
                     .disabled(locked)

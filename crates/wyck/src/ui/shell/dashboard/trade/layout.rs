@@ -3,10 +3,10 @@
 use super::{CHARTS_MIN, PANEL_MIN, bars};
 
 use crate::app::prefs::ticket::{Dock, WIDTH_DEFAULT};
-use crate::ui::kit::theme;
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, div, px};
+use wyck_ui_kit::theme;
 
 impl Dashboard {
     /// The charts with the ticket beside them, and the account panel under both.
@@ -31,7 +31,7 @@ impl Dashboard {
             div()
                 .id(id)
                 .flex_none()
-                .w(px(crate::ui::kit::tokens::splitter()))
+                .w(px(wyck_ui_kit::tokens::splitter()))
                 .h_full()
                 .flex()
                 .justify_center()
@@ -42,7 +42,7 @@ impl Dashboard {
                     gpui::rgba(0x00000000)
                 })
                 .hover(|s| s.bg(theme::accent_alpha(0.4)))
-                .child(crate::ui::kit::layout::rule_v().h_full())
+                .child(wyck_ui_kit::layout::rule_v().h_full())
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
@@ -148,7 +148,7 @@ impl Dashboard {
                         div()
                             .id("panel-resize")
                             .flex_none()
-                            .h(px(crate::ui::kit::tokens::splitter()))
+                            .h(px(wyck_ui_kit::tokens::splitter()))
                             .w_full()
                             .cursor_row_resize()
                             .border_t_1()

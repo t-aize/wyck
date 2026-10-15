@@ -7,11 +7,11 @@ pub mod legend;
 pub mod menus;
 
 use super::{Chart, paint};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::menu::{self as popup};
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, Window, div};
 use wyck_chart::ChartKind;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::menu::{self as popup};
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
     match kind {

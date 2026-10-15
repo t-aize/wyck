@@ -3,13 +3,13 @@
 
 use super::{OrderTicket, TicketEvent, TicketPrefs, helpers};
 use crate::app::account::Account;
-use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::number;
 use gpui::prelude::*;
 use gpui::{Context, Entity, Window};
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math::{Contract, Offset};
 use wyck_trading::plan;
+use wyck_ui_kit::input::{InputEvent, InputState};
+use wyck_ui_kit::number;
 
 impl OrderTicket {
     pub fn new(

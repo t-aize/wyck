@@ -9,8 +9,8 @@ use crate::ui::features::multichart::icon::layout_icon;
 use crate::ui::features::multichart::layouts;
 use crate::ui::features::multichart::layouts::LayoutKey;
 use crate::ui::features::multichart::links::{Link, Links};
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{controls, menu, theme, tokens};
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{controls, menu, theme, tokens};
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [
@@ -127,7 +127,7 @@ impl Dashboard {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
-                            .w(px(crate::ui::kit::tokens::height::tiny()))
+                            .w(px(wyck_ui_kit::tokens::height::tiny()))
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(count.to_string()),
@@ -169,8 +169,8 @@ impl Dashboard {
                     this.multi.update(cx, |multi, cx| multi.picture_all(cx));
                     cx.notify();
                 }))
-                .child(crate::ui::kit::icon::tinted(
-                    crate::ui::kit::icon::IconName::Images,
+                .child(wyck_ui_kit::icon::tinted(
+                    wyck_ui_kit::icon::IconName::Images,
                     14.,
                     theme::muted_fg(),
                 ))

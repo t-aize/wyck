@@ -4,12 +4,12 @@ use super::bar_place::Movable;
 use super::{OPACITY_STEPS, swatch_color};
 
 use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, layout, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Window, canvas, div, px};
 use wyck_drawings::model::style::{Dash, PALETTE};
 use wyck_drawings::model::tool::Tool;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, layout, theme, tokens};
 
 impl MultiChart {
     /// The bar over a selected drawing, or nothing. Only the cheap test lives here: the bar itself
@@ -152,7 +152,7 @@ impl MultiChart {
                         }))
                         .child(
                             div()
-                                .size(px(crate::ui::kit::tokens::swatch::medium()))
+                                .size(px(wyck_ui_kit::tokens::swatch::medium()))
                                 .rounded_full()
                                 .bg(swatch_color(color)),
                         ),
@@ -182,7 +182,7 @@ impl MultiChart {
                         }))
                         .child(
                             div()
-                                .size(px(crate::ui::kit::tokens::swatch::medium()))
+                                .size(px(wyck_ui_kit::tokens::swatch::medium()))
                                 .rounded_full()
                                 .bg(swatch_color(color)),
                         ),
@@ -190,14 +190,14 @@ impl MultiChart {
             }
             // Any other color: the panel with the square, the hue bar and the typed values.
             let (open_this, pick_this, opacity_this) = (cx.entity(), cx.entity(), cx.entity());
-            let opacity: crate::ui::kit::color_picker::ChangeOpacity =
+            let opacity: wyck_ui_kit::color_picker::ChangeOpacity =
                 std::rc::Rc::new(move |value, _window, cx| {
                     opacity_this.update(cx, |this, cx| this.set_drawing_opacity(value, cx));
                 });
             bar = bar.child(controls::color_swatch_with_opacity(
                 "draw-color-custom",
                 style.color,
-                Some(crate::ui::kit::color_picker::Opacity {
+                Some(wyck_ui_kit::color_picker::Opacity {
                     value: style.opacity,
                     label: "LINES",
                     change: opacity,
@@ -267,7 +267,7 @@ impl MultiChart {
         if has_fill {
             bar = bar
                 .child(
-                    crate::ui::kit::button::quiet("draw-fill")
+                    wyck_ui_kit::button::quiet("draw-fill")
                         .icon(IconName::PaintBucket)
                         .tooltip("Fill")
                         .toggled(style.fill)
@@ -286,7 +286,7 @@ impl MultiChart {
                 .find(|step| *step < opacity - 0.01)
                 .unwrap_or(OPACITY_STEPS[0]);
             bar = bar.child(
-                crate::ui::kit::button::quiet("draw-opacity")
+                wyck_ui_kit::button::quiet("draw-opacity")
                     .icon(IconName::Droplet)
                     .label(format!("{}%", (opacity * 100.0).round() as u32))
                     .tooltip("Opacity of the lines (click to step down)")

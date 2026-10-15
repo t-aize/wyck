@@ -2,17 +2,17 @@
 
 use std::sync::Arc;
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Selectable;
 use gpui::prelude::*;
 use gpui::{Context, FontFeatures, FontWeight, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Selectable;
 
 use super::marks;
 pub mod figures;
 pub mod timeframes;
 use super::{Conn, Dashboard, MenuKind, Tick};
 use crate::ui::features::trading;
-use crate::ui::kit::{anim, icon, layout, theme, tokens};
+use wyck_ui_kit::{anim, icon, layout, theme, tokens};
 
 /// The widest the subtitle of the symbol grows before it is cut.
 const SUBTITLE_MAX: f32 = 170.0;
@@ -47,7 +47,7 @@ impl Dashboard {
             equity: width >= 1_240.0,
             subtitle: width >= 1_360.0,
         };
-        let divider = || crate::ui::kit::layout::rule_v().h(px(tokens::height::compact()));
+        let divider = || wyck_ui_kit::layout::rule_v().h(px(tokens::height::compact()));
         div()
             .flex_none()
             .w_full()
@@ -115,7 +115,7 @@ impl Dashboard {
             .flex_row()
             .items_center()
             .gap_3()
-            .pl(px(crate::ui::kit::tokens::space::sm()))
+            .pl(px(wyck_ui_kit::tokens::space::sm()))
             .pr_3()
             .border_r_1()
             .border_color(theme::border_hairline())
@@ -252,7 +252,7 @@ impl Dashboard {
             .items_center()
             .gap_1()
             .child(
-                crate::ui::kit::button::quiet("toggle-panel")
+                wyck_ui_kit::button::quiet("toggle-panel")
                     .selected(self.panel_open)
                     .icon(IconName::PanelBottom)
                     .tooltip("Positions, orders and alerts")
@@ -262,7 +262,7 @@ impl Dashboard {
                     })),
             )
             .child(
-                crate::ui::kit::button::quiet("toggle-ticket")
+                wyck_ui_kit::button::quiet("toggle-ticket")
                     .selected(self.ticket_open)
                     .icon(if ticket_on_left {
                         IconName::PanelLeft
@@ -325,7 +325,7 @@ impl Dashboard {
         div()
             .id("account-pill")
             .flex_none()
-            .h(px(crate::ui::kit::tokens::height::large()))
+            .h(px(wyck_ui_kit::tokens::height::large()))
             .flex()
             .flex_row()
             .items_center()
@@ -372,7 +372,7 @@ impl Dashboard {
 
     fn fullscreen_button(&self, window: &mut Window) -> impl IntoElement {
         let fullscreen = window.is_fullscreen();
-        crate::ui::kit::button::quiet("toggle-fullscreen")
+        wyck_ui_kit::button::quiet("toggle-fullscreen")
             .icon(if fullscreen {
                 IconName::Minimize
             } else {

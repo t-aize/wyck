@@ -4,8 +4,8 @@ use super::{
     AnyElement, Context, Dash, Drawing, DrawingProps, IconName, Level, MAX_LEVELS, SharedString,
     Swatch, Window, controls, div, form, number, px, theme, tokens,
 };
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 /// The width of the badge that numbers a level.
 const LEVEL_BADGE_WIDTH: f32 = 44.0;
@@ -77,7 +77,7 @@ impl DrawingProps {
             .items_center()
             .gap_1()
             .child(
-                crate::ui::kit::button::dense("props-level-add")
+                wyck_ui_kit::button::dense("props-level-add")
                     .when(full, |button| button.cursor_not_allowed())
                     .icon(IconName::Plus)
                     .label("Add")
@@ -87,7 +87,7 @@ impl DrawingProps {
                     }),
             )
             .child(
-                crate::ui::kit::button::dense("props-level-reset")
+                wyck_ui_kit::button::dense("props-level-reset")
                     .icon(IconName::RotateCcw)
                     .label("Default")
                     .on_click(move |_, window, cx| {
@@ -141,7 +141,7 @@ impl DrawingProps {
                     .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
                     .child(
-                        crate::ui::kit::button::dense(SharedString::from(format!(
+                        wyck_ui_kit::button::dense(SharedString::from(format!(
                             "props-level-remove-{index}"
                         )))
                         .icon(IconName::X)

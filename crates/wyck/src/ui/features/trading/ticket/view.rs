@@ -2,21 +2,24 @@
 //! chose (each a card, like the groups of the settings panels), and a footer that stays at the
 //! bottom with what stops the order and the button that sends it.
 //!
-//! Every size comes from [`crate::ui::kit::tokens`]. The density only changes the space between and
+//! Every size comes from [`wyck_ui_kit::tokens`]. The density only changes the space between and
 //! inside the cards, never the size of a text or of a control.
 
 use std::rc::Rc;
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::{Disableable, StyledExt as _};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::{Disableable, StyledExt as _};
 
 use super::helpers::{nice, side_of, stop_limit_price};
 use super::{OrderTicket, Plan, TicketEvent, customize, plan};
 use crate::app::account::Busy;
 use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
-use crate::ui::kit::{
+use wyck_trading::atr_stop::Smoothing;
+use wyck_trading::math;
+use wyck_trading::math::{Contract, Limit, Offset, SizeMode};
+use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
     controls,
     focus::Keyboard,
@@ -24,9 +27,6 @@ use crate::ui::kit::{
     menu::{self as popup, Entry, Item},
     number, theme, tokens,
 };
-use wyck_trading::atr_stop::Smoothing;
-use wyck_trading::math;
-use wyck_trading::math::{Contract, Limit, Offset, SizeMode};
 
 /// The height of the bar that shows how a total is shared.
 const METER_HEIGHT: f32 = 6.0;
@@ -219,7 +219,7 @@ impl OrderTicket {
     fn send_button(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let locked = self.account.read(cx).lock().is_some();
         let blocked = f.plan.problem.is_some() || f.busy || locked;
-        crate::ui::kit::button::trade("ticket-send", self.buy)
+        wyck_ui_kit::button::trade("ticket-send", self.buy)
             .when(blocked, |button| button.cursor_not_allowed())
             .label(self.describe(&f.plan, cx))
             .disabled(blocked)

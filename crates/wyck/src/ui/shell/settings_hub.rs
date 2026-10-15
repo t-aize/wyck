@@ -4,10 +4,10 @@
 //! Every change applies at once and is saved as it is made, so there is nothing to confirm: the
 //! app behind the panel shows the result live.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px, rgb};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
 
 use crate::app::appearance;
 use crate::app::appearance::candles::CANDLE_SETS;
@@ -19,23 +19,23 @@ use crate::app::system::build_info::{BuildMode, VERSION};
 use crate::app::updates;
 use crate::app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::{
+use wyck_chart::MAX_STUDIES;
+use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
+use wyck_ui_kit::{
     button, confirm, controls,
     font_picker::{FontChosen, FontPicker},
     form,
     form::Head,
     icon, modal, number, theme, toast, tokens,
 };
-use wyck_chart::MAX_STUDIES;
-use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 
 mod about;
 
 /// Tells the user an update can be installed from the settings.
 pub fn announce_update(version: &str, cx: &mut App) {
-    crate::ui::kit::toast::show(
+    wyck_ui_kit::toast::show(
         cx,
-        crate::ui::kit::toast::Kind::Info,
+        wyck_ui_kit::toast::Kind::Info,
         "Wyck update available",
         format!("Version {version} can be installed from Settings > About."),
     );
@@ -44,7 +44,7 @@ pub fn announce_update(version: &str, cx: &mut App) {
 /// Tells the user what the start found or did about the folders of their data: a move that was
 /// made or failed, a chosen folder that could not be reached, copies made by a sync service.
 pub fn announce_folders(cx: &mut App) {
-    use crate::ui::kit::toast::{Kind, show};
+    use wyck_ui_kit::toast::{Kind, show};
     for note in crate::app::locations::startup_notes() {
         let kind = if note.warning {
             Kind::Warning

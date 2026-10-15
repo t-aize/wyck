@@ -65,7 +65,7 @@ impl OrderTicket {
                 self.plans = prefs.plans;
                 self.write(&self.plan_name.clone(), String::new(), window, cx);
                 self.settings_changed(cx);
-                crate::ui::kit::toast::Toast::success(
+                wyck_ui_kit::toast::Toast::success(
                     if replaced {
                         "Plan updated"
                     } else {
@@ -77,12 +77,12 @@ impl OrderTicket {
                 .show(cx);
             }
             None if name.is_empty() => {
-                crate::ui::kit::toast::Toast::warning("Name the plan", "Type a name for it first.")
+                wyck_ui_kit::toast::Toast::warning("Name the plan", "Type a name for it first.")
                     .sticky(false)
                     .show(cx);
             }
             None => {
-                crate::ui::kit::toast::Toast::warning(
+                wyck_ui_kit::toast::Toast::warning(
                     "The list of plans is full",
                     format!(
                         "At most {} plans can be saved. Delete one, or use the name of one to replace it.",
@@ -116,7 +116,7 @@ impl OrderTicket {
     ) {
         // A ticket that follows a drawing takes its prices from it.
         if self.link.is_some() {
-            crate::ui::kit::toast::Toast::info(
+            wyck_ui_kit::toast::Toast::info(
                 "A drawing is followed",
                 "Release the position drawing to apply a plan.",
             )

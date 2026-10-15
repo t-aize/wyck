@@ -7,10 +7,10 @@ use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
 use wyck_chart::{axis_h, axis_w, zone_w};
 
 use super::{Chart, Menu};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, icon, theme, tokens};
 use wyck_chart::PriceScale;
 use wyck_chart::ScaleMode;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, icon, theme, tokens};
 
 /// A toggle of the price scale.
 fn toggle(
@@ -77,7 +77,7 @@ impl Chart {
                     "A",
                     format!(
                         "Fit the prices automatically{}",
-                        crate::ui::kit::hints::suffix("reset_price_scale")
+                        wyck_ui_kit::hints::suffix("reset_price_scale")
                     ),
                     auto,
                 )
@@ -89,7 +89,7 @@ impl Chart {
                     "log",
                     format!(
                         "Logarithmic scale{}",
-                        crate::ui::kit::hints::suffix("toggle_log_scale")
+                        wyck_ui_kit::hints::suffix("toggle_log_scale")
                     ),
                     scale == ScaleMode::Log,
                 )
@@ -101,7 +101,7 @@ impl Chart {
                     "%",
                     format!(
                         "Percent scale{}",
-                        crate::ui::kit::hints::suffix("toggle_percent_scale")
+                        wyck_ui_kit::hints::suffix("toggle_percent_scale")
                     ),
                     scale == ScaleMode::Percent,
                 )

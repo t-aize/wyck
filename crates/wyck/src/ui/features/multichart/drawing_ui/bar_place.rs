@@ -6,8 +6,6 @@
 //! click on the grip brings it back.
 
 use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, Bounds, Context, DispatchPhase, MouseButton, MouseDownEvent, MouseMoveEvent,
@@ -15,6 +13,8 @@ use gpui::{
 };
 use std::cell::Cell;
 use std::rc::Rc;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{controls, icon, theme, tokens};
 
 /// Where a bar tells the layout it was last drawn.
 pub(in crate::ui::features::multichart) type BoundsCell = Rc<Cell<Option<Bounds<Pixels>>>>;

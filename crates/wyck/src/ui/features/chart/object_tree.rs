@@ -1,18 +1,18 @@
 //! The list of the drawings of a symbol: pick one, show or hide it, lock it, move it up or down
 //! the stack, open its settings or delete it. Also where the icon of each tool is chosen.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
 
 use super::drawing_props;
 use crate::app::drawings::Drawings;
-use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
 use wyck_chart::Zone;
 use wyck_drawings::book::{Book, Order};
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::tool::Tool;
+use wyck_ui_kit::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {
     match tool {
@@ -164,7 +164,7 @@ impl ObjectTree {
         let (hidden, locked) = (drawing.hidden, drawing.locked);
         let restricted = drawing.timeframes.is_some();
         let button = |name: &str, icon: IconName, tip: &'static str| {
-            crate::ui::kit::button::dense(SharedString::from(format!("{name}-{id}")))
+            wyck_ui_kit::button::dense(SharedString::from(format!("{name}-{id}")))
                 .icon(icon)
                 .tooltip(tip)
         };

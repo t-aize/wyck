@@ -12,8 +12,8 @@ use super::{
 use crate::app::locations::{self, Row};
 use crate::app::storage::locations::Kind;
 use crate::app::storage::relocate::{PlanError, Step};
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::prelude::Disableable;
 
 /// A size in bytes as a few characters.
 fn size(bytes: u64) -> String {
@@ -52,7 +52,7 @@ impl SettingsHub {
                     .hint(shown)
                     .help("The list of the accounts you signed in with, and where the folders above are. It stays here")
                     .control(
-                        crate::ui::kit::button::quiet("folders-config-open")
+                        wyck_ui_kit::button::quiet("folders-config-open")
                             .icon(IconName::ExternalLink)
                             .label("Open")
                             .on_click(move |_, _window, cx| locations::reveal(&config, cx)),
@@ -79,7 +79,7 @@ impl SettingsHub {
         for (index, folder) in overview.cloud.iter().enumerate() {
             let (this, path) = (cx.entity(), folder.path.clone());
             buttons = buttons.child(
-                crate::ui::kit::button::accent(("folders-cloud", index))
+                wyck_ui_kit::button::accent(("folders-cloud", index))
                     .icon(IconName::RefreshCw)
                     .label(format!("Use {}", folder.name))
                     .on_click(move |_, _window, cx| {
@@ -92,7 +92,7 @@ impl SettingsHub {
         }
         let this = cx.entity();
         buttons = buttons.child(
-            crate::ui::kit::button::quiet("folders-cloud-choose")
+            wyck_ui_kit::button::quiet("folders-cloud-choose")
                 .icon(IconName::FolderOpen)
                 .label("Choose another folder...")
                 .on_click(move |_, _window, cx| {
@@ -143,7 +143,7 @@ impl SettingsHub {
                     .gap_2()
                     .pt_2()
                     .child(
-                        crate::ui::kit::button::accent("folders-restart")
+                        wyck_ui_kit::button::accent("folders-restart")
                             .icon(IconName::RefreshCw)
                             .label("Restart now")
                             .on_click(move |_, _window, cx| {
@@ -151,7 +151,7 @@ impl SettingsHub {
                             }),
                     )
                     .child(
-                        crate::ui::kit::button::quiet("folders-cancel")
+                        wyck_ui_kit::button::quiet("folders-cancel")
                             .label("Cancel the move")
                             .on_click(move |_, _window, cx| {
                                 cancel.update(cx, |hub, cx| hub.cancel_folders(cx));
@@ -211,7 +211,7 @@ impl SettingsHub {
             }
             let (this, folder) = (cx.entity(), self.settings_folder());
             rows.push(form::block(
-                crate::ui::kit::button::quiet("folders-conflicts-open")
+                wyck_ui_kit::button::quiet("folders-conflicts-open")
                     .icon(IconName::FolderOpen)
                     .label("Open the settings folder")
                     .on_click(move |_, _window, cx| {
@@ -252,7 +252,7 @@ impl SettingsHub {
                                 .flex_row()
                                 .gap_1()
                                 .child(
-                                    crate::ui::kit::button::quiet(("folders-left-open", index))
+                                    wyck_ui_kit::button::quiet(("folders-left-open", index))
                                         .icon(IconName::FolderOpen)
                                         .label("Open")
                                         .on_click(move |_, _window, cx| {
@@ -260,7 +260,7 @@ impl SettingsHub {
                                         }),
                                 )
                                 .child(
-                                    crate::ui::kit::button::danger(("folders-left-delete", index))
+                                    wyck_ui_kit::button::danger(("folders-left-delete", index))
                                         .icon(IconName::Trash)
                                         .label("Delete")
                                         .on_click(move |_, window, cx| {
@@ -315,7 +315,7 @@ impl SettingsHub {
                         .flex_row()
                         .gap_1()
                         .child(
-                            crate::ui::kit::button::quiet(("folders-change", index))
+                            wyck_ui_kit::button::quiet(("folders-change", index))
                                 .icon(IconName::FolderOpen)
                                 .label("Change...")
                                 .on_click(move |_, _window, cx| {
@@ -323,7 +323,7 @@ impl SettingsHub {
                                 }),
                         )
                         .child(
-                            crate::ui::kit::button::quiet(("folders-standard", index))
+                            wyck_ui_kit::button::quiet(("folders-standard", index))
                                 .icon(IconName::RotateCcw)
                                 .label("Standard")
                                 .disabled(!row.custom && row.unavailable.is_none())
@@ -332,7 +332,7 @@ impl SettingsHub {
                                 }),
                         )
                         .child(
-                            crate::ui::kit::button::quiet(("folders-open", index))
+                            wyck_ui_kit::button::quiet(("folders-open", index))
                                 .icon(IconName::ExternalLink)
                                 .label("Open")
                                 .on_click(move |_, _window, cx| {

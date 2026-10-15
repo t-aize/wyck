@@ -1,8 +1,8 @@
-//! Buttons. They are gpui-kit's, restyled through [`crate::ui::kit::theme::apply`], so every button of
+//! Buttons. They are gpui-kit's, restyled through [`crate::theme::apply`], so every button of
 //! the app takes one of these shapes instead of configuring a `Button` itself.
 //!
 //! There are four sizes and a screen never picks a gpui one by hand. Their heights are the
-//! control heights of [`crate::ui::kit::tokens::height`], so they scale with the interface and
+//! control heights of [`crate::tokens::height`], so they scale with the interface and
 //! match the fields:
 //!
 //! | [`Size`] | Height | Where |
@@ -21,7 +21,7 @@ use gpui_kit::component::Sizable;
 pub use gpui_kit::component::button::Button;
 use gpui_kit::component::button::ButtonVariants;
 
-use crate::ui::kit::{theme, tokens};
+use crate::{theme, tokens};
 
 /// How big a button is. See the module docs for what each is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

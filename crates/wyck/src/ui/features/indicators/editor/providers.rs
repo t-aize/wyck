@@ -5,21 +5,21 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use crate::ui::kit::input::{
-    CompletionProvider, EditorState, FoldRange, HighlightStyleResolver, HoverProvider, InputEdit,
-    InputHighlighter, InputHighlighterFactory, Rope, RopeExt,
-};
 use gpui::{App, Context, FontStyle, FontWeight, HighlightStyle, Hsla, SharedString, Task, Window};
 use lsp_types::{
     CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse, CompletionTextEdit,
     Documentation, Hover, HoverContents, MarkupContent, MarkupKind, TextEdit,
 };
+use wyck_ui_kit::input::{
+    CompletionProvider, EditorState, FoldRange, HighlightStyleResolver, HoverProvider, InputEdit,
+    InputHighlighter, InputHighlighterFactory, Rope, RopeExt,
+};
 
-use crate::ui::kit::theme;
 use wyck_indicators::custom::assist;
 use wyck_indicators::custom::assist::CandidateKind;
 use wyck_indicators::custom::lexer;
 use wyck_indicators::custom::lexer::{Kind, Token};
+use wyck_ui_kit::theme;
 
 /// The name of the language, as the editor is told.
 pub const LANGUAGE: &str = "rhai";

@@ -10,12 +10,12 @@ pub mod style_bar;
 
 use super::MultiChart;
 use crate::ui::features::chart::object_tree::tool_icon;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::{controls, icon, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
 use wyck_drawings::model::tool::{Group, Tool};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+use wyck_ui_kit::{controls, icon, menu as popup, theme, tokens};
 
 /// The opacities the style bar steps through, most opaque first.
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
@@ -29,7 +29,7 @@ pub fn rail_width() -> f32 {
 
 /// A short line between two blocks of the rail.
 fn rail_rule() -> gpui::Div {
-    crate::ui::kit::layout::rule_h()
+    wyck_ui_kit::layout::rule_h()
         .my_1()
         .w(px(tokens::height::compact()))
 }
@@ -54,7 +54,7 @@ fn tool_hint(tool: Tool) -> Option<String> {
         Tool::Brush => "tool_brush",
         _ => return None,
     };
-    crate::ui::kit::hints::hint(id)
+    wyck_ui_kit::hints::hint(id)
 }
 
 /// A drawing color as the theme's color type.
@@ -98,7 +98,7 @@ impl MultiChart {
             .items_center()
             .gap_1()
             .child(
-                crate::ui::kit::button::rail("draw-pointer")
+                wyck_ui_kit::button::rail("draw-pointer")
                     .icon(IconName::MousePointer2)
                     .tooltip("Pointer (Esc)")
                     .toggled(tool.is_none())
@@ -107,11 +107,11 @@ impl MultiChart {
 
         let searching = self.tool_search;
         tools = tools.child(
-            crate::ui::kit::button::rail("draw-search")
+            wyck_ui_kit::button::rail("draw-search")
                 .icon(IconName::Search)
                 .tooltip(gpui::SharedString::from(format!(
                     "Find a tool{}",
-                    crate::ui::kit::hints::suffix("find_tool")
+                    wyck_ui_kit::hints::suffix("find_tool")
                 )))
                 .toggled(searching)
                 .on_click(cx.listener(|this, _event, window, cx| {
@@ -163,7 +163,7 @@ impl MultiChart {
                         .size_full(),
                     )
                     .child(
-                        crate::ui::kit::button::rail(SharedString::from(format!(
+                        wyck_ui_kit::button::rail(SharedString::from(format!(
                             "draw-group-{group:?}"
                         )))
                         .icon(tool_icon(shown))
@@ -217,7 +217,7 @@ impl MultiChart {
             .items_center()
             .gap_1()
             .child(
-                crate::ui::kit::button::rail("draw-keep")
+                wyck_ui_kit::button::rail("draw-keep")
                     .icon(IconName::PencilLine)
                     .tooltip(if keep {
                         "Stay in drawing mode: on (draw several in a row, Esc to stop)"
@@ -230,7 +230,7 @@ impl MultiChart {
                     ),
             )
             .child(
-                crate::ui::kit::button::rail("draw-magnet")
+                wyck_ui_kit::button::rail("draw-magnet")
                     .icon(IconName::Magnet)
                     .tooltip("Magnet: snap to open, high, low and close")
                     .toggled(magnet)
@@ -238,7 +238,7 @@ impl MultiChart {
             )
             .child(rail_rule())
             .child(
-                crate::ui::kit::button::rail("draw-favorites")
+                wyck_ui_kit::button::rail("draw-favorites")
                     .icon(IconName::Star)
                     .tooltip(if favorites_bar {
                         "Hide the favorites bar"
@@ -251,7 +251,7 @@ impl MultiChart {
                     ),
             )
             .child(
-                crate::ui::kit::button::rail("draw-tree")
+                wyck_ui_kit::button::rail("draw-tree")
                     .icon(IconName::ListTree)
                     .tooltip("Drawings on this symbol")
                     .on_click(cx.listener(|this, _event, window, cx| {
@@ -260,7 +260,7 @@ impl MultiChart {
                     })),
             )
             .child(
-                crate::ui::kit::button::rail("draw-lock-all")
+                wyck_ui_kit::button::rail("draw-lock-all")
                     .icon(if all_locked {
                         IconName::Lock
                     } else {
@@ -279,7 +279,7 @@ impl MultiChart {
                     })),
             )
             .child(
-                crate::ui::kit::button::rail("draw-hide-all")
+                wyck_ui_kit::button::rail("draw-hide-all")
                     .icon(if some_hidden {
                         IconName::Eye
                     } else {
@@ -301,29 +301,29 @@ impl MultiChart {
             )
             .child(rail_rule())
             .child(
-                crate::ui::kit::button::rail("draw-undo")
+                wyck_ui_kit::button::rail("draw-undo")
                     .icon(IconName::Undo2)
                     .tooltip(gpui::SharedString::from(format!(
                         "Undo{}",
-                        crate::ui::kit::hints::suffix("undo_drawing")
+                        wyck_ui_kit::hints::suffix("undo_drawing")
                     )))
                     .disabled(!can_undo)
                     .when(!can_undo, |button| button.cursor_not_allowed())
                     .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
             )
             .child(
-                crate::ui::kit::button::rail("draw-redo")
+                wyck_ui_kit::button::rail("draw-redo")
                     .icon(IconName::Redo2)
                     .tooltip(gpui::SharedString::from(format!(
                         "Redo{}",
-                        crate::ui::kit::hints::suffix("redo_drawing")
+                        wyck_ui_kit::hints::suffix("redo_drawing")
                     )))
                     .disabled(!can_redo)
                     .when(!can_redo, |button| button.cursor_not_allowed())
                     .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
             )
             .child(
-                crate::ui::kit::button::rail("draw-clear")
+                wyck_ui_kit::button::rail("draw-clear")
                     .icon(IconName::Trash)
                     .tooltip("Remove all drawings of this symbol")
                     .disabled(!has_any)

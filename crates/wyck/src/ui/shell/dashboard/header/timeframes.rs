@@ -3,12 +3,12 @@
 use super::CUSTOM_TIMEFRAME_WIDTH;
 
 use crate::ui::features::chart;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::{controls, icon, menu, theme, tokens};
 use crate::ui::shell::dashboard::{Dashboard, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{InputEvent, InputState};
+use wyck_ui_kit::{controls, icon, menu, theme, tokens};
 
 impl Dashboard {
     /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,
@@ -139,9 +139,9 @@ impl Dashboard {
             chart::Timeframe::from_code(&text)
         };
         let Some(timeframe) = timeframe else {
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Warning,
+                wyck_ui_kit::toast::Kind::Warning,
                 "Not a timeframe",
                 format!(
                     "\"{text}\" is not one: up to 300 seconds, a day in minutes or hours, 365 days, \
@@ -276,7 +276,7 @@ impl Dashboard {
                 div()
                     .id(SharedString::from(format!("tf-unit-{}", unit.label())))
                     .h(px(tokens::height::compact()))
-                    .w(px(crate::ui::kit::tokens::height::compact()))
+                    .w(px(wyck_ui_kit::tokens::height::compact()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -306,11 +306,11 @@ impl Dashboard {
             .children(self.tf_custom.as_ref().map(|state| {
                 div()
                     .w(px(CUSTOM_TIMEFRAME_WIDTH))
-                    .child(crate::ui::kit::input::text(state))
+                    .child(wyck_ui_kit::input::text(state))
             }))
             .child(units)
             .child(
-                crate::ui::kit::button::accent("tf-add")
+                wyck_ui_kit::button::accent("tf-add")
                     .label("Add")
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.add_custom_timeframe(window, cx);

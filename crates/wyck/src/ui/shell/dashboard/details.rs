@@ -2,14 +2,14 @@
 //! under the highlight, a live price when it is the symbol being followed, and the reason when the
 //! details could not be loaded.
 
-use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 use wyck_market::Symbol;
+use wyck_ui_kit::icon::IconName;
 
 use super::catalog::{Class, Entry};
 use super::marks;
-use crate::ui::kit::{anim, icon, layout, theme, tokens};
+use wyck_ui_kit::{anim, icon, layout, theme, tokens};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {
@@ -171,7 +171,7 @@ pub(super) struct Sheet<'a> {
 pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
     let pane = div()
         .flex_none()
-        .w(px(crate::ui::kit::tokens::measure::card()))
+        .w(px(wyck_ui_kit::tokens::measure::card()))
         .h_full()
         .flex()
         .flex_col()

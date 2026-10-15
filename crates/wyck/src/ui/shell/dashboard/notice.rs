@@ -4,7 +4,7 @@ use gpui::{App, Entity};
 
 use crate::app::account::Account;
 use crate::app::account::{Notice, NoticeAction, Tone};
-use crate::ui::kit::toast;
+use wyck_ui_kit::toast;
 
 /// Shows `notice`. Its buttons act on `account`.
 pub(super) fn show(account: &Entity<Account>, notice: Notice, cx: &mut App) {

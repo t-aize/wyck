@@ -1,19 +1,19 @@
 //! The volume chart types' part of the chart settings panel: how the candles get wide, how they
 //! are colored and filled, and how much volume a volume bar holds. Every change applies at once.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
-use crate::ui::kit::{controls, form, number, tokens};
 use wyck_chart::ChartSettings;
 use wyck_chart::PricePath;
 use wyck_chart::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
+use wyck_ui_kit::{controls, form, number, tokens};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

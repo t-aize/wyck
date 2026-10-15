@@ -2,15 +2,15 @@
 //! periods, how the marks look, and the levels and structure that are drawn on each profile.
 //! Every change applies at once.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
-use crate::ui::kit::{form, number, tokens};
 use wyck_chart::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
+use wyck_ui_kit::{form, number, tokens};
 
 /// The fields that are typed in.
 pub(super) struct Inputs {

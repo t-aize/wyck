@@ -3,15 +3,15 @@
 //! them; it covers three quarters of the width at first, and its left edge is dragged to make it
 //! wider or narrower. It is made the first time it is asked for (it needs the window).
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Selectable;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Selectable;
 
 use super::Dashboard;
 use crate::app::scripts as indicators;
 use crate::ui::features::indicators::editor::{EditorEvent, IndicatorEditor};
-use crate::ui::kit::{
+use wyck_ui_kit::{
     menu::{Entry, Item, Menu, Placement},
     theme, tokens,
 };
@@ -130,7 +130,7 @@ impl Dashboard {
                     div()
                         .id("editor-resize")
                         .flex_none()
-                        .w(px(crate::ui::kit::tokens::splitter()))
+                        .w(px(wyck_ui_kit::tokens::splitter()))
                         .h_full()
                         .cursor_col_resize()
                         .bg(if dragging {
@@ -205,14 +205,14 @@ impl Dashboard {
                 }
                 Item::from(entry)
             };
-        let items = crate::ui::kit::menu::sections([
-            crate::ui::kit::menu::Section::new(
+        let items = wyck_ui_kit::menu::sections([
+            wyck_ui_kit::menu::Section::new(
                 "Editor",
                 vec![
                     run(
                         "Indicator editor",
                         IconName::CodeXml,
-                        crate::ui::kit::hints::hint("toggle_indicator_editor")
+                        wyck_ui_kit::hints::hint("toggle_indicator_editor")
                             .map(gpui::SharedString::from),
                         |d, _, cx| {
                             d.toggle_editor(cx);
@@ -230,7 +230,7 @@ impl Dashboard {
                     ),
                 ],
             ),
-            crate::ui::kit::menu::Section::new(
+            wyck_ui_kit::menu::Section::new(
                 "Files",
                 vec![
                     run(
@@ -269,7 +269,7 @@ impl Dashboard {
                     ),
                 ],
             ),
-            crate::ui::kit::menu::Section::untitled(vec![run(
+            wyck_ui_kit::menu::Section::untitled(vec![run(
                 "Indicator settings...",
                 IconName::Settings2,
                 None,
@@ -286,7 +286,7 @@ impl Dashboard {
             .relative()
             .flex_none()
             .child(
-                crate::ui::kit::button::quiet("open-indicators")
+                wyck_ui_kit::button::quiet("open-indicators")
                     .selected(self.editor_open)
                     .icon(IconName::CodeXml)
                     .label("Script")
@@ -296,9 +296,9 @@ impl Dashboard {
             .children(unsaved.then(|| {
                 div()
                     .absolute()
-                    .top(px(crate::ui::kit::tokens::space::xs()))
-                    .right(px(crate::ui::kit::tokens::space::xs()))
-                    .size(px(crate::ui::kit::tokens::swatch::dot()))
+                    .top(px(wyck_ui_kit::tokens::space::xs()))
+                    .right(px(wyck_ui_kit::tokens::space::xs()))
+                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())
             }))

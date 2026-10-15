@@ -147,7 +147,7 @@ pub(super) fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .child(
                     div()
                         .flex_none()
-                        .pt(px(crate::ui::kit::tokens::HAIRLINE))
+                        .pt(px(wyck_ui_kit::tokens::HAIRLINE))
                         .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber())),
                 )
                 .child(div().flex_1().min_w_0().child(message.clone()))

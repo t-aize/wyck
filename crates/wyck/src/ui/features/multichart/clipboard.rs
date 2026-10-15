@@ -69,9 +69,9 @@ impl MultiChart {
         let chart = slot.chart.clone();
         let limit = chart.read(cx).max_studies();
         if studies.len() > limit {
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Warning,
+                wyck_ui_kit::toast::Kind::Warning,
                 "Indicator limit reached",
                 format!(
                     "The copied chart has {} indicators; this chart allows {limit}.",

@@ -4,9 +4,9 @@ use super::{
     AnyElement, CANDLE_SETS, Context, IconName, Pick, SettingsHub, appearance, div, form, modal,
     px, rgb, theme, tokens,
 };
-use crate::ui::kit::button::Button;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
+use wyck_ui_kit::button::Button;
+use wyck_ui_kit::prelude::Disableable;
 
 impl SettingsHub {
     pub(super) fn charts_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -42,13 +42,13 @@ impl SettingsHub {
                     }))
                     .child(
                         div()
-                            .size(px(crate::ui::kit::tokens::swatch::small()))
+                            .size(px(wyck_ui_kit::tokens::swatch::small()))
                             .rounded_sm()
                             .bg(rgb(up)),
                     )
                     .child(
                         div()
-                            .size(px(crate::ui::kit::tokens::swatch::small()))
+                            .size(px(wyck_ui_kit::tokens::swatch::small()))
                             .rounded_sm()
                             .bg(rgb(down)),
                     )
@@ -62,7 +62,7 @@ impl SettingsHub {
         }
 
         let reset = |id: &'static str, set: bool, clear: fn(&mut appearance::Appearance)| {
-            crate::ui::kit::button::dense(id)
+            wyck_ui_kit::button::dense(id)
                 .icon(IconName::RotateCcw)
                 .label("Default")
                 .tooltip("Go back to the default color")
@@ -158,7 +158,7 @@ impl SettingsHub {
             [form::field(
                 "Grid, crosshair, legend, scales, time zone and lines",
                 Some("The same for every chart"),
-                crate::ui::kit::button::action(
+                wyck_ui_kit::button::action(
                     "settings-chart-look",
                     "Chart settings...",
                     Some(IconName::Settings2),

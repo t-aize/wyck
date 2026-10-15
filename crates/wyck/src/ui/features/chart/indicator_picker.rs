@@ -1,25 +1,25 @@
 //! The list of indicators to add to a chart: the ones the app ships and the ones the user wrote,
 //! by category, with a search, stars for the ones used most, and the way to the editor.
 //!
-//! It is a panel of the same frame as the settings (see [`crate::ui::kit::form`]). Adding
+//! It is a panel of the same frame as the settings (see [`wyck_ui_kit::form`]). Adding
 //! does not close it, so several indicators can be added in a row.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, SharedString, Subscription, Window, div, px,
 };
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::{InputEvent, InputState};
 
 use super::Chart;
 use super::events::{ChartEvent, EditorRequest};
 use super::study::catalog::{self, Item, Source};
 use super::study::spec::Placement;
 use crate::app::scripts as indicators;
-use crate::ui::kit::{
+use wyck_core::intern;
+use wyck_ui_kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
-use wyck_core::intern;
 
 /// The width of the column of short names.
 const SHORT_NAME_WIDTH: f32 = 58.0;
@@ -235,7 +235,7 @@ impl Picker {
             .children(script.map(|_| {
                 div()
                     .id(("picker-edit", number))
-                    .size(px(crate::ui::kit::tokens::height::control()))
+                    .size(px(wyck_ui_kit::tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -256,7 +256,7 @@ impl Picker {
             .child(
                 div()
                     .id(("picker-star", number))
-                    .size(px(crate::ui::kit::tokens::height::control()))
+                    .size(px(wyck_ui_kit::tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -453,13 +453,11 @@ impl Render for Picker {
             .flex()
             .flex_col()
             .gap_3()
-            .child(
-                crate::ui::kit::input::text(&self.search).prefix(icon::tinted(
-                    IconName::Search,
-                    14.,
-                    theme::muted_fg(),
-                )),
-            )
+            .child(wyck_ui_kit::input::text(&self.search).prefix(icon::tinted(
+                IconName::Search,
+                14.,
+                theme::muted_fg(),
+            )))
             .child(list);
         form::frame(
             head,

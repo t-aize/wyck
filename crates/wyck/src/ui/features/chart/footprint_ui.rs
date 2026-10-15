@@ -1,15 +1,15 @@
 //! The footprint's part of the chart settings panel: how the cells look, the imbalances, the
 //! point of control and the value area. Every change applies at once.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
 
 use super::Chart;
-use crate::ui::kit::{controls, form, number, tokens};
 use wyck_chart::ChartSettings;
 use wyck_chart::{CellMode, FootprintSettings, HeatScope};
+use wyck_ui_kit::{controls, form, number, tokens};
 
 /// The numbers of the footprint that are typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -7,20 +7,20 @@
 //! list of its family, and a right click on a favorite moves it along the bar or removes it. The
 //! favorites are kept with the rest of the workspace.
 
-use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, Window, canvas, div, px};
+use wyck_ui_kit::icon::IconName;
 
 use super::MultiChart;
 use super::drawing_ui::bar_place::Movable;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
 use crate::ui::features::chart::object_tree::tool_icon;
-use crate::ui::kit::{
+use wyck_drawings::model::tool::Tool;
+use wyck_ui_kit::{
     controls, icon,
     menu::{self as popup, Entry, Item},
     theme, tokens,
 };
-use wyck_drawings::model::tool::Tool;
 
 /// How tall the pill is.
 const PILL_HEIGHT: f32 = 36.0;
@@ -42,9 +42,9 @@ impl MultiChart {
     pub(crate) fn toggle_favorite(&mut self, tool: Tool, cx: &mut Context<Self>) {
         let list = self.favorite_tools(cx);
         if !list.contains(&tool) && list.len() >= MAX_FAVORITE_TOOLS {
-            crate::ui::kit::toast::show(
+            wyck_ui_kit::toast::show(
                 cx,
-                crate::ui::kit::toast::Kind::Info,
+                wyck_ui_kit::toast::Kind::Info,
                 "The favorites are full",
                 format!("The bar holds {MAX_FAVORITE_TOOLS} tools. Unpin one to make room."),
             );
@@ -154,7 +154,7 @@ impl MultiChart {
         for (index, tool) in favorites.iter().copied().enumerate() {
             let selected = current == Some(tool);
             let hint: SharedString = if index < 9 {
-                match crate::ui::kit::hints::hint(&format!("favorite_{}", index + 1)) {
+                match wyck_ui_kit::hints::hint(&format!("favorite_{}", index + 1)) {
                     Some(keys) => format!("{} ({keys})", tool.label()).into(),
                     None => tool.label().into(),
                 }
@@ -239,9 +239,9 @@ impl MultiChart {
         // The pill floats at the bottom of the chart area, over the time axis, centered. The
         // wrapper takes no mouse events, so the chart stays live around the pill.
         let pill = bar
-            .child(crate::ui::kit::layout::divider().bg(theme::border_subtle()))
+            .child(wyck_ui_kit::layout::divider().bg(theme::border_subtle()))
             .child(
-                crate::ui::kit::button::quiet("favorites-names")
+                wyck_ui_kit::button::quiet("favorites-names")
                     .icon(IconName::Type)
                     .tooltip(if names {
                         "Show icons only"
@@ -254,7 +254,7 @@ impl MultiChart {
                     })),
             )
             .child(
-                crate::ui::kit::button::quiet("favorites-hide")
+                wyck_ui_kit::button::quiet("favorites-hide")
                     .icon(IconName::X)
                     .tooltip("Hide the favorites")
                     .on_click(cx.listener(|this, _event, _window, cx| {

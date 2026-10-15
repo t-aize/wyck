@@ -3,28 +3,28 @@
 
 use std::collections::BTreeMap;
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::Editor;
-use crate::ui::kit::prelude::ScrollableElement as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::Editor;
+use wyck_ui_kit::prelude::ScrollableElement as _;
 
 use super::{
     AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
 use crate::app::scripts as indicators;
-use crate::ui::kit::{
-    controls, icon, layout, menu,
-    menu::{Entry, Item, Placement},
-    theme, tokens,
-};
 use wyck_drawings::model::tool::Tool;
 use wyck_indicators::custom::docs;
 use wyck_indicators::custom::docs::Group;
 use wyck_indicators::custom::library::{Entry as Script, registry};
 use wyck_indicators::custom::templates::TEMPLATES;
 use wyck_indicators::custom::{Problem, Severity};
+use wyck_ui_kit::{
+    controls, icon, layout, menu,
+    menu::{Entry, Item, Placement},
+    theme, tokens,
+};
 
 /// The width of the card of a starting template.
 const TEMPLATE_CARD_WIDTH: f32 = 210.0;
@@ -134,7 +134,7 @@ impl IndicatorEditor {
                     .child(
                         div()
                             .id(("editor-tab-close", index))
-                            .size(px(crate::ui::kit::tokens::swatch::large()))
+                            .size(px(wyck_ui_kit::tokens::swatch::large()))
                             .flex()
                             .items_center()
                             .justify_center()
@@ -145,7 +145,7 @@ impl IndicatorEditor {
                             })
                             .child(if doc.dirty {
                                 div()
-                                    .size(px(crate::ui::kit::tokens::swatch::dot()))
+                                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
                                     .rounded_full()
                                     .bg(theme::amber())
                                     .into_any_element()
@@ -196,14 +196,14 @@ impl IndicatorEditor {
                         .child(text.to_owned()),
                 )
                 .children(actions.then(|| {
-                    crate::ui::kit::button::dense("editor-reload")
+                    wyck_ui_kit::button::dense("editor-reload")
                         .label("Load the file")
                         .on_click(move |_, window, cx| {
                             reload.update(cx, |e, cx| e.reload_from_disk(window, cx));
                         })
                 }))
                 .children(actions.then(|| {
-                    crate::ui::kit::button::dense("editor-keep")
+                    wyck_ui_kit::button::dense("editor-keep")
                         .label("Keep mine")
                         .on_click(move |_, _window, cx| {
                             keep.update(cx, |e, cx| e.keep_mine(cx));
@@ -286,7 +286,7 @@ impl IndicatorEditor {
             )
             .child(
                 div()
-                    .max_w(px(crate::ui::kit::tokens::measure::note()))
+                    .max_w(px(wyck_ui_kit::tokens::measure::note()))
                     .text_center()
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
@@ -294,7 +294,7 @@ impl IndicatorEditor {
             )
             .child(cards.max_w(px(TEMPLATE_ROW_MAX)))
             .child(
-                crate::ui::kit::button::dense("editor-empty-folder")
+                wyck_ui_kit::button::dense("editor-empty-folder")
                     .icon(IconName::FolderOpen)
                     .label("Open the folder")
                     .on_click(move |_, _window, cx| {
@@ -482,7 +482,7 @@ impl Render for IndicatorEditor {
                         div()
                             .id("editor-explorer-resize")
                             .flex_none()
-                            .w(px(crate::ui::kit::tokens::splitter()))
+                            .w(px(wyck_ui_kit::tokens::splitter()))
                             .h_full()
                             .cursor_col_resize()
                             .hover(|s| s.bg(theme::accent_alpha(0.35)))
@@ -520,7 +520,7 @@ impl Render for IndicatorEditor {
                                 div()
                                     .id("editor-reference-resize")
                                     .flex_none()
-                                    .w(px(crate::ui::kit::tokens::splitter()))
+                                    .w(px(wyck_ui_kit::tokens::splitter()))
                                     .h_full()
                                     .cursor_col_resize()
                                     .hover(|s| s.bg(theme::accent_alpha(0.35)))

@@ -61,7 +61,7 @@ impl SettingsHub {
                 label,
                 help,
                 div()
-                    .max_w(px(crate::ui::kit::tokens::measure::note()))
+                    .max_w(px(wyck_ui_kit::tokens::measure::note()))
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::fg())
                     .child(value),
@@ -82,7 +82,7 @@ impl SettingsHub {
                     .gap_2()
                     .child(
                         div()
-                            .max_w(px(crate::ui::kit::tokens::measure::note()))
+                            .max_w(px(wyck_ui_kit::tokens::measure::note()))
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(logs.display().to_string()),
@@ -130,7 +130,7 @@ impl SettingsHub {
                 "Release notes",
                 None,
                 div()
-                    .max_w(px(crate::ui::kit::tokens::measure::note()))
+                    .max_w(px(wyck_ui_kit::tokens::measure::note()))
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child(notes.clone()),
@@ -203,7 +203,7 @@ impl SettingsHub {
             .flex_row()
             .items_center()
             .gap_3()
-            .child(crate::ui::kit::layout::brand_mark(56.))
+            .child(wyck_ui_kit::layout::brand_mark(56.))
             .child(
                 div()
                     .flex()

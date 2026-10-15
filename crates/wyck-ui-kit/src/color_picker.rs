@@ -15,7 +15,7 @@
 pub mod math;
 pub mod render;
 
-use crate::ui::kit::theme;
+use crate::theme;
 use gpui::prelude::*;
 use gpui::{
     App, Bounds, Context, DragMoveEvent, ElementId, Entity, Global, MouseButton, MouseDownEvent,
@@ -504,7 +504,7 @@ fn marker(size: f32, fill: u32) -> gpui::Div {
 
 fn small_label(text: &'static str) -> gpui::Div {
     div()
-        .text_size(px(crate::ui::kit::tokens::text::small()))
+        .text_size(px(crate::tokens::text::small()))
         .text_color(theme::muted_fg())
         .child(text)
 }
@@ -565,7 +565,7 @@ impl ColorPanel {
                         .w(px(34.))
                         .flex()
                         .justify_end()
-                        .text_size(px(crate::ui::kit::tokens::text::small()))
+                        .text_size(px(crate::tokens::text::small()))
                         .text_color(theme::fg())
                         .child(format!("{}%", (value * 100.0).round() as u32)),
                 ),

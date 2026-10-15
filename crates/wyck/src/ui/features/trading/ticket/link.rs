@@ -5,11 +5,11 @@ use super::{
     Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent, same_shape,
 };
 use crate::ui::features::chart::events::{PlanState, PositionPlan};
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::number;
 use gpui::{App, Context, Entity, Window};
 use wyck_trading::math;
 use wyck_trading::math::{Offset, Pending};
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::number;
 
 impl OrderTicket {
     /// Starts following a position drawing: the ticket takes its side, its entry and its
@@ -125,9 +125,9 @@ impl OrderTicket {
             PlanState::Waiting => {}
             PlanState::Gone => {
                 self.release_link(true, window, cx);
-                crate::ui::kit::toast::show(
+                wyck_ui_kit::toast::show(
                     cx,
-                    crate::ui::kit::toast::Kind::Info,
+                    wyck_ui_kit::toast::Kind::Info,
                     "Drawing removed",
                     "The ticket is free again and back to your own settings.",
                 );

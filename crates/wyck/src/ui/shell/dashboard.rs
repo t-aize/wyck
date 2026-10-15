@@ -36,13 +36,13 @@ use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent};
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::ticket::OrderTicket;
-use crate::ui::kit::toast;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedString, Window};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 use wyck_drawings::model::tool::Tool;
+use wyck_ui_kit::toast;
 
 gpui::actions!(
     wyck_dashboard,
@@ -201,7 +201,7 @@ pub struct Dashboard {
     workspace: Entity<Workspace>,
     /// The field of the menu where a custom timeframe is typed, made with the window, and the
     /// unit a bare number is in.
-    tf_custom: Option<Entity<crate::ui::kit::input::InputState>>,
+    tf_custom: Option<Entity<wyck_ui_kit::input::InputState>>,
     tf_unit: chart::Unit,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
@@ -242,7 +242,7 @@ impl Dashboard {
     ) -> Self {
         let workspace = cx.new(|cx| Workspace::new(&documents, cx));
         // The colors saved in the color panel live with the preferences.
-        crate::ui::kit::color_picker::connect(
+        wyck_ui_kit::color_picker::connect(
             workspace.read(cx).preferences().saved_colors.clone(),
             {
                 let workspace = workspace.clone();

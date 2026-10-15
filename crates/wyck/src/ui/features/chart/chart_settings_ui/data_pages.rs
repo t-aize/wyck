@@ -4,13 +4,13 @@ use super::{ChartSettingsEditor, ColorKey, LABEL_WIDTH, PRICE_HEIGHTS, ZONE_LIST
 use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::{indicator_picker, open_object_tree, study_settings};
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{button, controls, form, icon, modal, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
 use wyck_chart::ChartColors;
 use wyck_chart::ChartSettings;
 use wyck_chart::Zone;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{button, controls, form, icon, modal, theme, tokens};
 
 impl ChartSettingsEditor {
     pub(super) fn canvas_page(
@@ -171,7 +171,7 @@ impl ChartSettingsEditor {
     pub(super) fn study_row(&self, index: usize, config: &StudyConfig) -> AnyElement {
         let spec = config.spec();
         let button = |id: &str, icon: IconName, tip: &'static str| {
-            crate::ui::kit::button::quiet(SharedString::from(format!("{id}-{index}")))
+            wyck_ui_kit::button::quiet(SharedString::from(format!("{id}-{index}")))
                 .icon(icon)
                 .tooltip(tip)
         };
@@ -182,7 +182,7 @@ impl ChartSettingsEditor {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(crate::ui::kit::tokens::height::row()))
+            .h(px(wyck_ui_kit::tokens::height::row()))
             .child(
                 div()
                     .flex_none()
@@ -265,7 +265,7 @@ impl ChartSettingsEditor {
         let add = if full {
             form::block(form::note(format!(
                 "This chart allows {limit} indicators. Change the limit in Settings{}.",
-                crate::ui::kit::hints::suffix("open_settings")
+                wyck_ui_kit::hints::suffix("open_settings")
             )))
         } else {
             form::block(

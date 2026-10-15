@@ -7,8 +7,8 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 
-use crate::ui::kit::tokens::{menu as size, text};
-use crate::ui::kit::{icon, theme};
+use crate::tokens::{menu as size, text};
+use crate::{icon, theme};
 
 /// Puts `content` under the button it is a child of, which is `button` pixels tall, drawn over
 /// what is around (at `priority`) and kept inside the window. The parent must be `relative` and
@@ -76,7 +76,7 @@ pub(super) fn row_base() -> Div {
         .flex_row()
         .items_center()
         .gap_2p5()
-        .min_h(px(crate::ui::kit::tokens::height::control()))
+        .min_h(px(crate::tokens::height::control()))
         .py_1()
         .px_3()
         .rounded_md()
@@ -124,7 +124,7 @@ pub fn separator() -> Div {
     div()
         .mx_1()
         .my_1()
-        .h(px(crate::ui::kit::tokens::HAIRLINE))
+        .h(px(crate::tokens::HAIRLINE))
         .bg(theme::border_hairline())
 }
 

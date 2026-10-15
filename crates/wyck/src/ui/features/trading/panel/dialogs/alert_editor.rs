@@ -2,15 +2,15 @@
 
 use crate::app::alerts::model::source::{PnlScope, PriceKind};
 use crate::app::alerts::{Alert, Alerts, Condition, Source, Trigger};
-use crate::ui::kit::focus::Keyboard;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::menu::{self as popup, Item};
-use crate::ui::kit::{icon, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::kind::StudyKind;
+use wyck_ui_kit::focus::Keyboard;
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::menu::{self as popup, Item};
+use wyck_ui_kit::{icon, modal, number, theme, tokens};
 
 pub(super) struct AlertEditor {
     pub(super) alerts: Entity<Alerts>,

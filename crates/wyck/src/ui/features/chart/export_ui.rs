@@ -15,9 +15,6 @@ use super::Chart;
 use crate::app::chart_export as store;
 use crate::app::chart_export::Saved;
 use crate::app::storage::DocumentStore;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, Subscription, Window, div, px};
 use std::collections::BTreeMap;
@@ -28,6 +25,9 @@ use wyck_chart::Series;
 use wyck_chart::Source;
 use wyck_chart::Zone;
 use wyck_chart::{ChartKind, ChartSettings};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
 
 /// The most rows put on the clipboard: past it a file is the better way.
 const MAX_COPY_ROWS: usize = 250_000;

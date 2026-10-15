@@ -4,8 +4,8 @@ use super::helpers::every_timeframe;
 use super::{
     AnyElement, Context, Drawing, DrawingProps, GROUPS, IconName, SharedString, controls, div, form,
 };
-use crate::ui::kit::field;
 use gpui::prelude::*;
+use wyck_ui_kit::field;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {

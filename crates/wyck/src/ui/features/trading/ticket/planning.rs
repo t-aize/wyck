@@ -5,13 +5,13 @@ use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan,
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
 use crate::ui::features::chart::{ChartLine, LineId};
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::number;
 use gpui::{App, Context, Entity};
 use std::time::Duration;
 use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::number;
 
 impl OrderTicket {
     pub(super) fn contract(&self, cx: &App) -> Contract {
@@ -274,7 +274,7 @@ impl OrderTicket {
             return Vec::new();
         }
         let plan = self.plan(cx);
-        let palette_line = crate::ui::kit::theme::colors().line;
+        let palette_line = wyck_ui_kit::theme::colors().line;
         let currency = self.account.read(cx).book.currency.clone();
         let mut lines = Vec::new();
         let line = |id: u8, price: f64, color: u32, label: &str, money: Option<f64>| ChartLine {
@@ -300,7 +300,7 @@ impl OrderTicket {
             };
             lines.push(line(LINE_ENTRY, price, palette_line, label, None));
         }
-        let palette = crate::ui::kit::theme::colors();
+        let palette = wyck_ui_kit::theme::colors();
         if let Some(price) = plan.stop {
             lines.push(line(
                 LINE_STOP,

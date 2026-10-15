@@ -2,11 +2,11 @@
 
 use super::{DrawingProps, Swatch};
 
-use crate::ui::kit::prelude::Switch;
-use crate::ui::kit::{controls, number};
 use gpui::{App, Context, SharedString, Window};
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::style::MIN_LINE_OPACITY;
+use wyck_ui_kit::prelude::Switch;
+use wyck_ui_kit::{controls, number};
 
 impl DrawingProps {
     pub(super) fn current(&self, cx: &App) -> Option<Drawing> {
@@ -75,9 +75,9 @@ impl DrawingProps {
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| book.save_template(&symbol, id))
         });
-        crate::ui::kit::toast::show(
+        wyck_ui_kit::toast::show(
             cx,
-            crate::ui::kit::toast::Kind::Success,
+            wyck_ui_kit::toast::Kind::Success,
             "Saved as default",
             format!(
                 "New {} drawings start with this look.",
@@ -201,7 +201,7 @@ impl DrawingProps {
                 drawing.style.fill_opacity
             };
             let this = cx.entity();
-            let change: crate::ui::kit::color_picker::ChangeOpacity =
+            let change: wyck_ui_kit::color_picker::ChangeOpacity =
                 std::rc::Rc::new(move |value, window, cx| {
                     this.update(cx, |e, cx| {
                         e.change(cx, |d| {
@@ -214,7 +214,7 @@ impl DrawingProps {
                         e.set_fields(window, cx);
                     });
                 });
-            Some(crate::ui::kit::color_picker::Opacity {
+            Some(wyck_ui_kit::color_picker::Opacity {
                 value,
                 label,
                 change,

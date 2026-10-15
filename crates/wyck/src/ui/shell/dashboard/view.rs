@@ -9,12 +9,12 @@ use super::{
 };
 
 use crate::ui::features::chart;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
 use wyck_chart::ScaleMode;
 use wyck_market::{PRICE_SCALE, format_price};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::{button, icon, theme, tokens};
 
 impl Dashboard {
     pub(super) fn body(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -41,7 +41,7 @@ impl Dashboard {
                 )
                 .child(
                     div()
-                        .max_w(px(crate::ui::kit::tokens::measure::note()))
+                        .max_w(px(wyck_ui_kit::tokens::measure::note()))
                         .text_center()
                         .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())
@@ -50,11 +50,11 @@ impl Dashboard {
                 .child(
                     div()
                         .pt_2()
-                        .w(px(crate::ui::kit::tokens::measure::action()))
+                        .w(px(wyck_ui_kit::tokens::measure::action()))
                         .child(button::primary(
                             "sign-in-again",
-                            crate::ui::kit::button::Fill::Accent,
-                            crate::ui::kit::button::Size::Md,
+                            wyck_ui_kit::button::Fill::Accent,
+                            wyck_ui_kit::button::Size::Md,
                             "Sign in again",
                             cx.listener(|_this, _event, _window, cx| {
                                 cx.emit(DashboardEvent::SignInAgain);
@@ -87,7 +87,7 @@ impl Render for Dashboard {
         let menu_backdrop = (self.menu_is(MenuKind::Timeframes) || self.menu_is(MenuKind::Layouts))
             .then(|| {
                 let this = cx.entity().downgrade();
-                deferred(crate::ui::kit::menu::parts::backdrop(move |_, cx| {
+                deferred(wyck_ui_kit::menu::parts::backdrop(move |_, cx| {
                     let _ = this.update(cx, |this, cx| {
                         this.close_menus();
                         cx.notify();

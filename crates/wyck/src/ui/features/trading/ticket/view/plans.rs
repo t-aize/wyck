@@ -7,10 +7,10 @@ use super::{
     controls, div, hint, icon, px, theme, tokens,
 };
 use crate::app::prefs::ticket as prefs;
-use crate::ui::kit::focus::Keyboard as _;
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use wyck_trading::plan::Only;
+use wyck_ui_kit::focus::Keyboard as _;
+use wyck_ui_kit::prelude::Disableable;
 
 impl OrderTicket {
     /// Closing the position once it has been open for a while.
@@ -55,7 +55,7 @@ impl OrderTicket {
                 .child(
                     div()
                         .flex_1()
-                        .child(crate::ui::kit::input::number(&self.time_stop_amount)),
+                        .child(wyck_ui_kit::input::number(&self.time_stop_amount)),
                 )
                 .child(controls::segmented(
                     "ticket-time-stop-span",
@@ -173,9 +173,9 @@ impl OrderTicket {
                 .flex_row()
                 .items_center()
                 .gap_1()
-                .child(div().flex_1().child(crate::ui::kit::input::text(&self.plan_name)))
+                .child(div().flex_1().child(wyck_ui_kit::input::text(&self.plan_name)))
                 .child(
-                    crate::ui::kit::button::outlined("ticket-plan-save")
+                    wyck_ui_kit::button::outlined("ticket-plan-save")
                         .label("Save")
                         .disabled(!named)
                         .on_click(move |_, window, cx| {

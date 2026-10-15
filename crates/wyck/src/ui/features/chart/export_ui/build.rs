@@ -3,14 +3,14 @@
 use super::super::Chart;
 use super::{ExportDialog, Inputs, Page, Preview, Snapshot, number_input, text_input};
 use crate::app::chart_export as store;
-use crate::ui::kit::input::InputState;
-use crate::ui::kit::number;
 use gpui::prelude::*;
 use gpui::{Context, Entity, SharedString, Window};
 use std::collections::BTreeMap;
 use wyck_chart::ColumnKey;
 use wyck_chart::Content;
 use wyck_chart::ExportOptions;
+use wyck_ui_kit::input::InputState;
+use wyck_ui_kit::number;
 
 impl ExportDialog {
     pub(super) fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {

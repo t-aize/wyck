@@ -6,7 +6,7 @@
 use gpui::prelude::*;
 use gpui::{Div, div, px};
 
-use crate::ui::kit::{theme, tokens};
+use wyck_ui_kit::{theme, tokens};
 
 fn block() -> Div {
     div().rounded_md().bg(theme::border_subtle())

@@ -4,8 +4,6 @@ use super::helpers::{side_of, slippage_points, stop_limit_price};
 use super::{Kind, OrderTicket, Plan, Tif, problem};
 use crate::app::broker::trading::NewOrderReq;
 use crate::app::market_data::now_ms;
-use crate::ui::kit::confirm::{Details, confirm_details};
-use crate::ui::kit::number;
 use gpui::{App, Context, SharedString, Window};
 use wyck_trading::NewOrderType;
 use wyck_trading::follow::AtrFollow;
@@ -14,6 +12,8 @@ use wyck_trading::math;
 use wyck_trading::math::TicketProblem;
 use wyck_trading::plan;
 use wyck_trading::{TimeInForce, TradeSide};
+use wyck_ui_kit::confirm::{Details, confirm_details};
+use wyck_ui_kit::number;
 
 impl OrderTicket {
     /// The order as it would be sent, or why it cannot be.
@@ -274,13 +274,10 @@ impl OrderTicket {
         let orders = match self.orders(&plan, cx) {
             Ok(orders) => orders,
             Err(found) => {
-                crate::ui::kit::toast::Toast::warning(
-                    "The order is not ready",
-                    problem::text(&found),
-                )
-                .hint("Fix it in the ticket, then send again.")
-                .sticky(false)
-                .show(cx);
+                wyck_ui_kit::toast::Toast::warning("The order is not ready", problem::text(&found))
+                    .hint("Fix it in the ticket, then send again.")
+                    .sticky(false)
+                    .show(cx);
                 return;
             }
         };
@@ -295,7 +292,7 @@ impl OrderTicket {
         };
         let mut warnings = match verdict {
             Verdict::Block(reason) => {
-                crate::ui::kit::toast::Toast::warning("Blocked by your safety settings", reason)
+                wyck_ui_kit::toast::Toast::warning("Blocked by your safety settings", reason)
                     .hint("Change the limits in Settings, Safety.")
                     .show(cx);
                 return;

@@ -13,8 +13,8 @@ use tiny_skia::{
 use wyck_chart::Hsla;
 use wyck_chart::{fitted_origin, fitted_size};
 
-use crate::ui::assets;
 use wyck_chart::{Align, Cmd};
+use wyck_ui_kit::assets;
 
 /// A clip rectangle, in logical pixels.
 #[derive(Debug, Clone, Copy)]

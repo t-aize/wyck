@@ -20,7 +20,7 @@ use gpui::{App, ClipboardItem, SharedString, Window, div, px};
 use gpui_kit::component::notification::{Notification, NotificationType};
 use gpui_kit::component::{StyledExt as _, WindowExt};
 
-use crate::ui::kit::{theme, tokens};
+use crate::{theme, tokens};
 
 /// What a notice is about, which sets its icon and color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -238,7 +238,7 @@ impl Toast {
                     for (index, (label, run)) in actions.iter().enumerate() {
                         let (run, this) = (run.clone(), this.clone());
                         row = row.child(
-                            crate::ui::kit::button::dense(("toast-action", index))
+                            crate::button::dense(("toast-action", index))
                                 .outline()
                                 .label(label.clone())
                                 .on_click(move |_, window, cx| {
@@ -251,7 +251,7 @@ impl Toast {
                         let (details, copied) = (details.clone(), copied.clone());
                         let done = copied.get();
                         row = row.child(
-                            crate::ui::kit::button::dense("toast-copy")
+                            crate::button::dense("toast-copy")
                                 .label(if done { "Copied" } else { "Copy details" })
                                 .on_click(move |_, window, cx| {
                                     cx.write_to_clipboard(ClipboardItem::new_string(

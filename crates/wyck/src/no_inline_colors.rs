@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 /// the color picker.
 const ALLOWED: &[&str] = &[
     "src/ui/shell/dashboard/marks.rs",
-    "src/ui/kit/theme.rs",
-    "src/ui/kit/color_picker.rs",
-    "src/ui/kit/color_picker/math.rs",
+    "wyck-ui-kit/src/theme.rs",
+    "wyck-ui-kit/src/color_picker.rs",
+    "wyck-ui-kit/src/color_picker/math.rs",
 ];
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -56,7 +56,7 @@ fn screens_read_their_colors_from_the_theme() {
         "src/ui/shell/connection",
         "src/ui/shell/settings_hub",
         "src/ui/features/multichart",
-        "src/ui/kit",
+        "../wyck-ui-kit/src",
     ] {
         walk(&root.join(dir), &mut files);
     }

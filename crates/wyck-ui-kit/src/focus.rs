@@ -8,7 +8,7 @@
 
 use gpui::{InteractiveElement, Styled};
 
-use crate::ui::kit::theme;
+use crate::theme;
 
 /// Makes an element a stop of the Tab key with a visible focus.
 pub trait Keyboard: InteractiveElement + Sized {
