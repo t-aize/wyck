@@ -23,12 +23,12 @@ const ENTER: Duration = Duration::from_millis(380);
 static ENABLED: AtomicBool = AtomicBool::new(true);
 
 /// Whether screens and panels move as they appear.
-pub fn enabled() -> bool {
+pub(crate) fn enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
 
 /// Turns the animations on or off, for the user's preference.
-pub fn set_enabled(on: bool) {
+pub(crate) fn set_enabled(on: bool) {
     ENABLED.store(on, Ordering::Relaxed);
 }
 
@@ -44,18 +44,18 @@ fn dur(length: Duration) -> Duration {
 /// Extra delay per item in a staggered list.
 const STAGGER: Duration = Duration::from_millis(70);
 
-pub fn ease_out_cubic(t: f32) -> f32 {
+pub(crate) fn ease_out_cubic(t: f32) -> f32 {
     1.0 - (1.0 - t).powi(3)
 }
 
 /// Overshoots the target a little before settling: good for things that "pop" in.
-pub fn ease_out_back(t: f32) -> f32 {
+pub(crate) fn ease_out_back(t: f32) -> f32 {
     const C1: f32 = 1.70158;
     const C3: f32 = C1 + 1.0;
     1.0 + C3 * (t - 1.0).powi(3) + C1 * (t - 1.0).powi(2)
 }
 
-pub fn lerp(from: f32, to: f32, t: f32) -> f32 {
+pub(crate) fn lerp(from: f32, to: f32, t: f32) -> f32 {
     from + (to - from) * t
 }
 
@@ -82,7 +82,7 @@ pub fn enter<E: Styled + IntoElement + 'static>(
 }
 
 /// Slides an element in from above while fading it in, for banners that appear over content.
-pub fn drop_in(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
+pub(crate) fn drop_in(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
     el.relative().with_animation(
         id,
         Animation::new(dur(Duration::from_millis(320))),
@@ -105,32 +105,6 @@ pub fn shake(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
     )
 }
 
-/// Grows an element from nothing to its full size with a small overshoot.
-pub fn pop(el: Div, id: impl Into<ElementId>, size: f32) -> impl IntoElement {
-    el.with_animation(
-        id,
-        Animation::new(dur(Duration::from_millis(520))),
-        move |el, delta| {
-            let t = ease_out_back(delta);
-            el.size(px(size * t.max(0.0))).opacity(delta.min(1.0))
-        },
-    )
-}
-
-/// A gentle up-and-down float, for the hero icon on the welcome screen. With the animations off it
-/// stays where it rests: a repeating animation also keeps the window repainting for as long as
-/// it is on screen.
-pub fn float(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
-    let animation = if enabled() {
-        Animation::new(Duration::from_millis(3600)).repeat()
-    } else {
-        Animation::new(Duration::from_millis(1))
-    };
-    el.relative().with_animation(id, animation, |el, delta| {
-        el.top(px((delta * 2.0 * PI).sin() * 4.0))
-    })
-}
-
 /// Spins an icon forever, for a "working on it" indicator.
 pub fn spin(icon: Svg, id: impl Into<ElementId>) -> impl IntoElement {
     icon.with_animation(
@@ -140,7 +114,7 @@ pub fn spin(icon: Svg, id: impl Into<ElementId>) -> impl IntoElement {
     )
 }
 
-pub fn lerp_color(from: gpui::Rgba, to: gpui::Rgba, t: f32) -> gpui::Rgba {
+pub(crate) fn lerp_color(from: gpui::Rgba, to: gpui::Rgba, t: f32) -> gpui::Rgba {
     gpui::Rgba {
         r: lerp(from.r, to.r, t),
         g: lerp(from.g, to.g, t),

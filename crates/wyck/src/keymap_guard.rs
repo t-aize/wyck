@@ -28,7 +28,7 @@ const BY_HAND: &[&str] = &[
     ".on_key_event(",
 ];
 
-fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
+pub(crate) fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };

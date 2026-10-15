@@ -2,7 +2,7 @@
 //!
 //! Every color is read through a function of this module (`theme::bg()`, `theme::fg()`), and
 //! every function reads the palette in force. The palette is a plain value, [`Colors`], that
-//! [`set_colors`] replaces: that is how a set of candle colors chosen by the user reaches the whole
+//! `set_colors` replaces: that is how a set of candle colors chosen by the user reaches the whole
 //! interface without a screen having to know about it. There is one theme, a dark one; what the
 //! user can change lives in the app's `appearance` module. A screen should read `theme::` values
 //! and never spell out a hex color inline.
@@ -15,7 +15,7 @@ use std::sync::RwLock;
 
 use gpui::{Rgba, rgb, rgba};
 
-pub use wyck_core::appearance::{Colors, contrast};
+pub(crate) use wyck_core::appearance::{Colors, contrast};
 
 fn store() -> &'static RwLock<Colors> {
     static COLORS: RwLock<Colors> = RwLock::new(Colors::WYCK_DARK);
@@ -30,7 +30,7 @@ pub fn colors() -> Colors {
 
 /// Puts a palette in force. The screens read it on their next paint: refresh the windows (see
 /// [`apply`]) to make that now.
-pub fn set_colors(colors: Colors) {
+pub(crate) fn set_colors(colors: Colors) {
     *store().write().unwrap_or_else(|e| e.into_inner()) = colors;
 }
 
@@ -41,7 +41,7 @@ fn font_store() -> &'static RwLock<Option<String>> {
 
 /// Sets the font of the interface. `None` or a blank name leaves the system's. The screens read it
 /// on their next paint: refresh the windows (see [`apply`]) to make that now.
-pub fn set_font(name: Option<&str>) {
+pub(crate) fn set_font(name: Option<&str>) {
     *font_store().write().unwrap_or_else(|e| e.into_inner()) = name
         .map(str::trim)
         .filter(|name| !name.is_empty())
@@ -118,7 +118,7 @@ pub fn accent() -> Rgba {
 }
 
 /// Text/icon color to place on top of [`accent`].
-pub fn accent_fg() -> Rgba {
+pub(crate) fn accent_fg() -> Rgba {
     rgb(colors().accent_fg)
 }
 
@@ -318,9 +318,8 @@ pub fn apply(cx: &mut gpui::App) {
 /// Puts a look in force: animations, the scale of the interface, the font and the palette. The
 /// windows are refreshed, so what is on screen follows at once.
 pub fn put_in_force(look: &wyck_core::appearance::Look, cx: &mut gpui::App) {
-    super::anim::set_enabled(look.animations);
-    super::tokens::set_scale(look.scale);
-    // The text drawn on the charts follows it, as the widgets do.
+    crate::anim::set_enabled(look.animations);
+    // The widgets read this scale, and so does the text drawn on the charts.
     wyck_core::text_scale::set(look.scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {

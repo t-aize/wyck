@@ -17,7 +17,7 @@ use crate::{icon, theme};
 /// The box is anchored to the corner of the button: without an offset an anchored element sits
 /// where it would have been in the flow, which is under the button, and the gap would count from
 /// there. Every panel that opens under a button goes through this, so they all leave the same
-/// [`size::GAP`].
+/// `size::GAP`.
 pub fn below(content: impl IntoElement, button: f32, priority: usize) -> AnyElement {
     div()
         .absolute()
@@ -120,7 +120,7 @@ pub fn section_title(title: impl Into<SharedString>) -> Div {
 }
 
 /// A line between two groups of rows.
-pub fn separator() -> Div {
+pub(crate) fn separator() -> Div {
     div()
         .mx_1()
         .my_1()

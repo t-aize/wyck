@@ -1,7 +1,9 @@
 //! A test that reads the source of the screens and fails on a color spelled out as a literal:
 //! the screens take their colors from the theme.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use crate::keymap_guard::rust_files;
 
 /// Files that may hold color literals: the brand colors of the symbol marks, the palette, and
 /// the color picker.
@@ -11,20 +13,6 @@ const ALLOWED: &[&str] = &[
     "wyck-ui-kit/src/color_picker.rs",
     "wyck-ui-kit/src/color_picker/math.rs",
 ];
-
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(&path, out);
-        } else if path.extension().is_some_and(|e| e == "rs") {
-            out.push(path);
-        }
-    }
-}
 
 /// Whether a line has a color literal: `0x` and six or eight hex digits, other than the
 /// transparent one used as a placeholder.
@@ -58,7 +46,7 @@ fn screens_read_their_colors_from_the_theme() {
         "src/ui/features/multichart",
         "../wyck-ui-kit/src",
     ] {
-        walk(&root.join(dir), &mut files);
+        rust_files(&root.join(dir), &mut files);
     }
     let mut found = Vec::new();
     for file in files {

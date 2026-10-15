@@ -105,7 +105,7 @@ pub fn action(
 
 /// The button of a footer that confirms something that destroys: [`action`] filled in the danger
 /// color.
-pub fn action_danger(
+pub(crate) fn action_danger(
     id: impl Into<ElementId>,
     label: &'static str,
     on_click: impl Fn(&mut Window, &mut App) + 'static,

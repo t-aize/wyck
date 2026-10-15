@@ -171,13 +171,11 @@ impl Render for ColorPanel {
                 swatch(format!("color-saved-{i}"), shade, &this).on_mouse_down(
                     MouseButton::Right,
                     move |_, _window, cx| {
-                        forget.update(cx, |panel, cx| panel.forget(shade, cx));
+                        forget.update(cx, |_, cx| ColorPanel::forget(shade, cx));
                     },
                 )
             }),
         );
-        let save_this = this.clone();
-
         crate::menu::parts::panel(AREA_W + 24.0)
             .on_mouse_down_out(cx.listener(|this, _event, window, cx| {
                 // A click on the swatch itself closes the panel through the swatch.
@@ -219,7 +217,7 @@ impl Render for ColorPanel {
                                     .cursor_pointer()
                                     .when(!can_save, |button| button.cursor_not_allowed())
                                     .on_click(move |_, _window, cx| {
-                                        save_this.update(cx, |panel, cx| panel.save_current(cx));
+                                        this.update(cx, |panel, cx| panel.save_current(cx));
                                     }),
                             ),
                     )

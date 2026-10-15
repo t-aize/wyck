@@ -26,7 +26,7 @@ pub fn segmented(
     selected: usize,
     on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
 ) -> Div {
-    strip(id.into(), options, selected, false, Rc::new(on_select))
+    strip(&id.into(), options, selected, false, on_select)
 }
 
 /// [`segmented`] with the buttons sharing the whole width, for a choice that heads a panel (buy or
@@ -37,12 +37,19 @@ pub fn segmented_fill(
     selected: usize,
     on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
 ) -> Div {
-    strip(id.into(), options, selected, true, Rc::new(on_select))
+    strip(&id.into(), options, selected, true, on_select)
 }
 
 type OnSelect = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 
-fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select: OnSelect) -> Div {
+fn strip(
+    id: &ElementId,
+    options: &[&str],
+    selected: usize,
+    fill: bool,
+    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
+) -> Div {
+    let on_select: OnSelect = Rc::new(on_select);
     let mut strip = div()
         .flex()
         .flex_row()
@@ -59,7 +66,7 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
         let on_select = on_select.clone();
         strip = strip.child(
             div()
-                .id(child_id(&id, index))
+                .id(child_id(id, index))
                 .keyboard()
                 .role(Role::RadioButton)
                 .aria_label(SharedString::from((*label).to_owned()))
@@ -172,8 +179,7 @@ pub fn color_swatch_with_opacity(
     let on_toggle = Rc::new(on_toggle);
     let close = on_toggle.clone();
     let shown = opacity.as_ref().map_or(1.0, |o| o.value);
-    let panel =
-        color_picker::panel_with_opacity(&id, color, opacity, open, cx, Rc::new(on_pick), close);
+    let panel = color_picker::panel(&id, color, opacity, open, cx, Rc::new(on_pick), close);
     let hover = panel.clone();
     let swatch = div()
         .id(id.clone())

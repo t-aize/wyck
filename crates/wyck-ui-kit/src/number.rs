@@ -50,9 +50,9 @@ pub enum Kind {
 /// How a [`Kind`] of number steps and reads.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Spec {
-    pub step: f64,
-    pub min: f64,
-    pub max: f64,
+    pub(crate) step: f64,
+    pub(crate) min: f64,
+    pub(crate) max: f64,
     pub decimals: usize,
 }
 

@@ -140,8 +140,6 @@ pub struct Entry {
     checked: bool,
     disabled: bool,
     danger: bool,
-    /// Whether the card stays open after the entry is picked.
-    keep_open: bool,
     on_click: Option<Handler>,
 }
 
@@ -154,7 +152,6 @@ impl Entry {
             checked: false,
             disabled: false,
             danger: false,
-            keep_open: false,
             on_click: None,
         }
     }
@@ -191,14 +188,6 @@ impl Entry {
         self
     }
 
-    /// The card stays open when the entry is picked, so several can be picked in a row (a list of
-    /// switches). A click outside, or Escape, closes it.
-    #[must_use]
-    pub fn keep_open(mut self) -> Self {
-        self.keep_open = true;
-        self
-    }
-
     #[must_use]
     pub fn on_click(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(handler));
@@ -211,7 +200,7 @@ impl Entry {
 pub enum Placement {
     /// At the pointer of the right click that opened it.
     Cursor,
-    /// Under its button, which is this tall: the card leaves [`size::GAP`] under the button.
+    /// Under its button, which is this tall: the card leaves `size::GAP` under the button.
     Below(f32),
 }
 
@@ -317,11 +306,10 @@ impl Menu {
         let card = self.card(&items, selected, placement);
         let items = Rc::new(items);
         let keys = {
-            let (menu, items) = (self.clone(), items.clone());
+            let menu = self.clone();
             canvas(
                 |_, _, _| (),
                 move |_, (), window, _| {
-                    let (menu, items) = (menu.clone(), items.clone());
                     window.on_key_event(move |event: &KeyDownEvent, phase, window, cx| {
                         if phase != gpui::DispatchPhase::Capture || !menu.is_open(cx) {
                             return;
@@ -398,9 +386,7 @@ impl Menu {
                         _ => None,
                     });
                 if let Some(entry) = chosen {
-                    if !entry.keep_open {
-                        self.close(cx);
-                    }
+                    self.close(cx);
                     if let Some(action) = &entry.on_click {
                         action(window, cx);
                     }
@@ -445,7 +431,7 @@ impl Menu {
         } else {
             theme::fg()
         };
-        let (menu, action, keep_open) = (self.clone(), entry.on_click.clone(), entry.keep_open);
+        let (menu, action) = (self.clone(), entry.on_click.clone());
         parts::row_base()
             .id(controls::child_id(&self.id, index))
             .role(if entry.checked {
@@ -465,9 +451,7 @@ impl Menu {
                     // The press belongs to the entry, not to what is under the card.
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(move |_, window, cx| {
-                        if !keep_open {
-                            menu.close(cx);
-                        }
+                        menu.close(cx);
                         if let Some(action) = &action {
                             action(window, cx);
                         }

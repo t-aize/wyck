@@ -39,9 +39,9 @@ const RAIL_WIDTH: f32 = 176.0;
 
 /// The colors of the icon of a header: the glyph, and the tile behind it.
 #[derive(Clone, Copy)]
-pub struct Tint {
-    pub glyph: Rgba,
-    pub tile: Rgba,
+pub(crate) struct Tint {
+    pub(crate) glyph: Rgba,
+    pub(crate) tile: Rgba,
 }
 
 /// The header of a panel: its icon, what it is about, and the close button. Dragging it moves the
@@ -217,7 +217,7 @@ pub fn dialog(
 }
 
 /// [`dialog`] with the icon of the header in the colors of `tint`.
-pub fn dialog_tinted(
+pub(crate) fn dialog_tinted(
     head: Head,
     tint: Option<Tint>,
     on_close: impl Fn(&mut Window, &mut App) + 'static,
@@ -335,7 +335,7 @@ pub fn field(
 }
 
 /// Like [`field`], with the control under the label instead of beside it (see
-/// [`Row::control_below`]).
+/// `Row::control_below`).
 pub fn field_below(
     label: impl Into<SharedString>,
     hint: Option<&'static str>,
@@ -488,7 +488,7 @@ impl Row {
 
     /// The control under the label, as wide as the row: for one that is too wide to sit beside
     /// it (a list of chips), which would leave the label no room.
-    pub fn control_below(self, control: impl IntoElement) -> AnyElement {
+    pub(crate) fn control_below(self, control: impl IntoElement) -> AnyElement {
         let (head, reset) = self.head();
         div()
             .flex()

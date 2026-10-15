@@ -21,7 +21,7 @@ use crate::{icon, theme, tokens};
 pub struct FontChosen(pub Option<String>);
 
 /// The names of the fonts installed, sorted, without the system's hidden ones and without twins.
-pub fn installed(cx: &App) -> Vec<String> {
+pub(crate) fn installed(cx: &App) -> Vec<String> {
     let mut fonts = cx.text_system().all_font_names();
     fonts
         .retain(|name| !name.trim().is_empty() && !name.starts_with('.') && !name.starts_with('@'));
@@ -31,7 +31,7 @@ pub fn installed(cx: &App) -> Vec<String> {
 }
 
 /// The indexes of the fonts whose name has every word of `query`, in order.
-pub fn matching(fonts: &[String], query: &str) -> Vec<usize> {
+pub(crate) fn matching(fonts: &[String], query: &str) -> Vec<usize> {
     let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
     fonts
         .iter()
@@ -129,7 +129,7 @@ impl FontPicker {
     }
 
     fn choose(&mut self, font: Option<String>, cx: &mut Context<Self>) {
-        self.current = font.clone();
+        self.current.clone_from(&font);
         cx.emit(FontChosen(font));
         cx.notify();
     }

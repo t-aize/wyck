@@ -20,7 +20,7 @@ pub const FONT: &[u8] = include_bytes!("../assets/fonts/Inter.ttf");
 const LOGO: &[u8] = include_bytes!("../assets/logo.png");
 
 /// The path the logo is served under, for `img(..)`.
-pub const LOGO_PATH: &str = "brand/logo.png";
+pub(crate) const LOGO_PATH: &str = "brand/logo.png";
 
 /// Country flags, crypto logos and company logos: `marks/flags/us.svg`, `marks/crypto/btc.svg`,
 /// `marks/brands/apple.svg`.

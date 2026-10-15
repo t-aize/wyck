@@ -124,11 +124,6 @@ impl SliderField {
         }
     }
 
-    /// The value shown.
-    pub fn value(&self) -> f64 {
-        self.value
-    }
-
     /// Shows `value` without telling anyone (for a value changed from outside).
     pub fn show(&mut self, value: f64, window: &mut Window, cx: &mut Context<Self>) {
         if (self.value - value).abs() < 1e-9 {

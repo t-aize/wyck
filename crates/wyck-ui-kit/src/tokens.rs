@@ -6,31 +6,13 @@
 //! pill or a dot. The edge of a card, a menu or a popover is `theme::border_subtle`; a line
 //! between two parts of one surface is `theme::border_hairline`.
 //!
-//! Text, heights and widths follow the size of the interface the user chose (see [`set_scale`]):
-//! they are functions that give the base size times that scale, so the whole app grows or shrinks
-//! together and a person who needs larger text gets it everywhere.
-
-use std::sync::atomic::{AtomicU32, Ordering};
-
-/// The scale in force, in percent.
-static SCALE: AtomicU32 = AtomicU32::new(100);
-
-pub use wyck_core::appearance::{SCALE_MAX, SCALE_MIN};
-
-/// Sets the size of the interface, in percent (100 is the size the app was drawn at). It is kept
-/// between [`SCALE_MIN`] and [`SCALE_MAX`]. Screens read it as they paint.
-pub fn set_scale(percent: u32) {
-    SCALE.store(percent.clamp(SCALE_MIN, SCALE_MAX), Ordering::Relaxed);
-}
-
-/// The size of the interface, in percent.
-pub fn scale_percent() -> u32 {
-    SCALE.load(Ordering::Relaxed)
-}
+//! Text, heights and widths follow the size of the interface the user chose (see
+//! [`wyck_core::text_scale`]): they are functions that give the base size times that scale, so the
+//! whole app grows or shrinks together and a person who needs larger text gets it everywhere.
 
 /// A base size at the scale in force.
 pub fn scaled(base: f32) -> f32 {
-    base * scale_percent() as f32 / 100.0
+    wyck_core::text_scale::scaled(base)
 }
 
 /// Text sizes, in pixels.
@@ -64,10 +46,6 @@ pub mod text {
     /// The title of a screen, a large figure.
     pub fn display() -> f32 {
         scaled(20.0)
-    }
-    /// The title of the welcome screen.
-    pub fn hero() -> f32 {
-        scaled(26.0)
     }
 }
 
@@ -224,7 +202,7 @@ pub mod measure {
 pub mod menu {
     /// The least width of a menu opened by a right click; it grows to fit its longest entry and
     /// its shortcut, so no label wraps.
-    pub const CONTEXT_WIDTH: f32 = 280.0;
+    pub(crate) const CONTEXT_WIDTH: f32 = 280.0;
     /// A list that opens beside a rail, longer names than a context menu.
     pub const FLYOUT_WIDTH: f32 = 280.0;
     /// The least width of a menu opened by a button; it grows to fit its entries.
@@ -232,31 +210,34 @@ pub mod menu {
     /// A popover that holds controls rather than entries.
     pub const PANEL_WIDTH: f32 = 320.0;
     /// The space between a button and what opens under it.
-    pub const GAP: f32 = 4.0;
+    pub(crate) const GAP: f32 = 4.0;
     /// How far a card stays from the edges of the window.
-    pub const MARGIN: f32 = 8.0;
+    pub(crate) const MARGIN: f32 = 8.0;
     /// The tallest a card grows before it scrolls.
     pub const MAX_HEIGHT: f32 = 520.0;
 }
 
 #[cfg(test)]
 mod tests {
+    use wyck_core::appearance::{SCALE_MAX, SCALE_MIN};
+    use wyck_core::text_scale;
+
     use super::*;
 
     #[test]
     fn sizes_follow_the_scale_and_the_scale_stays_in_range() {
         // The scale is one for the whole process: this test is the only one that sets it.
-        set_scale(100);
+        text_scale::set(100);
         assert_eq!(text::body(), 12.0);
-        set_scale(150);
+        text_scale::set(150);
         assert_eq!(text::body(), 18.0);
         assert_eq!(height::control(), 42.0);
         assert_eq!(space::lg(), 24.0);
         assert_eq!(bar::header(), 72.0);
-        set_scale(10_000);
-        assert_eq!(scale_percent(), SCALE_MAX);
-        set_scale(1);
-        assert_eq!(scale_percent(), SCALE_MIN);
-        set_scale(100);
+        text_scale::set(10_000);
+        assert_eq!(scaled(100.0), SCALE_MAX as f32);
+        text_scale::set(1);
+        assert_eq!(scaled(100.0), SCALE_MIN as f32);
+        text_scale::set(100);
     }
 }

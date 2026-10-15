@@ -1,14 +1,10 @@
 //! A single-line text input.
 //!
 //! GPUI ships no built-in text field (see its own `examples/input.rs`, which the README points
-//! to as the way to learn this); this is that example trimmed to one line, restyled to the app's
-//! theme, and given a `masked` mode for secrets. The cursor/selection/IME machinery below
-//! (grapheme boundaries, UTF-16 index conversions, [`EntityInputHandler`]) is unchanged from it:
-//! it is exactly the amount of code correct text editing takes, not something to shrink further.
-//!
-//! Masking substitutes one `*` per grapheme at render time and keeps the real `content` behind
-//! it, so copy/paste and editing operate on the real text. That substitution assumes the content
-//! stays ASCII, true for every value this app puts in a masked field (an OAuth client secret).
+//! to as the way to learn this); this is that example trimmed to one line and restyled to the
+//! app's theme. The cursor/selection/IME machinery below (grapheme boundaries, UTF-16 index
+//! conversions, [`EntityInputHandler`]) is unchanged from it: it is exactly the amount of code
+//! correct text editing takes, not something to shrink further.
 
 mod element;
 mod handler;
@@ -26,29 +22,35 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{anim, theme};
 
-gpui::actions!(
-    wyck_text_input,
-    [
-        TextInputBackspace,
-        TextInputDelete,
-        TextInputLeft,
-        TextInputRight,
-        TextInputSelectLeft,
-        TextInputSelectRight,
-        TextInputSelectAll,
-        TextInputHome,
-        TextInputEnd,
-        TextInputPaste,
-        TextInputCut,
-        TextInputCopy,
-    ]
-);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod actions {
+    gpui::actions!(
+        wyck_text_input,
+        [
+            TextInputBackspace,
+            TextInputDelete,
+            TextInputLeft,
+            TextInputRight,
+            TextInputSelectLeft,
+            TextInputSelectRight,
+            TextInputSelectAll,
+            TextInputHome,
+            TextInputEnd,
+            TextInputPaste,
+            TextInputCut,
+            TextInputCopy,
+        ]
+    );
+}
+pub use actions::*;
 
 pub struct TextInput {
     focus_handle: FocusHandle,
     content: SharedString,
     placeholder: SharedString,
-    masked: bool,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
@@ -72,7 +74,6 @@ impl TextInput {
             focus_handle: cx.focus_handle(),
             content: "".into(),
             placeholder: placeholder.into(),
-            masked: false,
             selected_range: 0..0,
             selection_reversed: false,
             marked_range: None,
@@ -83,12 +84,6 @@ impl TextInput {
             was_focused: false,
             focus_changes: 0,
         }
-    }
-
-    /// Renders every character as `*`, for a secret. The real content is unaffected.
-    pub fn masked(mut self, masked: bool) -> Self {
-        self.masked = masked;
-        self
     }
 
     /// The current text.
@@ -301,16 +296,6 @@ impl TextInput {
             .grapheme_indices(true)
             .find_map(|(idx, _)| (idx > offset).then_some(idx))
             .unwrap_or(self.content.len())
-    }
-
-    /// The text to actually shape and paint: the real content, or `*` per grapheme when masked.
-    fn display_text(&self) -> SharedString {
-        if self.masked {
-            self.content.graphemes(true).map(|_| '*').collect()
-        } else {
-            self.content.to_string()
-        }
-        .into()
     }
 }
 

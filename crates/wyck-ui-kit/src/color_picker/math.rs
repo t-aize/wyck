@@ -1,7 +1,7 @@
 //! The colors of the picker, and the conversions between hexadecimal text, RGB and HSV.
 
 /// The colors of the theme offered to click: a row of grays, then eight hues in four shades.
-pub const PRESETS: [u32; 40] = [
+pub(crate) const PRESETS: [u32; 40] = [
     0xffffff, 0xd1d4dc, 0x9598a1, 0x787b86, 0x5d606b, 0x434651, 0x2a2e39, 0x000000, 0xf23645,
     0xff9800, 0xffeb3b, 0x4caf50, 0x089981, 0x00bcd4, 0x2962ff, 0x9c27b0, 0xfccbcd, 0xffe0b2,
     0xfff9c4, 0xc8e6c9, 0xace5dc, 0xb2ebf2, 0xbbd9fb, 0xe1bee7, 0xf7525f, 0xffb74d, 0xfff176,
@@ -10,7 +10,7 @@ pub const PRESETS: [u32; 40] = [
 ];
 
 /// The hue (0 to 360), saturation and value (0 to 1) of a color.
-pub fn rgb_to_hsv(color: u32) -> (f32, f32, f32) {
+pub(crate) fn rgb_to_hsv(color: u32) -> (f32, f32, f32) {
     let r = ((color >> 16) & 0xff) as f32 / 255.0;
     let g = ((color >> 8) & 0xff) as f32 / 255.0;
     let b = (color & 0xff) as f32 / 255.0;
@@ -31,7 +31,7 @@ pub fn rgb_to_hsv(color: u32) -> (f32, f32, f32) {
 }
 
 /// The color of a hue (0 to 360), saturation and value (0 to 1).
-pub fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> u32 {
+pub(crate) fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> u32 {
     let h = hue.rem_euclid(360.0) / 60.0;
     let s = saturation.clamp(0.0, 1.0);
     let v = value.clamp(0.0, 1.0);
@@ -51,12 +51,12 @@ pub fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> u32 {
 }
 
 /// `#rrggbb` as text.
-pub fn hex_text(color: u32) -> String {
+pub(crate) fn hex_text(color: u32) -> String {
     format!("{:06x}", color & 0xff_ffff)
 }
 
 /// A color written as `rgb`, `#rgb`, `rrggbb` or `#rrggbb`.
-pub fn parse_hex(text: &str) -> Option<u32> {
+pub(crate) fn parse_hex(text: &str) -> Option<u32> {
     let digits = text.trim().trim_start_matches('#');
     if !digits.chars().all(|c| c.is_ascii_hexdigit()) {
         return None;
@@ -77,9 +77,9 @@ pub fn parse_hex(text: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-
-    use super::super::*;
     use super::*;
+    use crate::color_picker::Field;
+
     #[test]
     fn a_color_goes_to_hsv_and_back() {
         for color in [

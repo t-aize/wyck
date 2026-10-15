@@ -7,13 +7,13 @@
 //! color is, whichever way it was chosen. Colors are `0xRRGGBB`; the drawings and studies keep
 //! their opacity apart from their color, so a color has no alpha. A swatch whose owner has an
 //! opacity of its own (a drawing) can still show a bar for it, told apart from the color: see
-//! [`panel_with_opacity`].
+//! `panel`.
 //!
 //! The panel is an entity kept per swatch (by the swatch's id) so that a hue survives a drag
 //! through white, gray or black, where a color no longer says which hue it came from.
 
-pub mod math;
-pub mod render;
+pub(crate) mod math;
+pub(crate) mod render;
 
 use crate::theme;
 use gpui::prelude::*;
@@ -143,7 +143,7 @@ struct Panels(HashMap<ElementId, Entity<ColorPanel>>);
 
 impl Global for Panels {}
 
-pub struct ColorPanel {
+pub(crate) struct ColorPanel {
     /// Hue, saturation and value of the color. Kept rather than worked out from the color, so a
     /// hue is not lost when the color goes gray or black.
     hsv: (f32, f32, f32),
@@ -262,7 +262,7 @@ impl ColorPanel {
         cx.notify();
     }
 
-    fn forget(&self, color: u32, cx: &mut Context<Self>) {
+    fn forget(color: u32, cx: &mut Context<Self>) {
         cx.default_global::<Saved>().0.retain(|c| *c != color);
         Self::persist(cx);
         cx.notify();
@@ -392,22 +392,11 @@ impl ColorPanel {
     }
 }
 
-/// The panel of the swatch `id`, told the color the owner holds now.
-pub fn panel(
-    id: &ElementId,
-    color: u32,
-    open: bool,
-    cx: &mut App,
-    on_change: Change,
-    on_close: Close,
-) -> Entity<ColorPanel> {
-    panel_with_opacity(id, color, None, open, cx, on_change, on_close)
-}
-
-/// Like [`panel`], with a bar for the opacity of what the color is for, from 0 to 1, told the
-/// value the owner holds now. Each drag on the bar calls `on_opacity`. The color itself stays
-/// `0xRRGGBB`: the opacity travels apart from it.
-pub fn panel_with_opacity(
+/// The panel of the swatch `id`, told the color the owner holds now. With an opacity it also has a
+/// bar for the opacity of what the color is for, from 0 to 1, told the value the owner holds now;
+/// each drag on the bar calls `on_opacity`. The color itself stays `0xRRGGBB`: the opacity travels
+/// apart from it.
+pub(crate) fn panel(
     id: &ElementId,
     color: u32,
     opacity: Option<Opacity>,
@@ -431,7 +420,7 @@ pub fn panel_with_opacity(
 }
 
 /// Tells the panel whether the pointer is on its swatch.
-pub fn set_swatch_hovered(panel: &Entity<ColorPanel>, hovered: bool, cx: &mut App) {
+pub(crate) fn set_swatch_hovered(panel: &Entity<ColorPanel>, hovered: bool, cx: &mut App) {
     panel.update(cx, |panel, _| panel.swatch_hovered = hovered);
 }
 

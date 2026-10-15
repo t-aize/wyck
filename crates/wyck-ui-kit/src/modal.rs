@@ -5,9 +5,9 @@
 //! can say a click on the veil does not), and the focus goes back to where it was.
 //!
 //! The header of a panel is its handle: dragging it moves the panel anywhere in the window (see
-//! [`begin_drag`]). The position is forgotten when the next modal opens.
+//! `begin_drag`). The position is forgotten when the next modal opens.
 //!
-//! [`open`] replaces the modal that is open. [`open_over`] puts a small one (a confirmation) above
+//! [`open`] replaces the modal that is open. `open_over` puts a small one (a confirmation) above
 //! it instead: the panel below stays, dimmed, and comes back when the one above closes.
 //!
 //! For the keyboard: Tab and Shift+Tab cycle inside the panel and never reach what is behind it
@@ -28,14 +28,21 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Div, Entity, FocusHandle,
-    Global, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window, actions, div,
-    point, px, relative,
+    Global, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window, div, point, px,
+    relative,
 };
 use gpui_kit::component::FocusTrapElement as _;
 
 use crate::anim::{self, ease_out_cubic};
 
-actions!(wyck_modal, [CloseModal]);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod action {
+    gpui::actions!(wyck_modal, [CloseModal]);
+}
+pub use action::CloseModal;
 
 /// How long the panel takes to appear and to leave.
 const ENTER: Duration = Duration::from_millis(180);
@@ -62,15 +69,15 @@ type DismissFn = Rc<dyn Fn(&mut Window, &mut App)>;
 /// What a modal asks for.
 pub struct Options {
     /// The size it would like, in pixels. A small window gets less.
-    pub width: f32,
-    pub height: f32,
+    pub(crate) width: f32,
+    pub(crate) height: f32,
     /// Called when Escape, the veil or the close button dismisses it (not when the panel closes
     /// itself with [`close`]), before it starts to leave.
-    pub on_dismiss: Option<DismissFn>,
+    pub(crate) on_dismiss: Option<DismissFn>,
     /// Whether a click on the veil dismisses it.
-    pub dismiss_on_veil: bool,
+    pub(crate) dismiss_on_veil: bool,
     /// What a screen reader calls the panel.
-    pub label: SharedString,
+    pub(crate) label: SharedString,
 }
 
 impl Options {
@@ -155,14 +162,19 @@ pub fn open(view: impl Into<AnyView>, options: Options, window: &mut Window, cx:
 
 /// Opens `view` above the modal that is open, which stays below it and comes back when this one
 /// closes. Without a modal open it is the same as [`open`].
-pub fn open_over(view: impl Into<AnyView>, options: Options, window: &mut Window, cx: &mut App) {
+pub(crate) fn open_over(
+    view: impl Into<AnyView>,
+    options: Options,
+    window: &mut Window,
+    cx: &mut App,
+) {
     let view = view.into();
     host(cx).update(cx, |host, cx| host.open_over(view, options, window, cx));
 }
 
 /// Starts moving the panel: call it when the mouse goes down on the header, with its position. The
 /// host follows the mouse from there until the button is released.
-pub fn begin_drag(position: Point<Pixels>, cx: &mut App) {
+pub(crate) fn begin_drag(position: Point<Pixels>, cx: &mut App) {
     host(cx).update(cx, |host, cx| host.begin_drag(position, cx));
 }
 
@@ -206,7 +218,7 @@ impl ModalHost {
             offset: point(px(0.), px(0.)),
         });
         window.focus(&self.focus, cx);
-        self.focus_first_control(self.next_id, window, cx);
+        Self::focus_first_control(self.next_id, window, cx);
         cx.notify();
     }
 
@@ -238,13 +250,13 @@ impl ModalHost {
             offset: point(px(0.), px(0.)),
         });
         window.focus(&self.focus, cx);
-        self.focus_first_control(self.next_id, window, cx);
+        Self::focus_first_control(self.next_id, window, cx);
         cx.notify();
     }
 
     /// Once the panel has been drawn (its controls are known only then), moves the focus to its
     /// first control, unless the panel or the user already put it somewhere inside.
-    fn focus_first_control(&self, id: u64, window: &mut Window, cx: &mut Context<Self>) {
+    fn focus_first_control(id: u64, window: &mut Window, cx: &mut Context<Self>) {
         cx.spawn_in(window, async move |this, cx| {
             cx.background_executor().timer(FOCUS_AFTER).await;
             this.update_in(cx, |this, window, cx| {
