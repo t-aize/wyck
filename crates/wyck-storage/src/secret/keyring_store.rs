@@ -61,7 +61,7 @@ impl SecretStore for KeyringSecretStore {
         let entry = entry_for(&self.service, key)?;
         entry
             .set_password(secret.expose_secret())
-            .inspect(|_| debug!(service = %self.service, %key, "stored a secret in the OS keyring"))
+            .inspect(|()| debug!(service = %self.service, %key, "stored a secret in the OS keyring"))
             .map_err(|source| {
                 warn!(service = %self.service, %key, error = %source, "could not store a secret in the OS keyring");
                 to_config_error(key, &source)

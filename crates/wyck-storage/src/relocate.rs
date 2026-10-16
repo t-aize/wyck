@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::error::{ConfigError, Result};
-use crate::fs_util::{atomic_write, read_text, retry_when_busy};
+use crate::fs_util::{atomic_write, read_text, remove_stray, retry_when_busy};
 use crate::locations::{self, Kind, Locations, Problem, Use};
 use crate::paths::AppPaths;
 
@@ -254,7 +254,7 @@ pub fn plan(paths: &AppPaths, changes: &[Change]) -> std::result::Result<Vec<Ste
     }
 
     for (index, (a, dir_a)) in after.iter().enumerate() {
-        for (b, dir_b) in &after[index + 1..] {
+        for (b, dir_b) in after.iter().skip(index + 1) {
             if within(dir_a, dir_b) || within(dir_b, dir_a) {
                 return Err(PlanError::Mixed { a: *a, b: *b });
             }
@@ -401,7 +401,9 @@ pub fn apply_pending(paths: &AppPaths, stamp: &str) -> Applied {
     };
     let Some(changes) = parse_staged(&text) else {
         warn!("the move that waits cannot be read, setting it aside");
-        let _ = fs::rename(&file, paths.config_dir().join(format!("{PENDING}.bad")));
+        if let Err(error) = fs::rename(&file, paths.config_dir().join(format!("{PENDING}.bad"))) {
+            warn!(%error, "could not set the move that waits aside");
+        }
         applied.refused = Some("the file of the move could not be understood".to_owned());
         return applied;
     };
@@ -414,7 +416,7 @@ pub fn apply_pending(paths: &AppPaths, stamp: &str) -> Applied {
         applied.refused = Some(format!(
             "the file of chosen folders cannot be read: {error}"
         ));
-        let _ = remove_file(&file);
+        forget_move(&file);
         return applied;
     }
     let steps = match plan(paths, &changes) {
@@ -422,7 +424,7 @@ pub fn apply_pending(paths: &AppPaths, stamp: &str) -> Applied {
         Err(error) => {
             warn!(%error, "the move that waits cannot be made");
             applied.refused = Some(error.to_string());
-            let _ = remove_file(&file);
+            forget_move(&file);
             return applied;
         }
     };
@@ -447,7 +449,9 @@ pub fn apply_pending(paths: &AppPaths, stamp: &str) -> Applied {
                     && let Some(kept) = set_aside(&step.from, stamp)
                 {
                     locations.leftovers.push(kept);
-                    let _ = locations.save(paths.config_dir());
+                    if let Err(error) = locations.save(paths.config_dir()) {
+                        warn!(%error, "the folder that was set aside could not be recorded");
+                    }
                 }
             }
             Err(error) => {
@@ -456,8 +460,16 @@ pub fn apply_pending(paths: &AppPaths, stamp: &str) -> Applied {
             }
         }
     }
-    let _ = remove_file(&file);
+    forget_move(&file);
     applied
+}
+
+/// Drops the file of a move that has been dealt with. If it cannot be removed it stays, and the
+/// move is read again at the next start: worth a warning.
+fn forget_move(file: &Path) {
+    if let Err(error) = remove_file(file) {
+        warn!(%error, "the file of the move could not be removed");
+    }
 }
 
 /// Puts the files of a step in the new folder and checks them. The choice is not saved here.
@@ -475,7 +487,7 @@ fn carry_out(paths: &AppPaths, step: &Step) -> Result<()> {
         if let Err(error) = copied {
             // What was made here is ours (the folder was empty): take it back.
             for file in made.iter().rev() {
-                let _ = fs::remove_file(file);
+                remove_stray(file);
             }
             return Err(error);
         }
@@ -502,7 +514,7 @@ fn copy_tree(from: &Path, to: &Path, made: &mut Vec<PathBuf>) -> std::io::Result
         let result = retry_when_busy(|| fs::copy(&source, &temporary))
             .and_then(|_| retry_when_busy(|| fs::rename(&temporary, &target)));
         if let Err(error) = result {
-            let _ = fs::remove_file(&temporary);
+            remove_stray(&temporary);
             return Err(error);
         }
         made.push(target);
@@ -798,7 +810,7 @@ mod tests {
         );
         let applied = apply_pending(&before, "s");
         assert_eq!(applied.switched.len(), 2);
-        assert!(leftovers(&paths(&setup)).is_empty());
+        assert_eq!(leftovers(&paths(&setup)), [] as [Leftover; 0]);
         assert!(
             before.logs_dir().join("wyck.2026-10-12.log").is_file(),
             "the old log stays where it was written"
@@ -897,10 +909,7 @@ mod tests {
             fs::create_dir_all(&bad).unwrap();
             let result = plan(&current, &[move_to(Kind::Backups, &bad)]);
             assert!(
-                matches!(
-                    result,
-                    Err(PlanError::Sensitive(_)) | Err(PlanError::Folder(_))
-                ),
+                matches!(result, Err(PlanError::Sensitive(_) | PlanError::Folder(_))),
                 "{}: {result:?}",
                 bad.display()
             );
@@ -947,10 +956,9 @@ mod tests {
         let setup = setup();
         let current = paths(&setup);
         let standard = current.standard_dir(Kind::Settings).to_path_buf();
-        assert!(
-            plan(&current, &[move_to(Kind::Settings, &standard)])
-                .unwrap()
-                .is_empty()
+        assert_eq!(
+            plan(&current, &[move_to(Kind::Settings, &standard)]).unwrap(),
+            [] as [Step; 0]
         );
         let nothing = stage(
             &current,
@@ -960,7 +968,7 @@ mod tests {
             }],
         )
         .unwrap();
-        assert!(nothing.is_empty());
+        assert_eq!(nothing, [] as [Step; 0]);
         assert!(pending(&current).is_none(), "no file for nothing to do");
     }
 
@@ -1066,8 +1074,11 @@ mod tests {
 
         delete_leftover(&now, &left).unwrap();
         assert!(!left.exists());
-        assert!(leftovers(&paths(&setup)).is_empty());
-        assert!(Locations::load(&setup.base).unwrap().leftovers.is_empty());
+        assert_eq!(leftovers(&paths(&setup)), [] as [Leftover; 0]);
+        assert_eq!(
+            Locations::load(&setup.base).unwrap().leftovers,
+            [] as [PathBuf; 0]
+        );
         assert!(
             paths(&setup)
                 .dir(Kind::Settings)

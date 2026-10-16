@@ -359,12 +359,12 @@ mod tests {
     fn store() -> (tempfile::TempDir, DocumentStore) {
         let dir = tempfile::tempdir().unwrap();
         let store = DocumentStore::global(&AppPaths::at(dir.path()));
-        std::fs::create_dir_all(store.dir()).unwrap();
+        fs::create_dir_all(store.dir()).unwrap();
         (dir, store)
     }
 
     fn read(path: &Path) -> Table {
-        toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+        toml::from_str(&fs::read_to_string(path).unwrap()).unwrap()
     }
 
     const FIRST: Plan = Plan {
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn a_file_several_versions_behind_runs_every_step_in_order() {
         let (_dir, store) = store();
-        std::fs::write(store.path("layout"), OLD).unwrap();
+        fs::write(store.path("layout"), OLD).unwrap();
 
         let outcome = upgrade_document(&store, &LAYOUT).unwrap();
 
@@ -423,7 +423,7 @@ mod tests {
             "what no step knows is kept"
         );
         assert_eq!(
-            std::fs::read_to_string(backup).unwrap(),
+            fs::read_to_string(backup).unwrap(),
             OLD,
             "the old layout is kept as it was"
         );
@@ -432,7 +432,7 @@ mod tests {
     #[test]
     fn a_file_one_version_behind_runs_only_the_steps_it_needs() {
         let (_dir, store) = store();
-        std::fs::write(
+        fs::write(
             store.path("layout"),
             "schema_version = 3\ncolumns = \"x,y,z\"\nscale = 2.0\n",
         )
@@ -447,7 +447,7 @@ mod tests {
     #[test]
     fn a_file_with_no_version_is_the_first_layout() {
         let (_dir, store) = store();
-        std::fs::write(store.path("layout"), "zoom = 3.0\n").unwrap();
+        fs::write(store.path("layout"), "zoom = 3.0\n").unwrap();
         let outcome = upgrade_document(&store, &LAYOUT).unwrap();
         assert!(matches!(outcome, Outcome::Migrated { from: 1, to: 4, .. }));
         assert_eq!(read(&store.path("layout"))["scale"].as_float(), Some(3.0));
@@ -457,18 +457,15 @@ mod tests {
     fn a_current_file_is_not_touched_and_a_second_run_changes_nothing() {
         let (_dir, store) = store();
         let current = "schema_version = 4\nscale = 1.0\n";
-        std::fs::write(store.path("layout"), current).unwrap();
+        fs::write(store.path("layout"), current).unwrap();
         assert_eq!(upgrade_document(&store, &LAYOUT).unwrap(), Outcome::Current);
-        assert_eq!(
-            std::fs::read_to_string(store.path("layout")).unwrap(),
-            current
-        );
+        assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), current);
 
-        std::fs::write(store.path("layout"), OLD).unwrap();
+        fs::write(store.path("layout"), OLD).unwrap();
         upgrade_document(&store, &LAYOUT).unwrap();
-        let once = std::fs::read_to_string(store.path("layout")).unwrap();
+        let once = fs::read_to_string(store.path("layout")).unwrap();
         assert_eq!(upgrade_document(&store, &LAYOUT).unwrap(), Outcome::Current);
-        assert_eq!(std::fs::read_to_string(store.path("layout")).unwrap(), once);
+        assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), once);
     }
 
     #[test]
@@ -481,18 +478,18 @@ mod tests {
     fn the_first_copy_is_the_one_kept() {
         let (_dir, store) = store();
         let kept = sibling(&store.path("layout"), "v1.bak");
-        std::fs::write(&kept, "the oldest layout").unwrap();
-        std::fs::write(store.path("layout"), OLD).unwrap();
+        fs::write(&kept, "the oldest layout").unwrap();
+        fs::write(store.path("layout"), OLD).unwrap();
 
         upgrade_document(&store, &LAYOUT).unwrap();
 
-        assert_eq!(std::fs::read_to_string(kept).unwrap(), "the oldest layout");
+        assert_eq!(fs::read_to_string(kept).unwrap(), "the oldest layout");
     }
 
     #[test]
     fn a_failing_step_leaves_the_file_as_it_was() {
         let (_dir, store) = store();
-        std::fs::write(store.path("layout"), OLD).unwrap();
+        fs::write(store.path("layout"), OLD).unwrap();
 
         let error = upgrade_document(&store, &BROKEN).unwrap_err();
 
@@ -500,27 +497,27 @@ mod tests {
             matches!(error, ConfigError::Migration { from: 2, .. }),
             "{error:?}"
         );
-        assert_eq!(std::fs::read_to_string(store.path("layout")).unwrap(), OLD);
+        assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), OLD);
         assert!(!sibling(&store.path("layout"), "v1.bak").exists());
     }
 
     #[test]
     fn a_plan_without_the_step_is_an_error_not_a_guess() {
         let (_dir, store) = store();
-        std::fs::write(store.path("layout"), OLD).unwrap();
+        fs::write(store.path("layout"), OLD).unwrap();
         let error = upgrade_document(&store, &MISSING).unwrap_err();
         assert!(
             matches!(error, ConfigError::Migration { from: 2, .. }),
             "{error:?}"
         );
-        assert_eq!(std::fs::read_to_string(store.path("layout")).unwrap(), OLD);
+        assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), OLD);
     }
 
     #[test]
     fn a_file_from_a_newer_build_is_set_aside_whole() {
         let (_dir, store) = store();
         let future = "schema_version = 9\nsomething_new = \"kept\"\n";
-        std::fs::write(store.path("layout"), future).unwrap();
+        fs::write(store.path("layout"), future).unwrap();
 
         let outcome = upgrade_document(&store, &LAYOUT).unwrap();
 
@@ -530,7 +527,7 @@ mod tests {
         assert_eq!(found, 9);
         let kept = kept_as.unwrap();
         assert!(kept.ends_with("layout.toml.from-v9"), "{kept:?}");
-        assert_eq!(std::fs::read_to_string(kept).unwrap(), future);
+        assert_eq!(fs::read_to_string(kept).unwrap(), future);
         assert!(!store.path("layout").exists(), "the app starts afresh");
         assert_eq!(
             store.list().unwrap(),
@@ -543,7 +540,7 @@ mod tests {
     fn looking_at_a_newer_file_does_not_move_it() {
         let (_dir, store) = store();
         let future = "schema_version = 9\n";
-        std::fs::write(store.path("layout"), future).unwrap();
+        fs::write(store.path("layout"), future).unwrap();
         let outcome = upgrade_file(&store.path("layout"), &LAYOUT).unwrap();
         assert_eq!(
             outcome,
@@ -552,20 +549,17 @@ mod tests {
                 kept_as: None
             }
         );
-        assert_eq!(
-            std::fs::read_to_string(store.path("layout")).unwrap(),
-            future
-        );
+        assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), future);
     }
 
     #[test]
     fn a_file_that_is_not_toml_is_reported_and_left_alone() {
         let (_dir, store) = store();
-        std::fs::write(store.path("layout"), "zoom = [[[").unwrap();
+        fs::write(store.path("layout"), "zoom = [[[").unwrap();
         let error = upgrade_document(&store, &LAYOUT).unwrap_err();
         assert!(matches!(error, ConfigError::Parse { .. }), "{error:?}");
         assert_eq!(
-            std::fs::read_to_string(store.path("layout")).unwrap(),
+            fs::read_to_string(store.path("layout")).unwrap(),
             "zoom = [[["
         );
     }
@@ -575,13 +569,13 @@ mod tests {
         for bad in ["\"two\"", "0", "-3", "1.5", "99999999999"] {
             let (_dir, store) = store();
             let text = format!("schema_version = {bad}\n");
-            std::fs::write(store.path("layout"), &text).unwrap();
+            fs::write(store.path("layout"), &text).unwrap();
             let error = upgrade_document(&store, &LAYOUT).unwrap_err();
             assert!(
                 matches!(error, ConfigError::Migration { .. }),
                 "{bad}: {error:?}"
             );
-            assert_eq!(std::fs::read_to_string(store.path("layout")).unwrap(), text);
+            assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), text);
         }
     }
 }

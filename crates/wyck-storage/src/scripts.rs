@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn a_script_too_big_or_not_text_is_not_written_and_not_copied() {
         let (_dir, store) = store();
-        let big = "x".repeat(MAX_FILE_BYTES as usize + 1);
+        let big = "x".repeat(usize::try_from(MAX_FILE_BYTES).unwrap_or(usize::MAX) + 1);
         assert!(store.write("Big", &big).is_err());
         assert!(store.write("../x", "y").is_err());
 

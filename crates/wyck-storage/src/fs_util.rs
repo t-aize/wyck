@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use tracing::trace;
+use tracing::{debug, trace, warn};
 
 use crate::error::{ConfigError, Result};
 
@@ -33,6 +33,10 @@ pub(crate) fn retry_when_busy<T>(mut op: impl FnMut() -> std::io::Result<T>) -> 
                     && retries < BUSY_RETRIES =>
             {
                 retries += 1;
+                #[expect(
+                    clippy::disallowed_methods,
+                    reason = "a few milliseconds' wait for a file another process holds; this function is blocking by design"
+                )]
                 std::thread::sleep(std::time::Duration::from_millis(u64::from(retries) * 2));
             }
             other => return other,
@@ -92,12 +96,20 @@ fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
 
     write_synced(&tmp_path, contents)
         .and_then(|()| retry_when_busy(|| fs::rename(&tmp_path, path)))
-        .inspect_err(|_| {
-            let _ = fs::remove_file(&tmp_path);
-        })?;
+        .inspect_err(|_| remove_stray(&tmp_path))?;
     sync_dir(dir);
     trace!(path = %path.display(), bytes = contents.len(), "wrote a file atomically");
     Ok(())
+}
+
+/// Removes a file this program made and no longer needs (a temporary copy, a probe). One that is
+/// already gone is what was wanted; one that cannot be removed stays, and is worth a warning.
+pub(crate) fn remove_stray(path: &Path) {
+    match fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => warn!(%error, path = %path.display(), "could not remove a file"),
+    }
 }
 
 /// The temporary files [`atomic_write`] left in `dir` because the program stopped in the
@@ -168,8 +180,10 @@ fn write_synced(path: &Path, contents: &[u8]) -> std::io::Result<()> {
 /// opened for this on Windows, and a failure here does not undo a write that succeeded.
 fn sync_dir(dir: &Path) {
     #[cfg(unix)]
-    if let Ok(handle) = fs::File::open(dir) {
-        let _ = handle.sync_all();
+    if let Ok(handle) = fs::File::open(dir)
+        && let Err(error) = handle.sync_all()
+    {
+        debug!(%error, path = %dir.display(), "could not flush a directory");
     }
     #[cfg(not(unix))]
     let _ = dir;
@@ -178,6 +192,7 @@ fn sync_dir(dir: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     fn denied() -> std::io::Error {
         std::io::Error::from(std::io::ErrorKind::PermissionDenied)
@@ -227,7 +242,7 @@ mod tests {
 
         atomic_write(&path, b"hello = 1\n").unwrap();
 
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "hello = 1\n");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "hello = 1\n");
     }
 
     #[test]
@@ -238,10 +253,10 @@ mod tests {
         atomic_write(&path, b"first\n").unwrap();
         atomic_write(&path, b"second\n").unwrap();
 
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "second\n");
-        let leftover_temp_files = std::fs::read_dir(temp_dir.path())
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second\n");
+        let leftover_temp_files = fs::read_dir(temp_dir.path())
             .unwrap()
-            .filter_map(|entry| entry.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
             .count();
         assert_eq!(leftover_temp_files, 0);
@@ -258,8 +273,8 @@ mod tests {
 
         assert!(atomic_write(&blocked, b"new\n").is_err());
 
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "old\n");
-        assert!(stale_temp_files(temp_dir.path()).is_empty());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "old\n");
+        assert_eq!(stale_temp_files(temp_dir.path()), [] as [PathBuf; 0]);
     }
 
     #[test]
@@ -271,16 +286,16 @@ mod tests {
         fs::write(&leftover, b"half a wri").unwrap();
 
         assert_eq!(stale_temp_files(temp_dir.path()), vec![leftover]);
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "real\n");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "real\n");
     }
 
     #[test]
     fn writers_racing_on_one_file_never_leave_it_torn() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let path = std::sync::Arc::new(temp_dir.path().join("race.toml"));
+        let path = Arc::new(temp_dir.path().join("race.toml"));
         let threads: Vec<_> = (0..8)
             .map(|n| {
-                let path = path.clone();
+                let path = Arc::clone(&path);
                 std::thread::spawn(move || {
                     for round in 0..25 {
                         let text = format!("writer = {n}\nround = {round}\n{}\n", "x".repeat(4096));
@@ -289,7 +304,7 @@ mod tests {
                         assert!(
                             seen.starts_with("writer = ") && seen.ends_with("x\n"),
                             "torn: {}",
-                            &seen[..seen.len().min(40)]
+                            seen.get(..seen.len().min(40)).unwrap_or_default()
                         );
                     }
                 })
@@ -298,7 +313,7 @@ mod tests {
         for thread in threads {
             thread.join().unwrap();
         }
-        assert!(stale_temp_files(temp_dir.path()).is_empty());
+        assert_eq!(stale_temp_files(temp_dir.path()), [] as [PathBuf; 0]);
     }
 
     #[cfg(unix)]
@@ -314,7 +329,7 @@ mod tests {
             path.parent().unwrap(),
             path.parent().unwrap().parent().unwrap(),
         ] {
-            let mode = std::fs::metadata(dir).unwrap().permissions().mode() & 0o777;
+            let mode = fs::metadata(dir).unwrap().permissions().mode() & 0o777;
             assert_eq!(mode, 0o700, "{}", dir.display());
         }
     }
@@ -328,7 +343,7 @@ mod tests {
         let path = temp_dir.path().join("secret.toml");
         atomic_write(&path, b"secret\n").unwrap();
 
-        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
     }
 }

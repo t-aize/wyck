@@ -34,7 +34,9 @@ pub(crate) fn stage_import(
         &paths.config_dir().join(PENDING),
         backup.to_text()?.as_bytes(),
     )?;
-    let _ = cancel_reset(paths);
+    if let Err(error) = cancel_reset(paths) {
+        warn!(%error, "could not cancel a reset that waits");
+    }
     Ok(backup)
 }
 
@@ -167,7 +169,11 @@ pub fn apply_pending(paths: &AppPaths, created: &str) -> Result<Applied> {
     };
     let Ok(backup) = Backup::parse(&text) else {
         warn!("the staged import cannot be read, setting it aside");
-        let _ = std::fs::rename(&path, paths.config_dir().join(format!("{PENDING}.bad")));
+        if let Err(error) =
+            std::fs::rename(&path, paths.config_dir().join(format!("{PENDING}.bad")))
+        {
+            warn!(%error, "could not set the staged import aside");
+        }
         applied.set_aside = true;
         return Ok(applied);
     };

@@ -661,7 +661,7 @@ mod tests {
 
         config.remove_profile(&id).unwrap();
 
-        assert!(config.profiles().is_empty());
+        assert_eq!(config.profiles(), []);
         assert!(config.active_profile().is_none());
         for name in [CLIENT_SECRET, OAUTH_TOKENS] {
             assert!(
@@ -674,7 +674,7 @@ mod tests {
             );
         }
         // And it stays removed after a restart.
-        assert!(config_in(temp_dir.path()).profiles().is_empty());
+        assert_eq!(config_in(temp_dir.path()).profiles(), []);
     }
 
     #[test]
@@ -693,7 +693,7 @@ mod tests {
             .save(&OpenApiTokens {
                 access_token: secret("access"),
                 refresh_token: secret("refresh"),
-                expires_at: Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000)),
+                expires_at: Some(UNIX_EPOCH + Duration::from_hours(500_000)),
             })
             .unwrap();
         drop(config);
@@ -716,7 +716,7 @@ mod tests {
         assert_eq!(tokens.refresh_token.expose_secret(), "refresh");
         assert_eq!(
             tokens.expires_at,
-            Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000))
+            Some(UNIX_EPOCH + Duration::from_hours(500_000))
         );
         assert!(
             !std::fs::read_to_string(config.paths().config_file())
@@ -799,11 +799,6 @@ mod tests {
     }
 
     fn flaky_config(dir: &std::path::Path) -> (WyckConfig, Arc<Flaky>) {
-        let paths = AppPaths::at(dir);
-        let flaky = Arc::new(Flaky {
-            inner: EncryptedFileSecretStore::new(paths.secrets_dir(), secret("pw")),
-            fail_deletes: std::sync::atomic::AtomicBool::new(false),
-        });
         struct Shared(Arc<Flaky>);
         impl SecretStore for Shared {
             fn store(&self, k: &SecretKey, s: &SecretString) -> Result<()> {
@@ -816,7 +811,12 @@ mod tests {
                 self.0.delete(k)
             }
         }
-        let config = WyckConfig::load(paths, Box::new(Shared(flaky.clone()))).unwrap();
+        let paths = AppPaths::at(dir);
+        let flaky = Arc::new(Flaky {
+            inner: EncryptedFileSecretStore::new(paths.secrets_dir(), secret("pw")),
+            fail_deletes: std::sync::atomic::AtomicBool::new(false),
+        });
+        let config = WyckConfig::load(paths, Box::new(Shared(Arc::clone(&flaky)))).unwrap();
         (config, flaky)
     }
 
@@ -840,7 +840,7 @@ mod tests {
             .fail_deletes
             .store(false, std::sync::atomic::Ordering::SeqCst);
         config.remove_profile(&id).unwrap();
-        assert!(config.profiles().is_empty());
+        assert_eq!(config.profiles(), []);
     }
 
     fn config_in_flaky_reload(dir: &std::path::Path) -> WyckConfig {
@@ -892,7 +892,7 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(config.paths().config_dir(), dir.path());
-        assert!(config.profiles().is_empty());
+        assert_eq!(config.profiles(), []);
     }
 
     #[test]

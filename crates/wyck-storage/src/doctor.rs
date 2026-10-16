@@ -215,8 +215,7 @@ fn check_folders(paths: &AppPaths, report: &mut Report) {
         use std::os::unix::fs::PermissionsExt;
         let too_open = |path: &Path, allowed: u32| {
             std::fs::metadata(path)
-                .map(|meta| meta.permissions().mode() & 0o777 & !allowed != 0)
-                .unwrap_or(false)
+                .is_ok_and(|meta| meta.permissions().mode() & 0o777 & !allowed != 0)
         };
         if too_open(&paths.config_file(), 0o600) {
             report.add(

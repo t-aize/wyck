@@ -1,7 +1,7 @@
 //! Where each kind of saved data lives, and the file that says so.
 //!
 //! By default everything is in the standard folders of the system (see [`AppPaths`]). A user can
-//! keep some of it elsewhere, such as a folder that OneDrive, Dropbox or another service syncs
+//! keep some of it elsewhere, such as a folder that `OneDrive`, Dropbox or another service syncs
 //! between computers, or a data disk. Five kinds can move, each on its own ([`Kind`]):
 //!
 //! * the settings (layout, shortcuts, favorites, everything the look and the charts keep),
@@ -402,7 +402,7 @@ pub(crate) fn holds_files(dir: &Path) -> bool {
 fn writable(dir: &Path) -> bool {
     let probe = dir.join(format!(".wyck-probe-{}", std::process::id()));
     let made = fs::write(&probe, b"").is_ok();
-    let _ = fs::remove_file(&probe);
+    crate::fs_util::remove_stray(&probe);
     made
 }
 
@@ -522,7 +522,7 @@ pub struct CloudFolder {
 /// The cloud folders of this computer, the ones the environment names and the well-known ones in
 /// the home folder. Only folders that exist.
 ///
-/// OneDrive sets `OneDrive`, `OneDriveConsumer` and `OneDriveCommercial` for the user; the other
+/// `OneDrive` sets `OneDrive`, `OneDriveConsumer` and `OneDriveCommercial` for the user; the other
 /// services are found by the name they give their folder. The list is a help, not a rule: the user
 /// can always pick any folder.
 #[must_use]
@@ -695,7 +695,7 @@ mod tests {
             Some(Path::new("/cloud/Wyck/settings"))
         );
         assert_eq!(back.get(Kind::Accounts), None);
-        let text = std::fs::read_to_string(temp.path().join(FILE)).unwrap();
+        let text = fs::read_to_string(temp.path().join(FILE)).unwrap();
         assert!(
             !text.contains("accounts"),
             "a kind left alone is not written: {text}"
@@ -705,17 +705,17 @@ mod tests {
     #[test]
     fn a_damaged_or_newer_pointer_is_reported_and_left_alone() {
         let temp = dir();
-        std::fs::write(temp.path().join(FILE), "settings = [[[").unwrap();
+        fs::write(temp.path().join(FILE), "settings = [[[").unwrap();
         assert!(matches!(
             Locations::load(temp.path()),
             Err(ConfigError::Parse { .. })
         ));
         assert_eq!(
-            std::fs::read_to_string(temp.path().join(FILE)).unwrap(),
+            fs::read_to_string(temp.path().join(FILE)).unwrap(),
             "settings = [[["
         );
 
-        std::fs::write(
+        fs::write(
             temp.path().join(FILE),
             "schema_version = 9\nfrom_later = 1\n",
         )
@@ -730,8 +730,8 @@ mod tests {
     fn every_kind_has_its_own_name_and_only_the_logs_stay_out_of_the_cloud() {
         let codes: std::collections::HashSet<_> = Kind::ALL.iter().map(|k| k.code()).collect();
         assert_eq!(codes.len(), Kind::ALL.len());
-        let cloud: Vec<_> = Kind::ALL.iter().filter(|k| k.in_cloud_preset()).collect();
-        assert_eq!(cloud.len(), 4);
+
+        assert_eq!(Kind::ALL.iter().filter(|k| k.in_cloud_preset()).count(), 4);
         assert!(!Kind::Logs.in_cloud_preset() && !Kind::Logs.carries_files());
         assert!(Kind::Settings.carries_files());
     }
@@ -751,7 +751,7 @@ mod tests {
             Reason::Missing
         );
         let file = temp.path().join("file");
-        std::fs::write(&file, "x").unwrap();
+        fs::write(&file, "x").unwrap();
         assert_eq!(problem(&file, Use::Existing), Reason::NotAFolder);
         assert_eq!(
             problem(&file.join("below"), Use::Chosen),
@@ -787,15 +787,15 @@ mod tests {
         let temp = dir();
         let mode = BuildMode::Production;
         let empty = temp.path().join("empty");
-        std::fs::create_dir(&empty).unwrap();
+        fs::create_dir(&empty).unwrap();
         assert_eq!(
             check(&empty, Kind::Settings, mode, Use::Chosen).unwrap(),
             Checked { has_data: false }
         );
 
         let foreign = temp.path().join("foreign");
-        std::fs::create_dir(&foreign).unwrap();
-        std::fs::write(foreign.join("holiday.jpg"), "x").unwrap();
+        fs::create_dir(&foreign).unwrap();
+        fs::write(foreign.join("holiday.jpg"), "x").unwrap();
         let problem = check(&foreign, Kind::Settings, mode, Use::Chosen).unwrap_err();
         assert_eq!(problem.reason, Reason::NotEmpty);
         assert!(problem.to_string().contains("mixed"), "{problem}");
@@ -912,7 +912,7 @@ mod tests {
 
         // A folder that is there is used.
         let chosen = temp.path().join("chosen");
-        std::fs::create_dir(&chosen).unwrap();
+        fs::create_dir(&chosen).unwrap();
         locations.set(Kind::Accounts, Some(chosen.clone()));
         let used = resolve(
             &locations,
@@ -937,9 +937,9 @@ mod tests {
             "Library/CloudStorage/GoogleDrive-me",
             "Library/Mobile Documents/com~apple~CloudDocs",
         ] {
-            std::fs::create_dir_all(home.join(name)).unwrap();
+            fs::create_dir_all(home.join(name)).unwrap();
         }
-        std::fs::write(home.join("OneDrive notes.txt"), "a file, not a folder").unwrap();
+        fs::write(home.join("OneDrive notes.txt"), "a file, not a folder").unwrap();
         let missing = home.join("OneDriveGhost");
         let consumer = home.join("OneDrive");
         let found = cloud_folders_with(
@@ -966,7 +966,7 @@ mod tests {
             assert!(names.contains(&wanted), "{wanted} in {names:?}");
         }
         assert!(!names.contains(&"Documents") && !names.contains(&"OneDriveGhost"));
-        assert!(cloud_folders_with(env(&[]), None).is_empty());
+        assert_eq!(cloud_folders_with(env(&[]), None), [] as [CloudFolder; 0]);
     }
 
     #[test]
@@ -1007,7 +1007,7 @@ mod tests {
             "notes.toml",
             "indicator_editor_drafts.toml",
         ] {
-            std::fs::write(temp.path().join(name), "x").unwrap();
+            fs::write(temp.path().join(name), "x").unwrap();
         }
         let found: Vec<String> = conflict_copies(temp.path(), &["preferences", "alerts"])
             .iter()
@@ -1022,6 +1022,9 @@ mod tests {
                 "preferences.sync-conflict-20261012-101010-ABCDEFG.toml",
             ]
         );
-        assert!(conflict_copies(&temp.path().join("nothing"), &["preferences"]).is_empty());
+        assert_eq!(
+            conflict_copies(&temp.path().join("nothing"), &["preferences"]),
+            [] as [PathBuf; 0]
+        );
     }
 }
