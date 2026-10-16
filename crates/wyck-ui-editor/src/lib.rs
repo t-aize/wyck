@@ -103,7 +103,7 @@ struct DraftTab {
 }
 
 /// One script open in a tab.
-pub(super) struct Doc {
+pub(crate) struct Doc {
     /// The id of the script, its path in the folder.
     pub id: String,
     pub state: Entity<EditorState>,
@@ -122,13 +122,13 @@ pub(super) struct Doc {
 }
 
 /// A name being asked for, for a new script or a rename.
-pub(super) enum Ask {
+pub(crate) enum Ask {
     /// A new script from a template (its position in [`TEMPLATES`]).
     New(usize),
     Rename(String),
 }
 
-pub(super) struct Prompt {
+pub(crate) struct Prompt {
     pub ask: Ask,
     pub input: Entity<InputState>,
     _subscription: Subscription,
@@ -136,55 +136,55 @@ pub(super) struct Prompt {
 
 /// What the console shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ConsoleTab {
+pub(crate) enum ConsoleTab {
     Problems,
     Output,
 }
 
 /// A line in the status bar.
-pub(super) struct Notice {
+pub(crate) struct Notice {
     pub ok: bool,
     pub text: String,
     _clear: Task<()>,
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum ResizeSide {
+pub(crate) enum ResizeSide {
     Explorer,
     Reference,
     Console,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct ResizeDrag {
+pub(crate) struct ResizeDrag {
     pub side: ResizeSide,
     pub start: f32,
     pub size: f32,
 }
 
 pub struct IndicatorEditor {
-    pub(super) multi: Entity<MultiChart>,
-    pub(super) docs: Vec<Doc>,
-    pub(super) active: usize,
-    pub(super) filter: Entity<InputState>,
-    pub(super) reference_filter: Entity<InputState>,
-    pub(super) prompt: Option<Prompt>,
-    pub(super) console: ConsoleTab,
-    pub(super) reference_open: bool,
+    pub(crate) multi: Entity<MultiChart>,
+    pub(crate) docs: Vec<Doc>,
+    pub(crate) active: usize,
+    pub(crate) filter: Entity<InputState>,
+    pub(crate) reference_filter: Entity<InputState>,
+    pub(crate) prompt: Option<Prompt>,
+    pub(crate) console: ConsoleTab,
+    pub(crate) reference_open: bool,
     /// The folders of the tree that are folded.
-    pub(super) folded: BTreeSet<String>,
-    pub(super) notice: Option<Notice>,
+    pub(crate) folded: BTreeSet<String>,
+    pub(crate) notice: Option<Notice>,
     /// The script the file menu is open for.
-    pub(super) menu_target: Option<String>,
-    pub(super) maximized: bool,
-    pub(super) explorer_width: f32,
-    pub(super) reference_width: f32,
-    pub(super) console_height: f32,
-    pub(super) resize: Option<ResizeDrag>,
+    pub(crate) menu_target: Option<String>,
+    pub(crate) maximized: bool,
+    pub(crate) explorer_width: f32,
+    pub(crate) reference_width: f32,
+    pub(crate) console_height: f32,
+    pub(crate) resize: Option<ResizeDrag>,
     /// Writes the unsaved work a moment after the last change; `None` when nothing is remembered.
     draft_saver: Option<Saver<Drafts>>,
     drafts_loaded: bool,
-    pub(super) focus: FocusHandle,
+    pub(crate) focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -350,7 +350,7 @@ impl IndicatorEditor {
     }
 
     /// The tab being edited.
-    pub(super) fn current(&self) -> Option<&Doc> {
+    pub(crate) fn current(&self) -> Option<&Doc> {
         self.docs.get(self.active)
     }
 
@@ -375,7 +375,7 @@ impl IndicatorEditor {
         }
     }
 
-    pub(super) fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
+    pub(crate) fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
         let clear = cx.spawn(async move |this, cx| {
             cx.background_executor().timer(NOTICE_TIME).await;
             let _ = this.update(cx, |this, cx| {

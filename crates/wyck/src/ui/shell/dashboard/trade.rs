@@ -10,9 +10,6 @@ pub mod layout;
 pub mod price_alerts;
 
 use super::Dashboard;
-use crate::ui::features::trading;
-use crate::ui::features::trading::panel::PanelEvent;
-use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
 use gpui::prelude::*;
 use gpui::{Context, Window};
 use wyck_trading::math;
@@ -23,6 +20,9 @@ use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
     toast, tokens,
 };
+use wyck_ui_trading as trading;
+use wyck_ui_trading::panel::PanelEvent;
+use wyck_ui_trading::ticket::{OrderTicket, TicketEvent};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {
@@ -169,12 +169,7 @@ impl Dashboard {
                 );
             }
             Pending::EditAlert(id) => {
-                crate::ui::features::trading::panel::open_alert(
-                    self.alerts.clone(),
-                    id,
-                    window,
-                    cx,
-                );
+                wyck_ui_trading::panel::open_alert(self.alerts.clone(), id, window, cx);
             }
             Pending::Editor(request) => {
                 use wyck_ui_chart::chart::events::EditorRequest;

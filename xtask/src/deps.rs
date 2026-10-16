@@ -206,6 +206,18 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-ui-editor",
+        internal: &[
+            "wyck-app",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-ui-chart",
+            "wyck-ui-kit",
+        ],
+        forbidden: NOT_IN_A_SCREEN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck-ui-kit",
         internal: &["wyck-core"],
         forbidden: &[
@@ -240,6 +252,22 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-ui-trading",
+        internal: &[
+            "wyck-app",
+            "wyck-chart",
+            "wyck-core",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-market",
+            "wyck-trading",
+            "wyck-ui-chart",
+            "wyck-ui-kit",
+        ],
+        forbidden: NOT_IN_A_SCREEN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck",
         internal: &[
             "wyck-app",
@@ -254,7 +282,9 @@ const LAYERS: &[Layer] = &[
             "wyck-storage",
             "wyck-trading",
             "wyck-ui-chart",
+            "wyck-ui-editor",
             "wyck-ui-kit",
+            "wyck-ui-trading",
         ],
         forbidden: &[],
         own_lints: true,

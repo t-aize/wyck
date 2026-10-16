@@ -38,8 +38,8 @@ fn screens_read_their_colors_from_the_theme() {
     let mut files = Vec::new();
     // The screens of the app and the shared controls; the chart has its own colors.
     for dir in [
-        "src/ui/features/trading",
-        "src/ui/features/indicators",
+        "../wyck-ui-trading/src",
+        "../wyck-ui-editor/src",
         "src/ui/shell",
         "../wyck-ui-chart/src/multichart",
         "../wyck-ui-kit/src",

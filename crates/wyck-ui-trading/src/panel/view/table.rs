@@ -1,10 +1,10 @@
 //! The table: its header, its rows with their two buttons, and the line of totals.
 
 use super::{Action, ask, tone_color};
-use crate::ui::features::trading::panel::data::{Column, Row, RowKind, Table};
-use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
-use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
-use crate::ui::features::trading::panel::{AccountPanel, PanelEvent};
+use crate::panel::data::{Column, Row, RowKind, Table};
+use crate::panel::dialogs::alert_editor::open_alert;
+use crate::panel::dialogs::{Target, open_protection};
+use crate::panel::{AccountPanel, PanelEvent};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, Role, SharedString, div, px};
 use std::rc::Rc;

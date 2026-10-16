@@ -24,9 +24,6 @@ pub mod view;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
-use crate::ui::features::indicators::editor::IndicatorEditor;
-use crate::ui::features::trading::panel::AccountPanel;
-use crate::ui::features::trading::ticket::OrderTicket;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedString, Window};
 use std::collections::HashMap;
@@ -43,7 +40,10 @@ use wyck_drawings::model::tool::Tool;
 use wyck_trading::guard::Mode;
 use wyck_ui_chart::chart;
 use wyck_ui_chart::multichart::{MultiChart, MultiChartEvent};
+use wyck_ui_editor::IndicatorEditor;
 use wyck_ui_kit::toast;
+use wyck_ui_trading::panel::AccountPanel;
+use wyck_ui_trading::ticket::OrderTicket;
 
 gpui::actions!(
     wyck_dashboard,

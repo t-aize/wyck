@@ -15,7 +15,6 @@ use gpui::prelude::*;
 use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
-use ui::features::indicators;
 use ui::shell::app_view::AppView;
 use wyck_app::appearance;
 use wyck_app::scripts;
@@ -82,7 +81,7 @@ pub fn run() {
                     scripts::init(None, cx);
                 }
             }
-            indicators::editor::init(cx);
+            wyck_ui_editor::init(cx);
             crate::ui::shell::keymap::apply(&Default::default(), cx);
 
             // Without the bundled font the system's own is used: the app is still usable.

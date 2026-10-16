@@ -16,7 +16,7 @@ const READS_KEYS: &[&str] = &[
     // Up, Down and Enter to choose an account.
     "wyck/src/ui/shell/sign_in_gate.rs",
     // Escape to give up naming a script.
-    "wyck/src/ui/features/indicators/editor/parts/explorer.rs",
+    "wyck-ui-editor/src/parts/explorer.rs",
     // The key being awaited by the page that sets the shortcuts.
     "wyck/src/ui/shell/settings_hub/shortcuts.rs",
 ];
@@ -43,7 +43,13 @@ pub(crate) fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 /// The sources of the crates that hold screens, named from the `crates` folder.
-const SCREEN_CRATES: &[&str] = &["wyck/src", "wyck-ui-chart/src", "wyck-ui-kit/src"];
+const SCREEN_CRATES: &[&str] = &[
+    "wyck/src",
+    "wyck-ui-chart/src",
+    "wyck-ui-editor/src",
+    "wyck-ui-kit/src",
+    "wyck-ui-trading/src",
+];
 
 fn sources() -> Vec<(String, String)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");

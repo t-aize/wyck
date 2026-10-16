@@ -2,7 +2,7 @@
 
 use super::{Cell, Ctx, Row, RowKind, Table, Tone, Unit, finish, money_text, price_cell};
 
-use crate::ui::features::trading::panel::stats;
+use crate::panel::stats;
 use std::collections::BTreeMap;
 use wyck_app::account::Account;
 use wyck_app::prefs::panel::Tab;

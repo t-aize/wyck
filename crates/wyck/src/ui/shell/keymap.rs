@@ -17,11 +17,11 @@ use std::rc::Rc;
 
 use gpui::{Action, App, DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate, Keystroke};
 
-use crate::ui::features::indicators::editor as e;
 use crate::ui::shell::dashboard as d;
 use crate::ui::shell::sign_in_gate::Dismiss;
 use wyck_app::shortcuts::{Chord, Resolved, ShortcutPrefs, canonical};
 use wyck_ui_chart::chart as c;
+use wyck_ui_editor as e;
 use wyck_ui_kit::modal::CloseModal;
 use wyck_ui_kit::text_input as t;
 

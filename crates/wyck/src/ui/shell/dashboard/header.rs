@@ -11,8 +11,8 @@ use super::marks;
 pub mod figures;
 pub mod timeframes;
 use super::{Conn, Dashboard, MenuKind, Tick};
-use crate::ui::features::trading;
 use wyck_ui_kit::{anim, icon, layout, theme, tokens};
+use wyck_ui_trading as trading;
 
 /// The widest the subtitle of the symbol grows before it is cut.
 const SUBTITLE_MAX: f32 = 170.0;

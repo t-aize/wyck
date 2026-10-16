@@ -9822,15 +9822,12 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 name = "wyck"
 version = "0.2.1"
 dependencies = [
- "anyhow",
  "chrono",
  "gpui-kit",
  "gpui-pre",
- "lsp-types",
  "serde",
  "serde_json",
  "tempfile",
- "toml 1.1.8+spec-1.1.0",
  "tracing",
  "winresource",
  "wyck-app",
@@ -9844,7 +9841,9 @@ dependencies = [
  "wyck-storage",
  "wyck-trading",
  "wyck-ui-chart",
+ "wyck-ui-editor",
  "wyck-ui-kit",
+ "wyck-ui-trading",
 ]
 
 [[package]]
@@ -10034,6 +10033,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "wyck-ui-editor"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "gpui-pre",
+ "lsp-types",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-app",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-ui-chart",
+ "wyck-ui-kit",
+]
+
+[[package]]
 name = "wyck-ui-kit"
 version = "0.2.1"
 dependencies = [
@@ -10043,6 +10059,25 @@ dependencies = [
  "tracing",
  "unicode-segmentation",
  "wyck-core",
+]
+
+[[package]]
+name = "wyck-ui-trading"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "gpui-pre",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-chart",
+ "wyck-ui-kit",
 ]
 
 [[package]]
