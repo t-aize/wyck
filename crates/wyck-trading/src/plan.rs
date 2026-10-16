@@ -15,7 +15,12 @@
 //!
 //! This module is plain data and arithmetic, tested without a window or a broker.
 
+use std::collections::HashMap;
+use std::hash::BuildHasher;
+
 use serde::{Deserialize, Serialize};
+
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 
 use super::follow::AtrFollow;
 
@@ -120,7 +125,8 @@ impl ExitPlan {
         if self.legs.is_empty() {
             self.legs = Self::default().legs;
         }
-        let last_but_one = self.legs.len().saturating_sub(1).max(1) as u8;
+        let last_but_one =
+            u8::try_from(self.legs.len().saturating_sub(1).max(1)).unwrap_or(u8::MAX);
         self.break_even.after_leg = self.break_even.after_leg.clamp(1, last_but_one);
         self.break_even.offset_pips = clean(self.break_even.offset_pips, 10_000.0);
         self.oco_pips = clean(self.oco_pips, 100_000.0);
@@ -164,16 +170,20 @@ pub fn split_volume(total: i64, shares: &[f64], min: i64, step: i64) -> (Vec<i64
         }
         let mut volumes: Vec<i64> = shares
             .iter()
-            .map(|s| ((total as f64 * s / sum / step as f64).floor() as i64) * step)
+            .map(|s| f64_to_i64((i64_to_f64(total) * s / sum / i64_to_f64(step)).floor()) * step)
             .collect();
         let rest = total - volumes.iter().sum::<i64>();
-        volumes[0] += rest;
+        if let Some(first) = volumes.first_mut() {
+            *first += rest;
+        }
         match volumes.iter().position(|v| *v < min) {
             Some(at) if shares.len() > 1 => {
                 // The share of the small leg goes to the leg before it (or after, for the first).
                 let share = shares.remove(at);
                 kept.remove(at);
-                shares[at.saturating_sub(1)] += share;
+                if let Some(heir) = shares.get_mut(at.saturating_sub(1)) {
+                    *heir += share;
+                }
             }
             _ => return (volumes, kept),
         }
@@ -277,16 +287,16 @@ impl Label {
     pub fn encode(&self) -> String {
         let mut text = format!("{PREFIX}{}:{}/{}", self.group, self.leg, self.of);
         if let Some((after, tenths)) = self.break_even {
-            text.push_str(&format!(":b{after},{tenths}"));
+            text = format!("{text}:b{after},{tenths}");
         }
         if self.oco {
             text.push_str(":oco");
         }
         if let Some(stop) = self.time_stop {
-            text.push_str(&format!(":t{}{}", stop.minutes, stop.only.letter()));
+            text = format!("{text}:t{}{}", stop.minutes, stop.only.letter());
         }
         if let Some(follow) = &self.follow {
-            text.push_str(&format!(":a{}", follow.encode()));
+            text = format!("{text}:a{}", follow.encode());
         }
         text
     }
@@ -312,10 +322,12 @@ impl Label {
             if part == "oco" {
                 label.oco = true;
             } else if let Some(rule) = part.strip_prefix('t') {
-                let (digits, only) = match rule.char_indices().last() {
-                    Some((at, 'w')) => (&rule[..at], Only::Winning),
-                    Some((at, 'l')) => (&rule[..at], Only::Losing),
-                    _ => (rule, Only::Always),
+                let (digits, only) = if let Some(digits) = rule.strip_suffix('w') {
+                    (digits, Only::Winning)
+                } else if let Some(digits) = rule.strip_suffix('l') {
+                    (digits, Only::Losing)
+                } else {
+                    (rule, Only::Always)
                 };
                 let minutes: u32 = digits.parse().ok()?;
                 if minutes == 0 || minutes > MAX_TIME_STOP_MINUTES {
@@ -335,15 +347,18 @@ impl Label {
 
 /// A short id for a new plan, from the time: 8 letters and digits.
 pub fn new_group(now_ms: i64) -> String {
-    const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     let mut n = now_ms.unsigned_abs();
     let mut out = Vec::new();
     while n > 0 && out.len() < 8 {
-        out.push(DIGITS[(n % 36) as usize]);
+        // `n % 36` is below 36, so it is always a digit of base 36 (`0-9` then `a-z`).
+        out.extend(
+            u32::try_from(n % 36)
+                .ok()
+                .and_then(|d| char::from_digit(d, 36)),
+        );
         n /= 36;
     }
-    out.reverse();
-    String::from_utf8(out).unwrap_or_default()
+    out.iter().rev().collect()
 }
 
 /// An open position of a plan, as far as the break-even rule cares.
@@ -430,9 +445,9 @@ pub enum Catch {
 /// stop already at the entry, or an order already gone, gives no move. The one thing it cannot
 /// know is a stop the user loosened by hand after a break-even that had run: it would tighten it
 /// again once, at the next connection.
-pub fn catch_up(
+pub fn catch_up<S: BuildHasher>(
     past: &[Past],
-    profits: &std::collections::HashMap<i64, f64>,
+    profits: &HashMap<i64, f64, S>,
     open: &[Open],
     working: &[(i64, Label, bool)],
 ) -> Vec<Catch> {
@@ -500,7 +515,7 @@ mod tests {
         assert_eq!(v, vec![100_000]);
         assert_eq!(kept.len(), 1);
         // Nothing to split.
-        assert!(split_volume(0, &[100.0], min, step).0.is_empty());
+        assert_eq!(split_volume(0, &[100.0], min, step).0, [] as [i64; 0]);
     }
 
     #[test]
@@ -713,10 +728,16 @@ mod tests {
         );
         assert_eq!(moves, vec![(2, 1.1000), (3, 1.1000)]);
         // A loss, or another leg closing, moves nothing.
-        assert!(break_even_moves(&closed, -1.0, &legs, 0.0001).is_empty());
+        assert_eq!(
+            break_even_moves(&closed, -1.0, &legs, 0.0001),
+            [] as [(i64, f64); 0]
+        );
         let mut second = closed;
         second.leg = 2;
-        assert!(break_even_moves(&second, 5.0, &legs, 0.0001).is_empty());
+        assert_eq!(
+            break_even_moves(&second, 5.0, &legs, 0.0001),
+            [] as [(i64, f64); 0]
+        );
     }
 
     #[test]
@@ -763,7 +784,10 @@ mod tests {
             oco_siblings(&label("a", true), true, &working),
             vec![10, 11]
         );
-        assert!(oco_siblings(&label("a", false), true, &working).is_empty());
+        assert_eq!(
+            oco_siblings(&label("a", false), true, &working),
+            [] as [i64; 0]
+        );
     }
 
     fn past(position: i64, leg: u8, oco: bool, buy: bool, filled: bool) -> Past {
@@ -791,7 +815,7 @@ mod tests {
             open(3, 3, true, 1.1000, Some(1.0950)),
         ];
         let history = [past(1, 1, false, true, true)];
-        let profits = std::collections::HashMap::from([(1, 12.0)]);
+        let profits = HashMap::from([(1, 12.0)]);
         let moves = catch_up(&history, &profits, &open, &[]);
         assert_eq!(
             moves,
@@ -808,7 +832,7 @@ mod tests {
         );
         // Once the stops are at the entry, a second pass finds nothing to do.
         let done = [open_at(2, 2, Some(1.1000)), open_at(3, 3, Some(1.1000))];
-        assert!(catch_up(&history, &profits, &done, &[]).is_empty());
+        assert_eq!(catch_up(&history, &profits, &done, &[]), [] as [Catch; 0]);
     }
 
     fn open_at(position: i64, leg: u8, sl: Option<f64>) -> Open {
@@ -819,17 +843,20 @@ mod tests {
     fn a_leg_that_lost_or_is_still_open_moves_nothing() {
         let open = [open_at(2, 2, Some(1.0950))];
         let history = [past(1, 1, false, true, true)];
-        let loss = std::collections::HashMap::from([(1, -4.0)]);
-        assert!(catch_up(&history, &loss, &open, &[]).is_empty());
+        let loss = HashMap::from([(1, -4.0)]);
+        assert_eq!(catch_up(&history, &loss, &open, &[]), [] as [Catch; 0]);
         // No closing deal known for the position: nothing is assumed.
-        assert!(catch_up(&history, &std::collections::HashMap::new(), &open, &[]).is_empty());
+        assert_eq!(
+            catch_up(&history, &HashMap::new(), &open, &[]),
+            [] as [Catch; 0]
+        );
         // The leg is still open (only part of it closed): it is not a leg that closed.
         let still = [open_at(1, 1, Some(1.0950)), open_at(2, 2, Some(1.0950))];
-        let profit = std::collections::HashMap::from([(1, 9.0)]);
-        assert!(catch_up(&history, &profit, &still, &[]).is_empty());
+        let profit = HashMap::from([(1, 9.0)]);
+        assert_eq!(catch_up(&history, &profit, &still, &[]), [] as [Catch; 0]);
         // An order that never filled proves nothing.
         let unfilled = [past(1, 1, false, true, false)];
-        assert!(catch_up(&unfilled, &profit, &open, &[]).is_empty());
+        assert_eq!(catch_up(&unfilled, &profit, &open, &[]), [] as [Catch; 0]);
     }
 
     #[test]
@@ -846,12 +873,7 @@ mod tests {
         let working = [(10, label(true), false), (11, label(true), true)];
         let mut filled = past(5, 1, true, true, true);
         filled.label = label(true);
-        let moves = catch_up(
-            &[filled.clone(), filled],
-            &std::collections::HashMap::new(),
-            &[],
-            &working,
-        );
+        let moves = catch_up(&[filled.clone(), filled], &HashMap::new(), &[], &working);
         assert_eq!(
             moves,
             vec![Catch::Cancel { order: 10 }],

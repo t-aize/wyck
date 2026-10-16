@@ -2,6 +2,7 @@
 //! size and its stop loss and take profit are typed, and how money is written.
 
 pub use crate::contract::*;
+use wyck_core::math::f64_to_i64;
 
 /// How the volume of an order is chosen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -107,7 +108,7 @@ impl Scale {
 /// An amount of money with its currency: `1,234.56 USD`, `-12.30 EUR`.
 pub fn format_money(amount: f64, currency: &str) -> String {
     let negative = amount < 0.0;
-    let cents = (amount.abs() * 100.0).round() as i64;
+    let cents = f64_to_i64((amount.abs() * 100.0).round());
     let (whole, rest) = (cents / 100, cents % 100);
     let grouped = wyck_core::format::grouped(whole);
     let sign = if negative && cents > 0 { "-" } else { "" };
@@ -122,7 +123,7 @@ pub fn format_money(amount: f64, currency: &str) -> String {
 /// (`$1,234.56`, `\u{20AC}12.30`), else the code after it (`1,234.56 CHF`). With `signed`, a gain
 /// carries a `+` (`+$114.00`); a loss always carries its `-`.
 pub fn format_amount(amount: f64, currency: &str, signed: bool) -> String {
-    let cents = (amount.abs() * 100.0).round() as i64;
+    let cents = f64_to_i64((amount.abs() * 100.0).round());
     let sign = if amount < 0.0 && cents > 0 {
         "-"
     } else if signed && cents > 0 {

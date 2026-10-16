@@ -22,6 +22,7 @@
 use serde::Deserialize;
 
 use wyck_core::flex;
+use wyck_core::math::i64_to_f64;
 
 /// Defines an enumeration that maps to server numbers and back. For the files of this folder only.
 #[doc(hidden)]
@@ -213,7 +214,7 @@ number_enum! {
 /// ```
 #[must_use]
 pub fn money(raw: i64, money_digits: Option<u32>) -> f64 {
-    raw as f64 / 10f64.powi(i32::try_from(money_digits.unwrap_or(2)).unwrap_or(2))
+    i64_to_f64(raw) / 10f64.powi(i32::try_from(money_digits.unwrap_or(2)).unwrap_or(2))
 }
 
 /// The decimals of a money amount from the number the server sent; `None` when it sent none.
@@ -224,7 +225,7 @@ fn digits_of(raw: Option<i64>) -> Option<u32> {
 /// A volume in units, from the server's hundredths of a unit.
 #[must_use]
 pub fn volume_units(raw: i64) -> f64 {
-    raw as f64 / 100.0
+    i64_to_f64(raw) / 100.0
 }
 
 /// The account itself (`ProtoOATrader`): balance, leverage, rights.
@@ -254,6 +255,10 @@ pub struct Trader {
     pub max_leverage: Option<i64>,
     /// The login number shown in the platform. For display only.
     #[serde(default, deserialize_with = "flex::opt")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `traderLogin` field of the wire message"
+    )]
     pub trader_login: Option<i64>,
     /// How the account books positions, as its number (see [`Trader::kind`]).
     #[serde(default, deserialize_with = "flex::opt")]
@@ -285,7 +290,7 @@ impl Trader {
     /// The leverage as a ratio (100.0 for 1:100).
     #[must_use]
     pub fn leverage(&self) -> Option<f64> {
-        self.leverage_in_cents.map(|c| c as f64 / 100.0)
+        self.leverage_in_cents.map(|c| i64_to_f64(c) / 100.0)
     }
 
     /// What the account may do.
@@ -352,11 +357,19 @@ impl TradeData {
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `positionId` field of the wire message"
+    )]
     pub position_id: i64,
     /// Symbol, volume, side, times.
     pub trade_data: TradeData,
     /// Open, closed, ..., as its number (see [`Position::status`]).
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `positionStatus` field of the wire message"
+    )]
     pub position_status: i64,
     /// The swap charged so far, scaled by `10^moneyDigits`.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -400,14 +413,26 @@ impl Position {
 #[serde(rename_all = "camelCase")]
 pub struct Order {
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `orderId` field of the wire message"
+    )]
     pub order_id: i64,
     /// Symbol, volume, side, times.
     pub trade_data: TradeData,
     /// The kind, as its number (see [`Order::kind`]).
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `orderType` field of the wire message"
+    )]
     pub order_type: i64,
     /// Where it stands, as its number (see [`Order::status`]).
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `orderStatus` field of the wire message"
+    )]
     pub order_status: i64,
     /// When it expires, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -460,6 +485,10 @@ impl Order {
 #[serde(rename_all = "camelCase")]
 pub struct Deal {
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `dealId` field of the wire message"
+    )]
     pub deal_id: i64,
     /// The order it fills.
     #[serde(deserialize_with = "flex::int")]
@@ -488,6 +517,10 @@ pub struct Deal {
     pub trade_side: i64,
     /// How it ended, as its number (see [`Deal::status`]).
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `dealStatus` field of the wire message"
+    )]
     pub deal_status: i64,
     /// The commission, scaled by `10^moneyDigits`.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -630,14 +663,14 @@ mod tests {
     fn a_trader_is_read_with_its_helpers() {
         let trader: Trader = serde_json::from_value(json!({
             "ctidTraderAccountId": "48332955",
-            "balance": 1000000,
+            "balance": 1_000_000,
             "depositAssetId": 15,
             "accessRights": 0,
             "leverageInCents": 10000,
             "accountType": 0,
             "brokerName": "Spotware",
             "moneyDigits": 2,
-            "traderLogin": 900001
+            "traderLogin": 900_001
         }))
         .unwrap();
         assert_eq!(trader.ctid_trader_account_id, 48_332_955);
@@ -651,7 +684,7 @@ mod tests {
     fn a_position_and_its_trade_data_are_read() {
         let position: Position = serde_json::from_value(json!({
             "positionId": 77,
-            "tradeData": {"symbolId": 1, "volume": 100000, "tradeSide": 1, "openTimestamp": 1789700000000_i64, "label": "wyck"},
+            "tradeData": {"symbolId": 1, "volume": 100_000, "tradeSide": 1, "openTimestamp": 1_789_700_000_000_i64, "label": "wyck"},
             "positionStatus": 1,
             "swap": -25,
             "price": 1.14879,

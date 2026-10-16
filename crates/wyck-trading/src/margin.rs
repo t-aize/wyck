@@ -40,6 +40,10 @@ pub struct ExpectedMargin {
 pub struct MarginCall {
     /// Which of the three thresholds this is, as [`MarginCallType`]'s number.
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `marginCallType` field of the wire message"
+    )]
     pub margin_call_type: i64,
     /// The margin level (equity over used margin, in percent) that triggers it.
     pub margin_level_threshold: f64,
