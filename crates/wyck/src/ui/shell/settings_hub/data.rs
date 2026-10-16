@@ -304,7 +304,9 @@ impl SettingsHub {
         // What waits to be saved goes to the disk first, so the backup is what is on screen.
         self.multi.read(cx).flush_documents(cx);
         appearance::save_now(cx);
-        let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let stamp = chrono::DateTime::<chrono::Local>::from(wyck_clock::now())
+            .format("%Y-%m-%d")
+            .to_string();
         let name = format!("wyck-backup-{stamp}.toml");
         let start = wyck_app::storage::AppPaths::documents_dir();
         let scripts_dir = indicators::dir(cx);
@@ -313,7 +315,7 @@ impl SettingsHub {
             let Ok(Ok(Some(path))) = picked.await else {
                 return;
             };
-            let created = chrono::Local::now().to_rfc3339();
+            let created = chrono::DateTime::<chrono::Local>::from(wyck_clock::now()).to_rfc3339();
             let scripts = ScriptStore::new(scripts_dir);
             let result =
                 backup::staged::export_to_file(dir, Some(&scripts), &path, None, VERSION, &created);
@@ -404,7 +406,7 @@ impl SettingsHub {
         self.multi.read(cx).flush_documents(cx);
         appearance::save_now(cx);
         let scripts = ScriptStore::new(indicators::dir(cx));
-        let created = chrono::Local::now().to_rfc3339();
+        let created = chrono::DateTime::<chrono::Local>::from(wyck_clock::now()).to_rfc3339();
         let store: BackupStore = paths.backups();
         let result = backup::Backup::collect(paths, Some(&scripts), VERSION, &created)
             .and_then(|b| store.create(&b));

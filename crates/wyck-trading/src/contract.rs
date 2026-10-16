@@ -8,6 +8,7 @@
 //! - **Prices** here are real (1.08412), like the prices of positions and orders on the wire.
 //! - **Money** is in the account's deposit currency, as real numbers.
 
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_market::PRICE_SCALE;
 
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
@@ -77,15 +78,15 @@ impl Contract {
         if !lots.is_finite() || lots <= 0.0 {
             return self.min_volume;
         }
-        let raw = lots * self.lot_size as f64;
-        let step = self.step_volume.max(1) as f64;
-        let stepped = ((raw / step).round() * step) as i64;
+        let raw = lots * i64_to_f64(self.lot_size);
+        let step = i64_to_f64(self.step_volume.max(1));
+        let stepped = f64_to_i64((raw / step).round() * step);
         stepped.clamp(self.min_volume, self.max_volume.max(self.min_volume))
     }
 
     /// The lots a volume makes.
     pub fn lots_of_volume(&self, volume: i64) -> f64 {
-        volume as f64 / self.lot_size.max(1) as f64
+        i64_to_f64(volume) / i64_to_f64(self.lot_size.max(1))
     }
 
     /// The size of one pip in price.
@@ -123,7 +124,7 @@ pub fn format_lots(lots: f64) -> String {
 /// is never rounded down to nothing.
 pub fn relative_distance(distance: f64, digits: u32) -> i64 {
     let step = 10i64.pow(PRICE_DIGITS.saturating_sub(digits.min(PRICE_DIGITS)));
-    let units = (distance.abs() * PRICE_SCALE as f64 / step as f64).round() as i64;
+    let units = f64_to_i64((distance.abs() * i64_to_f64(PRICE_SCALE) / i64_to_f64(step)).round());
     units.max(1) * step
 }
 
@@ -286,7 +287,7 @@ pub fn move_amount(quantity: f64, distance: f64, value: f64) -> f64 {
 /// The lots whose loss over `stop_distance` is `risk` in the deposit currency, before they are
 /// stepped. `rate` is the deposit currency per unit of quote currency.
 pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contract) -> Option<f64> {
-    let units_per_lot = contract.lot_size as f64 / 100.0;
+    let units_per_lot = i64_to_f64(contract.lot_size) / 100.0;
     quantity_for_risk(risk, stop_distance, rate * units_per_lot)
 }
 
@@ -312,10 +313,10 @@ impl Contract {
     /// The volume of `lots` rounded to the nearest step and kept inside the broker's limits.
     pub fn volume_near(&self, lots: f64) -> Stepped {
         let volume = self.volume_of_lots(lots);
-        let raw = lots * self.lot_size as f64;
-        let limit = if raw < self.min_volume as f64 - 0.5 {
+        let raw = lots * i64_to_f64(self.lot_size);
+        let limit = if raw < i64_to_f64(self.min_volume) - 0.5 {
             Some(Limit::Min)
-        } else if raw > self.max_volume.max(self.min_volume) as f64 + 0.5 {
+        } else if raw > i64_to_f64(self.max_volume.max(self.min_volume)) + 0.5 {
             Some(Limit::Max)
         } else {
             None
@@ -326,10 +327,10 @@ impl Contract {
     /// The volume of `lots` stepped down, so a volume sized from a risk never risks more, and
     /// kept inside the broker's limits.
     pub fn volume_at_most(&self, lots: f64) -> Stepped {
-        let raw = if lots.is_finite() { lots.max(0.0) } else { 0.0 } * self.lot_size as f64;
-        let step = self.step_volume.max(1) as f64;
+        let raw = if lots.is_finite() { lots.max(0.0) } else { 0.0 } * i64_to_f64(self.lot_size);
+        let step = i64_to_f64(self.step_volume.max(1));
         // A hair of tolerance, so 0.3 lots is not stepped down to 0.29 by the float error.
-        let stepped = ((raw / step + 1e-9).floor() * step) as i64;
+        let stepped = f64_to_i64((raw / step + 1e-9).floor() * step);
         let max = self.max_volume.max(self.min_volume);
         if stepped < self.min_volume {
             Stepped {
@@ -389,7 +390,7 @@ pub fn chain_rate(
 /// The middle of a bid and an ask, or whichever is known.
 pub fn mid(bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
     match (bid, ask) {
-        (Some(b), Some(a)) => Some((b + a) / 2.0),
+        (Some(b), Some(a)) => Some(f64::midpoint(b, a)),
         (b, a) => b.or(a),
     }
 }

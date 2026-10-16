@@ -63,7 +63,7 @@ fn strip(
     let count = options.len();
     for (index, label) in options.iter().enumerate() {
         let chosen = index == selected;
-        let on_select = on_select.clone();
+        let on_select = Rc::clone(&on_select);
         strip = strip.child(
             div()
                 .id(child_id(id, index))
@@ -138,7 +138,7 @@ pub fn chips(
     let on_click = Rc::new(on_click);
     let mut row = div().flex().flex_row().flex_wrap().gap_1();
     for (index, label) in labels.iter().enumerate() {
-        let on_click = on_click.clone();
+        let on_click = Rc::clone(&on_click);
         row = row.child(
             chip(child_id(&id, index), selected.contains(&index))
                 .aria_label(SharedString::from((*label).to_owned()))
@@ -177,7 +177,7 @@ pub fn color_swatch_with_opacity(
 ) -> AnyElement {
     let id: ElementId = id.into();
     let on_toggle = Rc::new(on_toggle);
-    let close = on_toggle.clone();
+    let close = Rc::clone(&on_toggle);
     let shown = opacity.as_ref().map_or(1.0, |o| o.value);
     let panel = color_picker::panel(&id, color, opacity, open, cx, Rc::new(on_pick), close);
     let hover = panel.clone();
@@ -202,7 +202,7 @@ pub fn color_swatch_with_opacity(
             color_picker::set_swatch_hovered(&hover, *hovered, cx);
         })
         .on_click(move |_, window, cx| on_toggle(window, cx))
-        .child(div().size_full().rounded_sm().bg(gpui::Rgba {
+        .child(div().size_full().rounded_sm().bg(Rgba {
             a: shown,
             ..gpui::rgb(color)
         }));
@@ -247,7 +247,7 @@ fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Sta
         .items_center()
         .justify_center()
         .w(px(40.))
-        .h(px(crate::tokens::height::control()))
+        .h(px(tokens::height::control()))
         .rounded_md()
         .border_1()
         .border_color(if chosen {
@@ -283,7 +283,7 @@ pub fn width_picker(
     let mut row = div().flex().flex_row().gap_1();
     for (index, width) in widths.iter().enumerate() {
         let chosen = selected == Some(index);
-        let on_select = on_select.clone();
+        let on_select = Rc::clone(&on_select);
         row = row.child(
             option_box(
                 child_id(&id, index),
@@ -329,7 +329,7 @@ pub fn dash_picker(
     let mut row = div().flex().flex_row().gap_1();
     for (index, name) in ["Solid", "Dashed", "Dotted"].into_iter().enumerate() {
         let chosen = selected == index;
-        let on_select = on_select.clone();
+        let on_select = Rc::clone(&on_select);
         row = row.child(
             option_box(child_id(&id, index), chosen, dash_glyph(index, ink(chosen)))
                 .aria_label(SharedString::from(name))
@@ -354,7 +354,9 @@ pub fn height_picker(
         .position(|(_, weight)| (weight - current).abs() < 0.05)
         .unwrap_or(usize::MAX);
     segmented(id, &names, selected, move |choice, window, cx| {
-        on_pick(presets[choice].1, window, cx);
+        if let Some((_, weight)) = presets.get(choice) {
+            on_pick(*weight, window, cx);
+        }
     })
     .into_any_element()
 }

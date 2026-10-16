@@ -55,16 +55,15 @@ impl Global for Service {}
 /// temporary folder and nothing is remembered.
 pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
     // The folder is a choice of this computer (see `crate::locations`), already in `paths`.
-    let (default_dir, dir, store) = match paths {
-        Some(paths) => (
+    let (default_dir, dir, store) = if let Some(paths) = paths {
+        (
             paths.standard_dir(Kind::Indicators).to_path_buf(),
             paths.indicators_dir(),
             Some(paths.documents()),
-        ),
-        None => {
-            let temp = std::env::temp_dir().join("wyck-indicators");
-            (temp.clone(), temp, None)
-        }
+        )
+    } else {
+        let temp = std::env::temp_dir().join("wyck-indicators");
+        (temp.clone(), temp, None)
     };
     let mut prefs = store
         .as_ref()
@@ -76,8 +75,10 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
         match remove_examples_folder(library.dir()) {
             Ok(()) => {
                 prefs.examples_removed = true;
-                if let Some(store) = &store {
-                    let _ = store.save(DOCUMENT, &prefs);
+                if let Some(store) = &store
+                    && let Err(error) = store.save(DOCUMENT, &prefs)
+                {
+                    tracing::warn!(%error, "could not keep that the old Examples folder is gone");
                 }
             }
             Err(error) => tracing::warn!(%error, "could not remove the old Examples folder"),
@@ -126,7 +127,7 @@ fn start_polling(cx: &mut App) -> Task<()> {
             cx.background_executor().timer(POLL).await;
             let reload = cx.update(|cx| {
                 cx.try_global::<Service>()
-                    .map(|s| (s.prefs.auto_reload, s.library.clone()))
+                    .map(|s| (s.prefs.auto_reload, Arc::clone(&s.library)))
             });
             let Some((true, library)) = reload else {
                 continue;
@@ -261,7 +262,7 @@ pub fn observe<T: 'static>(
 
 /// Reads another folder from now on.
 fn point_at(dir: PathBuf, cx: &mut App) {
-    let Some(library) = cx.try_global::<Service>().map(|s| s.library.clone()) else {
+    let Some(library) = cx.try_global::<Service>().map(|s| Arc::clone(&s.library)) else {
         return;
     };
     cx.spawn(async move |cx| {
@@ -270,7 +271,9 @@ fn point_at(dir: PathBuf, cx: &mut App) {
             .spawn(async move {
                 let mut library = library.lock().unwrap_or_else(PoisonError::into_inner);
                 library.set_dir(dir);
-                let _ = library.ensure_dir();
+                if let Err(error) = library.ensure_dir() {
+                    tracing::warn!(%error, "could not make the indicators folder");
+                }
                 library.refresh();
                 library.entries()
             })
@@ -290,7 +293,7 @@ pub fn on_library<T: Send + 'static>(
     cx: &mut App,
     job: impl FnOnce(&mut Library) -> T + Send + 'static,
 ) -> Task<Option<T>> {
-    let Some(library) = cx.try_global::<Service>().map(|s| s.library.clone()) else {
+    let Some(library) = cx.try_global::<Service>().map(|s| Arc::clone(&s.library)) else {
         return Task::ready(None);
     };
     cx.spawn(async move |cx| {
@@ -350,7 +353,9 @@ pub fn rename(
 /// Opens the indicators folder in the file explorer of the system.
 pub fn open_folder(cx: &mut App) {
     let dir = dir(cx);
-    let _ = std::fs::create_dir_all(&dir);
+    if let Err(error) = std::fs::create_dir_all(&dir) {
+        tracing::warn!(%error, "could not make the indicators folder");
+    }
     cx.reveal_path(&dir);
 }
 

@@ -7,6 +7,7 @@ use crate::data::Series;
 use crate::display::{Display, effective_kind};
 use crate::settings::{ChartSettings, ScaleMode};
 use crate::view::{PriceScale, View, padded_range};
+use wyck_core::math::i64_to_f64;
 use wyck_indicators::spec::Placement;
 
 /// The bands of a chart of `w` by `h` with these settings.
@@ -34,7 +35,7 @@ pub fn main_map(
         _ => {
             let (mut lo, mut hi) = series
                 .price_range(first, last, kind.uses_ohlc())
-                .map(|(l, h)| (l as f64, h as f64))?;
+                .map(|(l, h)| (i64_to_f64(l), i64_to_f64(h)))?;
             // Indicators on the prices count too, so a band never runs off the top.
             for (config, output) in settings.studies.iter().zip(&display.studies) {
                 if config.spec().placement != Placement::Overlay || !config.visible {
@@ -70,7 +71,7 @@ pub fn main_map(
     let reserved = 12.0 + f64::from(footprint::reserved(settings));
     let base = series
         .value_at(first.min(series.len().saturating_sub(1)))
-        .map_or(0.0, |v| v as f64);
+        .map_or(0.0, i64_to_f64);
     Some(PriceMap {
         lo,
         hi,

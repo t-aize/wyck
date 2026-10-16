@@ -93,7 +93,10 @@ pub(crate) fn run_all(steps: Vec<Step>) -> Result<()> {
                 Ok(status) if status.success() => Outcome::Passed,
                 Ok(_) => Outcome::Failed,
                 Err(error) => {
-                    eprintln!("could not start {:?}: {error}", command.get_program());
+                    eprintln!(
+                        "could not start {:?}: {error}",
+                        command.get_program().display()
+                    );
                     Outcome::Failed
                 }
             },

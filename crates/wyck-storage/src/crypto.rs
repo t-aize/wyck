@@ -169,11 +169,10 @@ pub(crate) fn open(
 
 /// Lowercase hexadecimal.
 pub(crate) fn hex_encode(bytes: &[u8]) -> String {
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut text = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
-        text.push(char::from(DIGITS[usize::from(byte >> 4)]));
-        text.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+        text.extend(char::from_digit(u32::from(byte >> 4), 16));
+        text.extend(char::from_digit(u32::from(byte & 0x0f), 16));
     }
     text
 }
@@ -308,7 +307,7 @@ mod tests {
 
         #[test]
         fn hex_decode_never_panics(text in ".{0,64}") {
-            let _ = hex_decode(&text);
+            drop(hex_decode(&text));
         }
     }
 }

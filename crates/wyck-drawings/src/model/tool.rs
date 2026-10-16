@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn every_tool_has_a_group_a_label_and_a_positive_anchor_count() {
         for tool in Tool::ALL {
-            assert!(!tool.label().is_empty());
+            assert_ne!(tool.label(), "");
             assert!(tool.anchors() >= 1, "{tool:?}");
             let _ = tool.group();
         }

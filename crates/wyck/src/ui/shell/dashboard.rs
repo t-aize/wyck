@@ -42,6 +42,7 @@ use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
 use wyck_app::workspace::{Documents, Workspace};
 use wyck_drawings::model::tool::Tool;
+use wyck_trading::guard::Mode;
 use wyck_ui_kit::toast;
 
 gpui::actions!(
@@ -263,15 +264,20 @@ impl Dashboard {
         .detach();
         let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
         let hub = Rc::new(LiveHub::new(session.clone()));
-        let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
+        let trading = cx.new(|cx| {
+            Account::new(
+                session.clone(),
+                hub.clone(),
+                Mode::from_live(account.is_live),
+                cx,
+            )
+        });
         cx.subscribe(&trading, |_, account, event: &AccountEvent, cx| {
             if let AccountEvent::Notice(notice) = event {
                 notice::show(&account, notice.clone(), cx);
             }
         })
         .detach();
-        let is_live = account.is_live;
-        trading.update(cx, |trading, _| trading.set_live(is_live));
         let alerts = cx.new(|cx| {
             Alerts::new(
                 documents.account.clone(),

@@ -16,6 +16,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+wyck-clock.workspace = true
 
 [dev-dependencies]
 semver.workspace = true

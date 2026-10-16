@@ -11,10 +11,11 @@
 //! `app::account::follow`.
 
 use crate::atr_stop::{AtrStop, MAX_LENGTH, MAX_MULTIPLIER, Smoothing};
+use wyck_core::math::f64_to_u32;
 use wyck_market::Timeframe;
 
 /// The largest multiplier the label can hold, in hundredths.
-const MAX_MULTIPLIER_HUNDREDTHS: u32 = (MAX_MULTIPLIER * 100.0) as u32;
+const MAX_MULTIPLIER_HUNDREDTHS: u32 = f64_to_u32(MAX_MULTIPLIER * 100.0);
 
 /// The rule an order carries.
 #[derive(Debug, Clone, PartialEq)]
@@ -63,12 +64,12 @@ impl AtrFollow {
             "{},{},{},{},{}",
             self.atr.length,
             letter(self.atr.smoothing),
-            (self.atr.multiplier * 100.0).round() as u32,
+            f64_to_u32((self.atr.multiplier * 100.0).round()),
             self.atr.timeframe.as_deref().unwrap_or("-"),
             u8::from(self.atr.current_bar),
         );
         if let Some(rr) = self.rr {
-            text.push_str(&format!(",r{}", (rr * 100.0).round() as u32));
+            text = format!("{text},r{}", f64_to_u32((rr * 100.0).round()));
         }
         text
     }

@@ -14,6 +14,10 @@ use std::collections::BTreeMap;
 /// Every option of an export. Saved as a preset, so every field has a default and everything
 /// read is repaired by [`ExportOptions::normalized`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct ExportOptions {
     #[serde(default)]
     pub content: Content,

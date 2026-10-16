@@ -117,7 +117,7 @@ impl Book {
             if let (Some(corner), Some(a), Some(b)) =
                 (grips.get(index), grips.first(), grips.get(1))
             {
-                let centre = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+                let centre = (f32::midpoint(a.0, b.0), f32::midpoint(a.1, b.1));
                 let same_side = (corner.0 - centre.0) * (corner.1 - centre.1) >= 0.0;
                 return Some(if same_side {
                     Grab::GripDiagonalDown

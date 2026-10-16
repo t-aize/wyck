@@ -104,7 +104,7 @@ impl Default for AutoPolicy {
     /// One a day, the last seven.
     fn default() -> Self {
         Self {
-            every: Duration::from_secs(24 * 60 * 60),
+            every: Duration::from_hours(24),
             keep: 7,
         }
     }
@@ -145,7 +145,7 @@ pub(super) fn looks_sealed(path: &Path) -> bool {
         return false;
     };
     let read = file.read(&mut head).unwrap_or(0);
-    let head = String::from_utf8_lossy(&head[..read]);
+    let head = String::from_utf8_lossy(head.get(..read).unwrap_or_default());
     head.trim_start()
         .starts_with(&format!("format = \"{}\"", sealed::FORMAT))
 }
@@ -249,11 +249,12 @@ impl BackupStore {
         let path = self.path_of(&id)?;
         atomic_write(&path, text.as_bytes())?;
         info!(id, kind = ?kind, "saved a backup");
+        let now = wyck_clock::now();
         Ok(BackupEntry {
             id,
             kind,
             bytes: text.len() as u64,
-            modified: Some(SystemTime::now()),
+            modified: Some(now),
             sealed: passphrase.is_some(),
             path,
         })
@@ -277,9 +278,10 @@ impl BackupStore {
             .list()?
             .into_iter()
             .find(|entry| entry.kind == BackupKind::Automatic);
+        let now = wyck_clock::now();
         let due = newest
             .and_then(|entry| entry.modified)
-            .and_then(|modified| SystemTime::now().duration_since(modified).ok())
+            .and_then(|modified| now.duration_since(modified).ok())
             .is_none_or(|age| age >= policy.every);
         if !due {
             return Ok(None);

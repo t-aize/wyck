@@ -1,6 +1,6 @@
 //! The indicators on offer, and what each one is (see [`Spec`]).
 
-mod specs;
+pub(crate) mod specs;
 
 use serde::{Deserialize, Serialize};
 

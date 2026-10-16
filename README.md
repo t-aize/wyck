@@ -67,6 +67,7 @@ this table, and `cargo xtask deps` checks it:
 
 | Crate | Owns |
 |---|---|
+| `wyck-clock` | The one place the wall clock is read, so tests and replays can give another |
 | `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
 | `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
 | `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
@@ -246,16 +247,18 @@ cargo run -p wyck-ctrader --example ctrader_accounts
 
 ## Checks
 
-One command runs what CI runs, on any system:
+One command runs what CI runs, on any system (it needs `cargo install --locked cargo-deny`):
 
 ```sh
-cargo xtask check          # format, clippy, tests, docs and the dependency rules
-cargo xtask check --full   # also cargo-deny, cargo-machete, typos, taplo, zizmor and actionlint
+cargo xtask ci             # format, clippy, tests, cargo-deny and rustdoc, all strict, stops at the first failure
+cargo xtask check          # the same, then the dependency rules (cargo-deny is skipped if missing)
+cargo xtask check --full   # also cargo-machete, typos, taplo, zizmor and actionlint
 ```
 
-`--full` skips the tools that are not installed and says how to install them. CI runs the same
-steps on Linux, Windows and macOS (see `.github/workflows/ci.yml`). Clippy refuses `unwrap` and
-`expect` outside tests (`clippy.toml`).
+`--full` skips the tools that are not installed and says how to install them. CI runs
+`cargo xtask ci` on Linux, Windows and macOS (see `.github/workflows/ci.yml`). The lint levels are
+in `[workspace.lints]` of the root `Cargo.toml`, the rules for `unwrap`, `expect` and the clock in
+`clippy.toml`; the toolchain is pinned in `rust-toolchain.toml`.
 
 `cargo xtask deps` checks the rules that make the workspace one thing: a crate takes its
 dependency versions, its metadata and its lints from the root `Cargo.toml`, and only depends on

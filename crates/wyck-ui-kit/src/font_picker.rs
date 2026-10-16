@@ -73,8 +73,9 @@ impl FontPicker {
             |this, _input, event: &InputEvent, cx| match event {
                 InputEvent::Change => this.refilter(cx),
                 InputEvent::PressEnter { .. } => {
-                    if let Some(first) = this.shown.first() {
-                        let name = this.fonts[*first].clone();
+                    if let Some(first) = this.shown.first()
+                        && let Some(name) = this.fonts.get(*first).cloned()
+                    {
                         this.choose(Some(name), cx);
                     }
                 }
@@ -118,11 +119,11 @@ impl FontPicker {
         let Some(current) = &self.current else {
             return;
         };
-        if let Some(row) = self
-            .shown
-            .iter()
-            .position(|index| self.fonts[*index].eq_ignore_ascii_case(current))
-        {
+        if let Some(row) = self.shown.iter().position(|index| {
+            self.fonts
+                .get(*index)
+                .is_some_and(|font| font.eq_ignore_ascii_case(current))
+        }) {
             // The first row of the list is the default one.
             self.scroll.scroll_to_item(row + 1, ScrollStrategy::Center);
         }
@@ -165,7 +166,14 @@ impl FontPicker {
                 .children(chosen.then(|| icon::small(IconName::Check, theme::accent())))
                 .into_any_element();
         }
-        let name = self.fonts[self.shown[row - 1]].clone();
+        let Some(name) = row
+            .checked_sub(1)
+            .and_then(|shown| self.shown.get(shown))
+            .and_then(|font| self.fonts.get(*font))
+            .cloned()
+        else {
+            return base.into_any_element();
+        };
         let chosen = self
             .current
             .as_ref()
@@ -281,6 +289,6 @@ mod tests {
         assert_eq!(matching(&names(), "arial black"), vec![1]);
         assert_eq!(matching(&names(), "SANS mono"), vec![2]);
         assert_eq!(matching(&names(), "serif noto"), vec![4]);
-        assert!(matching(&names(), "comic").is_empty());
+        assert_eq!(matching(&names(), "comic"), [] as [usize; 0]);
     }
 }

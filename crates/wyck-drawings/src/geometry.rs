@@ -16,6 +16,7 @@ pub use hit::handles;
 use super::look::Face;
 use super::model::style::Dash;
 use super::model::{Drawing, Point};
+use wyck_core::math::count_f32;
 
 pub type P = (f32, f32);
 
@@ -199,10 +200,10 @@ const BOARD_PAD_Y: f32 = 5.0;
 /// The size of a board of `rows` in text of `size`: wide enough for the longest row (the width of
 /// a letter is estimated, since the drawing code does not measure text), one line per row.
 pub fn board_size(rows: &[String], size: f32) -> (f32, f32) {
-    let chars = rows.iter().map(|r| r.chars().count()).max().unwrap_or(0) as f32;
+    let chars = count_f32(rows.iter().map(|r| r.chars().count()).max().unwrap_or(0));
     (
         chars * size * 0.58 + BOARD_PAD_X * 2.0,
-        rows.len() as f32 * size * 1.45 + BOARD_PAD_Y * 2.0,
+        count_f32(rows.len()) * size * 1.45 + BOARD_PAD_Y * 2.0,
     )
 }
 
@@ -310,6 +311,13 @@ pub fn anchors(drawing: &Drawing, proj: &dyn Projection) -> Option<Vec<P>> {
         .collect()
 }
 
+/// The first `N` of `items`, when there are that many. The shapes of a tool ask for the points the
+/// tool takes (see `Tool::anchors`), which `Drawing::normalized` guarantees; a drawing with fewer
+/// gets no shapes instead of a panic.
+pub(crate) fn lead<T: Copy, const N: usize>(items: &[T]) -> Option<[T; N]> {
+    items.first_chunk().copied()
+}
+
 /// The head of an arrow that runs from `a` to `b`, if the two are apart.
 pub(super) fn arrow_head(a: P, b: P, color: u32, width: f32) -> Option<Prim> {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
@@ -357,6 +365,7 @@ pub(super) mod tests {
     use crate::model::style::{Dash, Style};
     use crate::model::tool::Tool;
     use crate::model::{Drawing, Point};
+    use wyck_core::math::{f32_of, f64_to_i64, i64_to_f64};
 
     /// A projection where time is 1 pixel per second from 0, and price is 1 pixel per unit
     /// upwards from the bottom of a 1000 by 500 plot. Bars are one minute long.
@@ -367,21 +376,21 @@ pub(super) mod tests {
             Rect::new(1_000.0, 500.0)
         }
         fn to_screen(&self, point: Point) -> Option<P> {
-            Some(((point.t / 1_000) as f32, 500.0 - point.p as f32))
+            Some((f32_of(i64_to_f64(point.t / 1_000)), 500.0 - f32_of(point.p)))
         }
         fn point_at(&self, x: f32, y: f32, _magnet: bool) -> Option<Point> {
             // Snap the time to whole minutes, like snapping to a bar.
-            let seconds = (x / 60.0).round() as i64 * 60;
+            let seconds = f64_to_i64(f64::from((x / 60.0).round())) * 60;
             Some(Point {
                 t: seconds * 1_000,
                 p: f64::from(500.0 - y),
             })
         }
         fn index_of(&self, time_ms: i64) -> Option<f64> {
-            Some(time_ms as f64 / 60_000.0)
+            Some(i64_to_f64(time_ms) / 60_000.0)
         }
         fn shift_bars(&self, time_ms: i64, bars: f64) -> Option<i64> {
-            Some(time_ms + (bars * 60_000.0).round() as i64)
+            Some(time_ms + f64_to_i64((bars * 60_000.0).round()))
         }
         fn format_price(&self, price: f64) -> String {
             format!("{price:.1}")
@@ -396,17 +405,17 @@ pub(super) mod tests {
             (first..=last)
                 .map(|i| BarView {
                     time: i * 60_000,
-                    x: (i * 60) as f32,
-                    open: 100.0 + i as f64,
-                    high: 103.0 + i as f64,
-                    low: 98.0 + i as f64,
-                    close: 101.0 + i as f64,
+                    x: f32_of(i64_to_f64(i * 60)),
+                    open: 100.0 + i64_to_f64(i),
+                    high: 103.0 + i64_to_f64(i),
+                    low: 98.0 + i64_to_f64(i),
+                    close: 101.0 + i64_to_f64(i),
                     volume: 10.0,
                 })
                 .collect()
         }
         fn y_of(&self, price: f64) -> f32 {
-            500.0 - price as f32
+            500.0 - f32_of(price)
         }
         fn pip(&self) -> f64 {
             0.01
@@ -552,6 +561,10 @@ pub(super) mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the values compared are copied from the style into the shapes unchanged, so they are exact"
+    )]
     fn a_channel_has_two_parallel_lines_a_third_point_apart() {
         let d = drawing(
             Tool::ParallelChannel,
@@ -600,9 +613,13 @@ pub(super) mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the values compared are copied from the style into the shapes unchanged, so they are exact"
+    )]
     fn a_measure_follows_its_look() {
         let mut d = drawing(Tool::Measure, &[(0, 100.0), (600, 150.0)]);
-        d.style.color = 0x123456;
+        d.style.color = 0x12_3456;
         d.style.measure.percent = false;
         d.style.measure.bars = false;
         let shapes = prims(&d, &Linear);
@@ -614,14 +631,14 @@ pub(super) mod tests {
         assert!(shapes.iter().any(|s| matches!(
             s,
             Prim::Rect {
-                stroke: Some((0x123456, _)),
+                stroke: Some((0x12_3456, _)),
                 ..
             }
         )));
 
         // A move down takes the other color; with nothing to say there is no tag.
         let mut down = drawing(Tool::Measure, &[(0, 200.0), (120, 150.0)]);
-        down.style.measure.down_color = 0xabcdef;
+        down.style.measure.down_color = 0xab_cdef;
         down.style.measure.price = false;
         down.style.measure.percent = false;
         down.style.measure.bars = false;
@@ -630,7 +647,7 @@ pub(super) mod tests {
         assert!(shapes.iter().any(|s| matches!(
             s,
             Prim::Rect {
-                stroke: Some((0xabcdef, _)),
+                stroke: Some((0xab_cdef, _)),
                 ..
             }
         )));
@@ -640,10 +657,10 @@ pub(super) mod tests {
         let mut styled = drawing(Tool::Measure, &[(0, 100.0), (600, 150.0)]);
         styled.style.text_size = 20.0;
         styled.style.bold = true;
-        styled.style.text_color = Some(0x00ff00);
+        styled.style.text_color = Some(0x00_ff00);
         assert!(prims(&styled, &Linear).iter().any(|s| matches!(
             s,
-            Prim::Label { size, bold: true, color: 0x00ff00, .. } if *size == 20.0
+            Prim::Label { size, bold: true, color: 0x00_ff00, .. } if *size == 20.0
         )));
     }
 
@@ -656,6 +673,10 @@ pub(super) mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the values compared are copied from the style into the shapes unchanged, so they are exact"
+    )]
     fn a_level_can_have_its_own_line_and_its_caption_follows_the_style() {
         use crate::look::{LabelSide, LevelText};
 
@@ -769,7 +790,7 @@ pub(super) mod tests {
     #[test]
     fn a_brush_is_picked_along_its_stroke_and_has_no_grips() {
         let d = drawing(Tool::Brush, &[(0, 100.0), (100, 200.0), (200, 100.0)]);
-        assert!(handles(&d, &Linear).is_empty());
+        assert_eq!(handles(&d, &Linear), [] as [(f32, f32); 0]);
         assert_eq!(hit(&d, &Linear, (50.0, 350.0), true), Some(Part::Body));
         assert_eq!(hit(&d, &Linear, (50.0, 100.0), true), None);
     }
@@ -801,7 +822,7 @@ pub(super) mod tests {
             }
         }
         let d = drawing(Tool::TrendLine, &[(0, 1.0), (1, 2.0)]);
-        assert!(prims(&d, &Nowhere).is_empty());
+        assert_eq!(prims(&d, &Nowhere), [] as [Prim; 0]);
         assert_eq!(hit(&d, &Nowhere, (1.0, 1.0), true), None);
     }
 
@@ -967,7 +988,7 @@ pub(super) mod tests {
         for tool in [Tool::LongPosition, Tool::ShortPosition] {
             let mut d = long_position();
             d.tool = tool;
-            assert!(position_labels(&d, false).is_empty());
+            assert_eq!(position_labels(&d, false), [] as [String; 0]);
             assert!(
                 prims_with(&d, &Linear, false)
                     .iter()
@@ -977,7 +998,7 @@ pub(super) mod tests {
             d.style.position.always_stats = true;
             assert_eq!(position_labels(&d, false).len(), 3);
             d.style.labels = false;
-            assert!(position_labels(&d, true).is_empty());
+            assert_eq!(position_labels(&d, true), [] as [String; 0]);
         }
     }
 
@@ -1037,10 +1058,14 @@ pub(super) mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the values compared are copied from the style into the shapes unchanged, so they are exact"
+    )]
     fn a_position_takes_its_colors_and_lines_from_its_settings() {
         let mut d = long_position();
-        d.style.position.target_color = 0x123456;
-        d.style.position.stop_color = 0x654321;
+        d.style.position.target_color = 0x12_3456;
+        d.style.position.stop_color = 0x65_4321;
         d.style.width = 3.0;
         d.style.fill_opacity = 0.5;
         let shapes = prims(&d, &Linear);
@@ -1053,9 +1078,9 @@ pub(super) mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(fills, vec![(0x123456, 0.5), (0x654321, 0.5)]);
+        assert_eq!(fills, vec![(0x12_3456, 0.5), (0x65_4321, 0.5)]);
         assert!(shapes.iter().any(|s| matches!(
-            s, Prim::Segment { color: 0x123456, width, .. } if *width == 3.0
+            s, Prim::Segment { color: 0x12_3456, width, .. } if *width == 3.0
         )));
 
         // No background, no tags.

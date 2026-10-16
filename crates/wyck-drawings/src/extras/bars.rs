@@ -3,9 +3,10 @@
 use super::{DOWN, MAX_GHOST_BARS, MAX_ROWS, MIN_ROWS, POC, ROW_PX, UP, polyline, stat};
 
 use crate::geometry::fib::{label, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, lead, seg};
 use crate::model::style::Dash;
 use crate::model::{Drawing, Point};
+use wyck_core::math::{count_f64, f32_of, f32_to_usize, f64_to_usize};
 
 /// The candle of a bar shifted by `offset` in price, at `x`.
 pub(super) fn candle(
@@ -40,7 +41,10 @@ pub(super) fn source_bars(
     drawing: &Drawing,
     proj: &dyn Projection,
 ) -> Vec<crate::geometry::BarView> {
-    let (a, b) = (drawing.points[0].t, drawing.points[1].t);
+    let Some([first, second]) = lead(&drawing.points) else {
+        return Vec::new();
+    };
+    let (a, b) = (first.t, second.t);
     let mut bars = proj.bars_between(a.min(b), a.max(b));
     bars.truncate(MAX_GHOST_BARS);
     bars
@@ -59,14 +63,15 @@ pub(super) fn bars_pattern(
     let (Some(first), Some(last)) = (bars.first(), bars.last()) else {
         return;
     };
-    let start = drawing.points[2];
+    let Some(&start) = drawing.points.get(2) else {
+        return;
+    };
     let Some(first_index) = proj.index_of(first.time) else {
         return;
     };
-    let spacing = if bars.len() >= 2 {
-        (bars[1].x - bars[0].x).abs()
-    } else {
-        6.0
+    let spacing = match (bars.first(), bars.get(1)) {
+        (Some(one), Some(two)) => (two.x - one.x).abs(),
+        _ => 6.0,
     };
     let width = (spacing * 0.7).clamp(1.0, 20.0);
 
@@ -95,13 +100,17 @@ pub(super) fn bars_pattern(
             seed = seed
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
-            let source = &bars[(seed >> 33) as usize % n];
+            // `n` is the number of bars, so the remainder is below it and is an index.
+            let pick = (seed >> 33) % u64::try_from(n).unwrap_or(u64::MAX);
+            let Some(source) = usize::try_from(pick).ok().and_then(|at| bars.get(at)) else {
+                continue;
+            };
             let (open, close) = (price, price + (source.close - source.open));
             let (high, low) = (
                 price + (source.high - source.open),
                 price + (source.low - source.open),
             );
-            if let Some(x) = place(i as f64) {
+            if let Some(x) = place(count_f64(i)) {
                 candle(proj, x, (open, high, low, close), 0.0, width, 0.55, out);
             }
             price = close;
@@ -135,7 +144,10 @@ pub(super) fn anchored_vwap(
 ) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let bars = proj.bars_between(drawing.points[0].t, i64::MAX);
+    let (Some(anchor), Some(&(anchor_x, _))) = (drawing.points.first(), pts.first()) else {
+        return;
+    };
+    let bars = proj.bars_between(anchor.t, i64::MAX);
     if bars.is_empty() {
         return;
     }
@@ -185,8 +197,8 @@ pub(super) fn anchored_vwap(
     }
     out.push(polyline(line, style.color, style.width, 1.0));
     out.push(seg(
-        (pts[0].0, rect.t),
-        (pts[0].0, rect.b),
+        (anchor_x, rect.t),
+        (anchor_x, rect.b),
         style.color,
         0.4,
         1.0,
@@ -203,11 +215,20 @@ pub(super) fn volume_profile(
 ) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let (from, to) = if fixed {
-        let (a, b) = (drawing.points[0].t, drawing.points[1].t);
-        (a.min(b), a.max(b))
+    let Some(first_point) = drawing.points.first() else {
+        return;
+    };
+    let Some(&(x0, _)) = pts.first() else {
+        return;
+    };
+    let (from, to, x1) = if fixed {
+        let (Some(second_point), Some(&(second_x, _))) = (drawing.points.get(1), pts.get(1)) else {
+            return;
+        };
+        let (a, b) = (first_point.t, second_point.t);
+        (a.min(b), a.max(b), second_x)
     } else {
-        (drawing.points[0].t, i64::MAX)
+        (first_point.t, i64::MAX, x0)
     };
     let bars = proj.bars_between(from, to);
     if bars.is_empty() {
@@ -221,19 +242,19 @@ pub(super) fn volume_profile(
     let pixels = (proj.y_of(low) - proj.y_of(high)).abs();
     // The rows the style asks for, or as many as the height on the screen has room for.
     let rows = match style.profile.rows {
-        0 => ((pixels / ROW_PX).round() as usize).clamp(MIN_ROWS, MAX_ROWS),
+        0 => f32_to_usize((pixels / ROW_PX).round()).clamp(MIN_ROWS, MAX_ROWS),
         asked => usize::from(asked),
     };
-    let step = (high - low) / rows as f64;
-    let row_of = |price: f64| (((price - low) / step) as usize).min(rows - 1);
+    let step = (high - low) / count_f64(rows);
+    let row_of = |price: f64| f64_to_usize((price - low) / step).min(rows - 1);
 
     let mut volume = vec![0.0_f64; rows];
     for bar in &bars {
         let weight = if bar.volume > 0.0 { bar.volume } else { 1.0 };
         let (a, b) = (row_of(bar.low), row_of(bar.high));
         let (first, last) = (a.min(b), a.max(b));
-        let share = weight / (last - first + 1) as f64;
-        for row in &mut volume[first..=last] {
+        let share = weight / count_f64(last - first + 1);
+        for row in volume.get_mut(first..=last).into_iter().flatten() {
             *row += share;
         }
     }
@@ -248,43 +269,44 @@ pub(super) fn volume_profile(
     }
     // The value area grows from the point of control, taking the busier neighbour each time,
     // until it holds its share of the volume.
-    let (mut lower, mut upper, mut held) = (poc, poc, volume[poc]);
+    let amount_at = |row: usize| volume.get(row).copied().unwrap_or(0.0);
+    let (mut lower, mut upper, mut held) = (poc, poc, amount_at(poc));
     while held < total * f64::from(style.profile.value_area) && (lower > 0 || upper + 1 < rows) {
-        let below = if lower > 0 { volume[lower - 1] } else { -1.0 };
+        let below = if lower > 0 {
+            amount_at(lower - 1)
+        } else {
+            -1.0
+        };
         let above = if upper + 1 < rows {
-            volume[upper + 1]
+            amount_at(upper + 1)
         } else {
             -1.0
         };
         if above >= below {
             upper += 1;
-            held += volume[upper];
+            held += amount_at(upper);
         } else {
             lower -= 1;
-            held += volume[lower];
+            held += amount_at(lower);
         }
     }
 
-    let left = if fixed {
-        pts[0].0.min(pts[1].0)
-    } else {
-        pts[0].0
-    };
+    let left = if fixed { x0.min(x1) } else { x0 };
     let widest = if fixed {
-        ((pts[0].0 - pts[1].0).abs() * 0.9).max(30.0)
+        ((x0 - x1).abs() * 0.9).max(30.0)
     } else {
         ((rect.r - left) * 0.4).clamp(30.0, 300.0)
     };
     let opacity = style.fill_opacity;
     for (i, amount) in volume.iter().enumerate() {
-        let w = (amount / most) as f32 * widest;
+        let w = f32_of(amount / most) * widest;
         if w < 0.5 {
             continue;
         }
         let inside = (lower..=upper).contains(&i);
         let (top, bottom) = (
-            proj.y_of(low + (i + 1) as f64 * step),
-            proj.y_of(low + i as f64 * step),
+            proj.y_of(low + count_f64(i + 1) * step),
+            proj.y_of(low + count_f64(i) * step),
         );
         out.push(Prim::Rect {
             a: (left, top),
@@ -298,27 +320,22 @@ pub(super) fn volume_profile(
             stroke: (!style.fill).then_some((style.color, 1.0)),
         });
     }
-    let poc_y = proj.y_of(low + (poc as f64 + 0.5) * step);
-    let end = if fixed {
-        pts[0].0.max(pts[1].0)
-    } else {
-        rect.r
-    };
+    let poc_y = proj.y_of(low + (count_f64(poc) + 0.5) * step);
+    let end = if fixed { x0.max(x1) } else { rect.r };
     out.push(seg((left, poc_y), (end, poc_y), POC, 1.0, 1.0, Dash::Solid));
     if style.labels {
         out.push(label(
             (left + widest + 4.0, poc_y),
-            format!("POC {}", proj.format_price(low + (poc as f64 + 0.5) * step)),
+            format!(
+                "POC {}",
+                proj.format_price(low + (count_f64(poc) + 0.5) * step)
+            ),
             POC,
             Anchor::Left,
             style,
         ));
     }
-    let edges: &[f32] = if fixed {
-        &[pts[0].0, pts[1].0]
-    } else {
-        &[pts[0].0]
-    };
+    let edges: &[f32] = if fixed { &[x0, x1] } else { &[x0] };
     for &x in edges {
         out.push(seg(
             (x, rect.t),

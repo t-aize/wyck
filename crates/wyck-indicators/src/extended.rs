@@ -7,7 +7,7 @@ use super::config::StudyConfig;
 use super::kind::StudyKind;
 use super::spec::PlotKind;
 use chrono::{Datelike, NaiveDate};
-use wyck_core::math;
+use wyck_core::math::{self, Series, count_f64, f64_to_i64, f64_to_usize};
 
 pub(super) fn average(values: &[f64], len: usize, method: usize) -> Vec<f64> {
     match method {
@@ -36,9 +36,13 @@ fn ratio(top: f64, bottom: f64) -> f64 {
 pub(super) fn pivot_period(day: i64, kind: usize) -> i64 {
     match kind {
         1 => (day + 3).div_euclid(7),
-        2 => NaiveDate::from_num_days_from_ce_opt((day + 719163) as i32)
+        2 => i32::try_from(day + 719_163)
+            .ok()
+            .and_then(NaiveDate::from_num_days_from_ce_opt)
             .map_or(day, |d| i64::from(d.year()) * 12 + i64::from(d.month())),
-        3 => NaiveDate::from_num_days_from_ce_opt((day + 719163) as i32)
+        3 => i32::try_from(day + 719_163)
+            .ok()
+            .and_then(NaiveDate::from_num_days_from_ce_opt)
             .map_or(day, |d| i64::from(d.year())),
         _ => day,
     }
@@ -79,13 +83,13 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             for i in len..n {
                 let start = i - len;
                 let h = (start..=i)
-                    .max_by(|&a, &b| input.high[a].total_cmp(&input.high[b]))
+                    .max_by(|&a, &b| input.high.at(a).total_cmp(&input.high.at(b)))
                     .unwrap_or(i);
                 let l = (start..=i)
-                    .min_by(|&a, &b| input.low[a].total_cmp(&input.low[b]))
+                    .min_by(|&a, &b| input.low.at(a).total_cmp(&input.low.at(b)))
                     .unwrap_or(i);
-                up[i] = 100.0 * (len - (i - h)) as f64 / len as f64;
-                down[i] = 100.0 * (len - (i - l)) as f64 / len as f64;
+                up.put(i, 100.0 * count_f64(len - (i - h)) / count_f64(len));
+                down.put(i, 100.0 * count_f64(len - (i - l)) / count_f64(len));
             }
             StudyOutput {
                 plots: vec![plot("up", up), plot("down", down)],
@@ -102,7 +106,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             ]
             .into_iter()
             .map(|(key, shift)| PlotOut {
-                offset: config.input(shift) as i64,
+                offset: f64_to_i64(config.input(shift)),
                 ..plot(key, math::rma(&median, config.length(key)))
             })
             .collect();
@@ -115,7 +119,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let basis = average(
                 &source(),
                 config.length("length"),
-                config.input("method") as usize,
+                f64_to_usize(config.input("method")),
             );
             let k = config.input("percent") / 100.0;
             let upper = basis.iter().map(|v| v * (1.0 + k)).collect();
@@ -135,15 +139,17 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let (basis, slope) = math::linear_regression(&src, len);
             let dev: Vec<f64> = (0..n)
                 .map(|i| {
-                    if i + 1 < len || !basis[i].is_finite() {
+                    if i + 1 < len || !basis.at(i).is_finite() {
                         return f64::NAN;
                     }
-                    let start = basis[i] - slope[i] * (len - 1) as f64;
+                    let start = basis.at(i) - slope.at(i) * count_f64(len - 1);
                     ((0..len)
-                        .map(|j| (src[i + 1 - len + j] - start - slope[i] * j as f64).powi(2))
+                        .map(|j| {
+                            (src.at(i + 1 - len + j) - start - slope.at(i) * count_f64(j)).powi(2)
+                        })
                         .sum::<f64>()
-                        / len as f64)
-                        .sqrt()
+                        / count_f64(len))
+                    .sqrt()
                 })
                 .collect();
             let k = config.input("deviations");
@@ -164,7 +170,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let (mut hi, mut lo, mut close) = (f64::NEG_INFINITY, f64::INFINITY, f64::NAN);
             let mut previous = None;
             for (i, day) in input.day.iter().enumerate().take(n) {
-                let period = pivot_period(*day, config.input("period") as usize);
+                let period = pivot_period(*day, f64_to_usize(config.input("period")));
                 if current != Some(period) {
                     if current.is_some() && hi.is_finite() && lo.is_finite() && close.is_finite() {
                         previous = Some((hi, lo, close));
@@ -175,17 +181,22 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 }
                 if let Some((h, l, c)) = previous {
                     let p = (h + l + c) / 3.0;
-                    columns[0][i] = p;
-                    columns[1][i] = 2.0 * p - l;
-                    columns[2][i] = 2.0 * p - h;
-                    columns[3][i] = p + h - l;
-                    columns[4][i] = p - h + l;
-                    columns[5][i] = h + 2.0 * (p - l);
-                    columns[6][i] = l - 2.0 * (h - p);
+                    let levels = [
+                        p,
+                        2.0 * p - l,
+                        2.0 * p - h,
+                        p + h - l,
+                        p - h + l,
+                        h + 2.0 * (p - l),
+                        l - 2.0 * (h - p),
+                    ];
+                    for (column, level) in columns.iter_mut().zip(levels) {
+                        column.put(i, level);
+                    }
                 }
-                hi = hi.max(input.high[i]);
-                lo = lo.min(input.low[i]);
-                close = input.close[i];
+                hi = hi.max(input.high.at(i));
+                lo = lo.min(input.low.at(i));
+                close = input.close.at(i);
             }
             let keys = ["p", "r1", "s1", "r2", "s2", "r3", "s3"];
             StudyOutput {
@@ -201,11 +212,12 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let wing = config.length("wing");
             let (mut high, mut low) = (vec![f64::NAN; n], vec![f64::NAN; n]);
             for i in wing..n.saturating_sub(wing) {
-                if (i - wing..i + wing + 1).all(|j| j == i || input.high[i] > input.high[j]) {
-                    high[i] = input.high[i];
+                if ((i - wing)..=(i + wing)).all(|j| j == i || input.high.at(i) > input.high.at(j))
+                {
+                    high.put(i, input.high.at(i));
                 }
-                if (i - wing..i + wing + 1).all(|j| j == i || input.low[i] < input.low[j]) {
-                    low[i] = input.low[i];
+                if ((i - wing)..=(i + wing)).all(|j| j == i || input.low.at(i) < input.low.at(j)) {
+                    low.put(i, input.low.at(i));
                 }
             }
             let mut a = plot("high", high);
@@ -222,7 +234,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let hi = math::highest(&rsi, config.length("stoch"));
             let lo = math::lowest(&rsi, config.length("stoch"));
             let raw: Vec<f64> = (0..n)
-                .map(|i| 100.0 * ratio(rsi[i] - lo[i], hi[i] - lo[i]))
+                .map(|i| 100.0 * ratio(rsi.at(i) - lo.at(i), hi.at(i) - lo.at(i)))
                 .collect();
             let k = math::sma(&raw, config.length("k"));
             let d = math::sma(&k, config.length("d"));
@@ -251,7 +263,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let up = data
                 .iter()
                 .enumerate()
-                .map(|(i, value)| i == 0 || *value >= data[i - 1])
+                .map(|(i, value)| i == 0 || *value >= data.at(i - 1))
                 .collect();
             let mut p = plot(key, data);
             p.kind = PlotKind::Histogram;
@@ -272,7 +284,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 (0..n)
                     .map(|i| {
                         if i >= shift {
-                            src[i] - ma[i - shift]
+                            src.at(i) - ma.at(i - shift)
                         } else {
                             f64::NAN
                         }
@@ -287,7 +299,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let trix: Vec<f64> = (0..n)
                 .map(|i| {
                     if i > 0 {
-                        100.0 * ratio(c[i] - c[i - 1], c[i - 1])
+                        100.0 * ratio(c.at(i) - c.at(i - 1), c.at(i - 1))
                     } else {
                         f64::NAN
                     }
@@ -304,11 +316,11 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let tr = math::true_range(&input.high, &input.low, &input.close);
             let bp: Vec<f64> = (0..n)
                 .map(|i| {
-                    input.close[i]
-                        - input.low[i].min(if i > 0 {
-                            input.close[i - 1]
+                    input.close.at(i)
+                        - input.low.at(i).min(if i > 0 {
+                            input.close.at(i - 1)
                         } else {
-                            input.close[i]
+                            input.close.at(i)
                         })
                 })
                 .collect();
@@ -317,16 +329,14 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 config.length("middle"),
                 config.length("long"),
             ];
-            let sums: Vec<_> = periods
-                .into_iter()
-                .map(|len| (math::sum(&bp, len), math::sum(&tr, len)))
-                .collect();
+            let [short, middle, long] =
+                periods.map(|len| (math::sum(&bp, len), math::sum(&tr, len)));
             let out = (0..n)
                 .map(|i| {
                     100.0
-                        * (4.0 * ratio(sums[0].0[i], sums[0].1[i])
-                            + 2.0 * ratio(sums[1].0[i], sums[1].1[i])
-                            + ratio(sums[2].0[i], sums[2].1[i]))
+                        * (4.0 * ratio(short.0.at(i), short.1.at(i))
+                            + 2.0 * ratio(middle.0.at(i), middle.1.at(i))
+                            + ratio(long.0.at(i), long.1.at(i)))
                         / 7.0
                 })
                 .collect();
@@ -336,13 +346,15 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             }
         }
         StudyKind::RelativeVigorIndex => {
-            let body: Vec<f64> = (0..n).map(|i| input.close[i] - input.open[i]).collect();
-            let range: Vec<f64> = (0..n).map(|i| input.high[i] - input.low[i]).collect();
+            let body: Vec<f64> = (0..n)
+                .map(|i| input.close.at(i) - input.open.at(i))
+                .collect();
+            let range: Vec<f64> = (0..n).map(|i| input.high.at(i) - input.low.at(i)).collect();
             let smooth = |v: &[f64]| {
                 (0..n)
                     .map(|i| {
                         if i >= 3 {
-                            (v[i] + 2.0 * v[i - 1] + 2.0 * v[i - 2] + v[i - 3]) / 6.0
+                            (v.at(i) + 2.0 * v.at(i - 1) + 2.0 * v.at(i - 2) + v.at(i - 3)) / 6.0
                         } else {
                             f64::NAN
                         }
@@ -367,8 +379,8 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let mut up = vec![f64::NAN; n];
             let mut down = up.clone();
             for i in 1..n {
-                up[i] = (input.high[i] - input.high[i - 1]).max(0.0);
-                down[i] = (input.low[i - 1] - input.low[i]).max(0.0);
+                up.put(i, (input.high.at(i) - input.high.at(i - 1)).max(0.0));
+                down.put(i, (input.low.at(i - 1) - input.low.at(i)).max(0.0));
             }
             let a = math::sma(&up, config.length("length"));
             let b = math::sma(&down, config.length("length"));
@@ -390,8 +402,8 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         StudyKind::HistoricalVolatility => {
             let returns: Vec<f64> = (0..n)
                 .map(|i| {
-                    if i > 0 && input.close[i] > 0.0 && input.close[i - 1] > 0.0 {
-                        (input.close[i] / input.close[i - 1]).ln()
+                    if i > 0 && input.close.at(i) > 0.0 && input.close.at(i - 1) > 0.0 {
+                        (input.close.at(i) / input.close.at(i - 1)).ln()
                     } else {
                         f64::NAN
                     }
@@ -407,7 +419,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             )
         }
         StudyKind::ChaikinVolatility => {
-            let spread: Vec<f64> = (0..n).map(|i| input.high[i] - input.low[i]).collect();
+            let spread: Vec<f64> = (0..n).map(|i| input.high.at(i) - input.low.at(i)).collect();
             let smoothed = math::ema(&spread, config.length("ema"));
             values("cv", math::roc(&smoothed, config.length("roc")))
         }
@@ -421,9 +433,9 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 "chop",
                 (0..n)
                     .map(|i| {
-                        let width = hi[i] - lo[i];
-                        if width > 0.0 && total[i] > 0.0 {
-                            100.0 * (total[i] / width).log10() / (len as f64).log10()
+                        let width = hi.at(i) - lo.at(i);
+                        if width > 0.0 && total.at(i) > 0.0 {
+                            100.0 * (total.at(i) / width).log10() / count_f64(len).log10()
                         } else {
                             f64::NAN
                         }
@@ -441,10 +453,10 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         StudyKind::ChaikinMoneyFlow | StudyKind::AccumulationDistribution => {
             let flow: Vec<f64> = (0..n)
                 .map(|i| {
-                    let span = input.high[i] - input.low[i];
+                    let span = input.high.at(i) - input.low.at(i);
                     if span > 0.0 {
-                        ((2.0 * input.close[i] - input.high[i] - input.low[i]) / span)
-                            * input.volume[i]
+                        ((2.0 * input.close.at(i) - input.high.at(i) - input.low.at(i)) / span)
+                            * input.volume.at(i)
                     } else {
                         0.0
                     }
@@ -468,8 +480,10 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let flow: Vec<f64> = (0..n)
                 .map(|i| {
                     if i > 0 {
-                        ratio(input.close[i] - input.close[i - 1], input.close[i - 1])
-                            * input.volume[i]
+                        ratio(
+                            input.close.at(i) - input.close.at(i - 1),
+                            input.close.at(i - 1),
+                        ) * input.volume.at(i)
                     } else {
                         0.0
                     }
@@ -481,7 +495,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let raw: Vec<f64> = (0..n)
                 .map(|i| {
                     if i > 0 {
-                        (input.close[i] - input.close[i - 1]) * input.volume[i]
+                        (input.close.at(i) - input.close.at(i - 1)) * input.volume.at(i)
                     } else {
                         f64::NAN
                     }
@@ -509,17 +523,20 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         StudyKind::EaseOfMovement => {
             let mut raw = vec![f64::NAN; n];
             for (i, value) in raw.iter_mut().enumerate().skip(1) {
-                let distance =
-                    (input.high[i] + input.low[i] - input.high[i - 1] - input.low[i - 1]) / 2.0;
-                let span = input.high[i] - input.low[i];
-                *value = distance * span * config.input("scale") / input.volume[i].max(1.0);
+                let distance = (input.high.at(i) + input.low.at(i)
+                    - input.high.at(i - 1)
+                    - input.low.at(i - 1))
+                    / 2.0;
+                let span = input.high.at(i) - input.low.at(i);
+                *value = distance * span * config.input("scale") / input.volume.at(i).max(1.0);
             }
             StudyOutput {
                 levels: vec![0.0],
                 ..values("emv", math::sma(&raw, config.length("length")))
             }
         }
-        _ => unreachable!("not an extended indicator"),
+        // Not an extended indicator: it has no lines, like the kind that is not known.
+        _ => StudyOutput::default(),
     };
     if matches!(kind, StudyKind::Envelopes | StudyKind::LinearRegression) {
         output.fills.push(FillOut {

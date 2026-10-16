@@ -2,6 +2,7 @@
 //! the chart types with their own marks (Kagi lines, point and figure boxes).
 
 use super::color::transparent_black;
+use wyck_core::math::{f32_of, i64_to_f64};
 use wyck_market::Bar;
 
 use super::cmd::{Align, Cmd, P, font, hsla, line_height, with_alpha};
@@ -9,6 +10,7 @@ use super::ctx::{Ctx, columns};
 use super::drawings::ellipse_points;
 use crate::data::Series;
 use crate::settings::ChartKind;
+use wyck_drawings::look::Face;
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
 const CANDLE_MIN_PX: f64 = 4.0;
@@ -106,10 +108,13 @@ fn candles(
     if !wide {
         // One line per pixel column, from the lowest low to the highest high.
         columns(cx, first, last, |x, range| {
-            let group = &bars[range];
-            let high = group.iter().map(|b| b.high).max().unwrap_or(0) as f64;
-            let low = group.iter().map(|b| b.low).min().unwrap_or(0) as f64;
-            let up = group[group.len() - 1].close >= group[0].open;
+            let group = bars.get(range).unwrap_or_default();
+            let (Some(oldest), Some(newest)) = (group.first(), group.last()) else {
+                return;
+            };
+            let high = i64_to_f64(group.iter().map(|b| b.high).max().unwrap_or(0));
+            let low = i64_to_f64(group.iter().map(|b| b.low).min().unwrap_or(0));
+            let up = newest.close >= oldest.open;
             let c = hsla(cx.up_color(up));
             out.push(cx.vline(x, cx.y(high), cx.y(low).max(cx.y(high) + wick), c));
         });
@@ -117,30 +122,32 @@ fn candles(
     }
     let look = &cx.f.settings.transform;
     let body_w = if style.is_brick() {
-        (bar_px * f64::from(look.brick_width)).max(3.0) as f32
+        f32_of((bar_px * f64::from(look.brick_width)).max(3.0))
     } else {
-        (bar_px * 0.72).max(3.0) as f32
+        f32_of((bar_px * 0.72).max(3.0))
     };
-    for i in first..last {
-        let bar = &bars[i];
+    for (i, bar) in (first..last).zip(bars.iter().skip(first)) {
         let x = cx.x(i);
         // Hollow candles are colored by the change from the previous close, the others by the
         // change over the bar itself.
         let up = match style {
             CandleStyle::Hollow => {
-                let previous = (i > 0).then(|| bars[i - 1].close);
+                let previous = i
+                    .checked_sub(1)
+                    .and_then(|p| bars.get(p))
+                    .map(|prev| prev.close);
                 bar.close >= previous.unwrap_or(bar.open)
             }
             _ => bar.close >= bar.open,
         };
         let c = hsla(cx.up_color(up));
-        let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
-        let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
+        let (y_high, y_low) = (cx.y(i64_to_f64(bar.high)), cx.y(i64_to_f64(bar.low)));
+        let (y_open, y_close) = (cx.y(i64_to_f64(bar.open)), cx.y(i64_to_f64(bar.close)));
         if style != CandleStyle::Body {
             out.push(cx.vline(x, y_high.min(y_low), y_low.max(y_high) + wick, c));
         }
         if style == CandleStyle::Ohlc {
-            let tick = (bar_px as f32 * 0.38).max(2.0);
+            let tick = (f32_of(bar_px) * 0.38).max(2.0);
             out.push(cx.hline(y_open, x - tick, x, c));
             out.push(cx.hline(y_close, x, x + tick, c));
             continue;
@@ -178,7 +185,7 @@ fn candles(
 
 /// The volume as short text: `830`, `12.4k`, `3.1M`.
 fn compact(volume: i64) -> String {
-    let v = volume.max(0) as f64;
+    let v = i64_to_f64(volume.max(0));
     if v >= 1_000_000.0 {
         format!("{:.1}M", v / 1_000_000.0)
     } else if v >= 10_000.0 {
@@ -200,25 +207,32 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
         return;
     }
     let settings = &cx.f.settings.volume_candles;
-    let volumes: Vec<i64> = bars[first..last].iter().map(|b| b.volume).collect();
+    let volumes: Vec<i64> = bars
+        .get(first..last)
+        .unwrap_or_default()
+        .iter()
+        .map(|b| b.volume)
+        .collect();
     let widths = settings.widths(&volumes);
     let thin = 1.0 / cx.f.scale;
     let wick_w = settings.wick_width.max(thin);
     let gap_edge = hsla(cx.f.palette.bg);
-    let (top_edge, label_ink) = (cx.oy + cx.band.top as f32, hsla(cx.f.palette.text));
-    for (n, i) in (first..last).enumerate() {
-        let bar = &bars[i];
+    let (top_edge, label_ink) = (cx.oy + f32_of(cx.band.top), hsla(cx.f.palette.text));
+    for (n, (i, bar)) in (first..last).zip(bars.iter().skip(first)).enumerate() {
         let x = cx.x(i);
         let up = match settings.color_by {
             crate::volume::ColorBy::Body => bar.close >= bar.open,
             crate::volume::ColorBy::PreviousClose => {
-                bar.close >= i.checked_sub(1).map_or(bar.open, |p| bars[p].close)
+                bar.close
+                    >= i.checked_sub(1)
+                        .and_then(|p| bars.get(p))
+                        .map_or(bar.open, |prev| prev.close)
             }
         };
         let c = hsla(cx.up_color(up));
-        let body_w = (bar_px as f32 * widths[n]).max(2.0);
-        let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
-        let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
+        let body_w = (f32_of(bar_px) * widths.get(n).copied().unwrap_or(0.0)).max(2.0);
+        let (y_high, y_low) = (cx.y(i64_to_f64(bar.high)), cx.y(i64_to_f64(bar.low)));
+        let (y_open, y_close) = (cx.y(i64_to_f64(bar.open)), cx.y(i64_to_f64(bar.close)));
         let (wick_top, wick_bottom) = (y_high.min(y_low), y_low.max(y_high) + thin);
         out.push(Cmd::rect(
             cx.snap(x - wick_w / 2.0),
@@ -264,7 +278,7 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
                 color: label_ink,
                 align: Align::Center,
                 bold: false,
-                face: Default::default(),
+                face: Face::default(),
             });
         }
     }
@@ -282,7 +296,7 @@ fn line_points(cx: &Ctx<'_>, first: usize, last: usize) -> Vec<P> {
     if cx.f.view.bar_px >= 1.0 {
         for i in first..last {
             if let Some(v) = value_at(cx.series, i) {
-                points.push((cx.x(i), cx.y(v as f64)));
+                points.push((cx.x(i), cx.y(i64_to_f64(v))));
             }
         }
         return points;
@@ -309,7 +323,7 @@ fn line_points(cx: &Ctx<'_>, first: usize, last: usize) -> Vec<P> {
         keep.sort_by_key(|(i, _)| *i);
         keep.dedup_by_key(|(i, _)| *i);
         for (_, v) in keep {
-            points.push((x, cx.y(v as f64)));
+            points.push((x, cx.y(i64_to_f64(v))));
         }
     });
     points
@@ -323,20 +337,24 @@ fn line(cx: &Ctx<'_>, first: usize, last: usize, area: bool, step: bool, out: &m
     if step {
         // Hold each price until the next point, then jump.
         let mut stepped = Vec::with_capacity(points.len() * 2);
-        for (i, &(x, y)) in points.iter().enumerate() {
-            if i > 0 {
-                stepped.push((x, points[i - 1].1));
+        let mut before: Option<f32> = None;
+        for &(x, y) in &points {
+            if let Some(held) = before {
+                stepped.push((x, held));
             }
             stepped.push((x, y));
+            before = Some(y);
         }
         points = stepped;
     }
     let p = cx.f.palette;
     if area {
-        let base = cx.oy + cx.band.bottom() as f32;
+        let base = cx.oy + f32_of(cx.band.bottom());
         let mut polygon = points.clone();
-        polygon.push((points[points.len() - 1].0, base));
-        polygon.push((points[0].0, base));
+        if let (Some(&(last_x, _)), Some(&(first_x, _))) = (points.last(), points.first()) {
+            polygon.push((last_x, base));
+            polygon.push((first_x, base));
+        }
         out.push(Cmd::Fill {
             points: polygon,
             color: with_alpha(p.line, 0.14),
@@ -370,13 +388,18 @@ fn baseline(cx: &Ctx<'_>, first: usize, last: usize, out: &mut Vec<Cmd>) {
         return;
     }
     let p = cx.f.palette;
-    let base_price = (cx.map.lo + cx.map.hi) / 2.0;
+    let base_price = f64::midpoint(cx.map.lo, cx.map.hi);
     let base_y = cx.y(base_price);
-    let (left, right) = (cx.ox, cx.ox + cx.plot_w as f32);
-    let (top, bottom) = (cx.oy + cx.band.top as f32, cx.oy + cx.band.bottom() as f32);
+    let (left, right) = (cx.ox, cx.ox + f32_of(cx.plot_w));
+    let (top, bottom) = (
+        cx.oy + f32_of(cx.band.top),
+        cx.oy + f32_of(cx.band.bottom()),
+    );
     let mut polygon = points.clone();
-    polygon.push((points[points.len() - 1].0, base_y));
-    polygon.push((points[0].0, base_y));
+    if let (Some(&(last_x, _)), Some(&(first_x, _))) = (points.last(), points.first()) {
+        polygon.push((last_x, base_y));
+        polygon.push((first_x, base_y));
+    }
     for (up, y0, y1) in [(true, top, base_y), (false, base_y, bottom)] {
         let color = cx.up_color(up);
         out.push(Cmd::Clip {
@@ -423,9 +446,9 @@ fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd
     if cx.f.view.bar_px < 2.0 {
         // Too narrow for shoulders and waists: one line per pixel column over its range.
         columns(cx, first, last, |x, range| {
-            let group = &bars[range.clone()];
-            let high = group.iter().map(|b| b.high).max().unwrap_or(0) as f64;
-            let low = group.iter().map(|b| b.low).min().unwrap_or(0) as f64;
+            let group = bars.get(range.clone()).unwrap_or_default();
+            let high = i64_to_f64(group.iter().map(|b| b.high).max().unwrap_or(0));
+            let low = i64_to_f64(group.iter().map(|b| b.low).min().unwrap_or(0));
             let yang = meta.get(range.end - 1).is_some_and(|line| line.yang);
             let (_, c) = style(yang);
             out.push(cx.vline(x, cx.y(high), cx.y(low), c));
@@ -436,7 +459,7 @@ fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd
     for (i, bar) in bars.iter().enumerate().take(last).skip(start) {
         let x = cx.x(i);
         let Some(line) = meta.get(i) else { continue };
-        let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
+        let (y_open, y_close) = (cx.y(i64_to_f64(bar.open)), cx.y(i64_to_f64(bar.close)));
         // The shoulder or waist from the line before.
         if i > 0 {
             let (w, c) = style(line.yang);
@@ -447,33 +470,30 @@ fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd
                 dash: None,
             });
         }
-        match line.switch_at {
-            Some(at) => {
-                let y_switch = cx.y(at as f64);
-                let (w1, c1) = style(line.yang);
-                let (w2, c2) = style(!line.yang);
-                out.push(Cmd::Stroke {
-                    points: vec![(x, y_open), (x, y_switch)],
-                    width: w1,
-                    color: c1,
-                    dash: None,
-                });
-                out.push(Cmd::Stroke {
-                    points: vec![(x, y_switch), (x, y_close)],
-                    width: w2,
-                    color: c2,
-                    dash: None,
-                });
-            }
-            None => {
-                let (w, c) = style(line.yang);
-                out.push(Cmd::Stroke {
-                    points: vec![(x, y_open), (x, y_close)],
-                    width: w,
-                    color: c,
-                    dash: None,
-                });
-            }
+        if let Some(at) = line.switch_at {
+            let y_switch = cx.y(i64_to_f64(at));
+            let (w1, c1) = style(line.yang);
+            let (w2, c2) = style(!line.yang);
+            out.push(Cmd::Stroke {
+                points: vec![(x, y_open), (x, y_switch)],
+                width: w1,
+                color: c1,
+                dash: None,
+            });
+            out.push(Cmd::Stroke {
+                points: vec![(x, y_switch), (x, y_close)],
+                width: w2,
+                color: c2,
+                dash: None,
+            });
+        } else {
+            let (w, c) = style(line.yang);
+            out.push(Cmd::Stroke {
+                points: vec![(x, y_open), (x, y_close)],
+                width: w,
+                color: c,
+                dash: None,
+            });
         }
     }
 }
@@ -490,17 +510,24 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
         }
     };
     let last = last.min(bars.len()).min(columns_meta.len());
-    let width = (cx.f.view.bar_px as f32 * 0.8).max(1.0);
-    let boxes: i64 = (first..last)
-        .map(|i| columns_meta[i].top - columns_meta[i].bottom + 1)
+    let width = (f32_of(cx.f.view.bar_px) * 0.8).max(1.0);
+    let boxes: i64 = columns_meta
+        .iter()
+        .take(last)
+        .skip(first)
+        .map(|column| column.top - column.bottom + 1)
         .sum();
     if width < BOX_MIN_PX || boxes > 4_000 {
         // Too small for the boxes to read: each pixel column is a bar over its range.
         columns(cx, first, last, |x, range| {
-            let group = &bars[range.clone()];
-            let high = group.iter().map(|b| b.high).max().unwrap_or(0) as f64;
-            let low = group.iter().map(|b| b.low).min().unwrap_or(0) as f64;
-            let up = columns_meta[range.end - 1].up;
+            let group = bars.get(range.clone()).unwrap_or_default();
+            let high = i64_to_f64(group.iter().map(|b| b.high).max().unwrap_or(0));
+            let low = i64_to_f64(group.iter().map(|b| b.low).min().unwrap_or(0));
+            let up = range
+                .end
+                .checked_sub(1)
+                .and_then(|n| columns_meta.get(n))
+                .is_some_and(|column| column.up);
             let (y0, y1) = (cx.y(high), cx.y(low));
             out.push(Cmd::Rect {
                 x: x - width / 2.0,
@@ -514,18 +541,18 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
         });
         return;
     }
-    for i in first..last {
-        let column = &columns_meta[i];
-        let size = column.size as f64;
+    for (i, (column, bar)) in
+        (first..last).zip(columns_meta.iter().skip(first).zip(bars.iter().skip(first)))
+    {
+        let size = i64_to_f64(column.size);
         let x = cx.x(i);
         let color = hsla(ink(column.up));
         // Measured where the boxes are: the price 0 is far off the screen, where the heights
         // are cut to a range that can be drawn, and would give a height of nothing.
-        let base = column.bottom as f64 * size;
+        let base = i64_to_f64(column.bottom) * size;
         let box_h = (cx.y(base) - cx.y(base + size)).abs();
         if box_h < BOX_MIN_PX {
-            let bar = &bars[i];
-            let (y0, y1) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
+            let (y0, y1) = (cx.y(i64_to_f64(bar.high)), cx.y(i64_to_f64(bar.low)));
             out.push(Cmd::Rect {
                 x: x - width / 2.0,
                 y: y0.min(y1),
@@ -544,7 +571,7 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
             (width / 10.0).clamp(1.0, 2.2)
         };
         for level in column.bottom..=column.top {
-            let y = cx.y(level as f64 * size);
+            let y = cx.y(i64_to_f64(level) * size);
             if column.up {
                 out.push(Cmd::Stroke {
                     points: vec![(x - hw, y - hh), (x + hw, y + hh)],

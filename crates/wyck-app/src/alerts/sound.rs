@@ -165,8 +165,7 @@ fn system_files() -> Vec<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let root = std::env::var_os("SystemRoot")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+            .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
         let media = root.join("Media");
         [
             "Windows Notify System Generic.wav",
@@ -352,19 +351,27 @@ impl Speaker {
     /// Plays a sound. Sounds asked while one plays are dropped but the last, which plays next: a
     /// burst of alerts is one sound, not a rattle.
     pub fn play(&self, kind: SoundKind, custom: Option<&str>, volume: u8) {
-        let _ = self.jobs.send(Job::Sound {
+        let sent = self.jobs.send(Job::Sound {
             kind,
             custom: custom.map(PathBuf::from),
             volume,
         });
+        if sent.is_err() {
+            tracing::warn!("the thread of the alert sounds is not running, a sound was dropped");
+        }
     }
 
     /// Shows a desktop notification.
     pub fn notify(&self, title: &str, body: &str) {
-        let _ = self.jobs.send(Job::Notify {
+        let sent = self.jobs.send(Job::Notify {
             title: title.to_owned(),
             body: body.to_owned(),
         });
+        if sent.is_err() {
+            tracing::warn!(
+                "the thread of the alert sounds is not running, a notification was dropped"
+            );
+        }
     }
 }
 
@@ -378,6 +385,10 @@ fn run(inbox: &mpsc::Receiver<Job>) {
     while let Ok(first) = inbox.recv() {
         let mut batch = vec![first];
         // What piled up while the last job ran.
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "thread of its own that only plays sounds: waits for a burst of alerts to pile up"
+        )]
         std::thread::sleep(Duration::from_millis(30));
         while let Ok(job) = inbox.try_recv() {
             batch.push(job);
@@ -470,8 +481,10 @@ pub fn keep_copy(
     std::fs::create_dir_all(&dir).map_err(SoundError::Keep)?;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with("custom.") {
-                let _ = std::fs::remove_file(entry.path());
+            if entry.file_name().to_string_lossy().starts_with("custom.")
+                && let Err(error) = std::fs::remove_file(entry.path())
+            {
+                tracing::warn!(%error, "could not remove the earlier custom sound");
             }
         }
     }

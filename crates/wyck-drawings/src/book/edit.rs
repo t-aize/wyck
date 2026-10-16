@@ -157,8 +157,8 @@ impl Book {
             }
             return false;
         }
-        for later in creating.placed..creating.drawing.points.len() {
-            creating.drawing.points[later] = point;
+        for slot in creating.drawing.points.iter_mut().skip(creating.placed) {
+            *slot = point;
         }
         if let Some(press) = creating.press
             && ((x - press.0).powi(2) + (y - press.1).powi(2)).sqrt() >= DRAG_START
@@ -293,50 +293,53 @@ impl Book {
 /// Moves one point of a drawing, keeping the shape the tool needs: a position's stop and target
 /// move only up and down, its right edge only sideways.
 pub(super) fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
-    if drawing.tool.is_position() && drawing.points.len() == 4 {
-        let left = drawing.points[0].t;
+    if drawing.tool.is_position()
+        && let [entry, stop, target, edge] = drawing.points.as_mut_slice()
+    {
+        let left = entry.t;
         match index {
             0 => {
-                let (dt, dp) = (to.t - drawing.points[0].t, to.p - drawing.points[0].p);
+                let (dt, dp) = (to.t - entry.t, to.p - entry.p);
                 for point in &mut drawing.points {
                     point.t += dt;
                     point.p += dp;
                 }
             }
-            1 | 2 => {
-                drawing.points[index] = Point { t: left, p: to.p };
-                if index == 1 {
-                    drawing.style.position.atr_stop = None;
-                }
-                if index == 2 {
-                    drawing.style.position.target_rr = None;
-                }
+            1 => {
+                *stop = Point { t: left, p: to.p };
+                drawing.style.position.atr_stop = None;
+            }
+            2 => {
+                *target = Point { t: left, p: to.p };
+                drawing.style.position.target_rr = None;
             }
             _ => {
-                drawing.points[3] = Point {
+                *edge = Point {
                     t: to.t.max(left + 1),
-                    p: drawing.points[0].p,
+                    p: entry.p,
                 };
             }
         }
         return;
     }
-    if drawing.tool.is_box() && drawing.points.len() == 2 {
-        let points = &mut drawing.points;
+    if drawing.tool.is_box()
+        && let [first, second] = drawing.points.as_mut_slice()
+    {
         match index {
-            0 | 1 => points[index] = to,
+            0 => *first = to,
+            1 => *second = to,
             2 => {
-                points[0].t = to.t;
-                points[1].p = to.p;
+                first.t = to.t;
+                second.p = to.p;
             }
             3 => {
-                points[1].t = to.t;
-                points[0].p = to.p;
+                second.t = to.t;
+                first.p = to.p;
             }
-            4 => points[0].p = to.p,
-            5 => points[1].p = to.p,
-            6 => points[0].t = to.t,
-            _ => points[1].t = to.t,
+            4 => first.p = to.p,
+            5 => second.p = to.p,
+            6 => first.t = to.t,
+            _ => second.t = to.t,
         }
         return;
     }

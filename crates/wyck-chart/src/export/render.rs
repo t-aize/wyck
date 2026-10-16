@@ -5,6 +5,14 @@ use super::columns::ColumnKey;
 use super::options::{ExportOptions, identifier, pattern_is_valid};
 use super::source::{Cell, Source, Table};
 use super::{RAW_DECIMALS, SQL_BATCH};
+use std::fmt::{self, Write as _};
+use wyck_core::math::i64_to_f64;
+
+/// Appends formatted text to `out`. Writing to a `String` cannot fail unless a `Display` does,
+/// which none of the values written here do, so there is nothing to report.
+fn push(out: &mut String, args: fmt::Arguments<'_>) {
+    out.write_fmt(args).unwrap_or_default();
+}
 
 use crate::zone::Zone;
 use chrono::{DateTime, FixedOffset};
@@ -72,7 +80,7 @@ pub(super) fn time_text(time_ms: i64, options: &ExportOptions, chart_zone: Zone)
             let local = time_ms.saturating_add(zone.offset_ms(time_ms));
             // Days from 1899-12-30, which is where a spreadsheet counts from.
             (
-                format!("{:.6}", local as f64 / 86_400_000.0 + 25_569.0),
+                format!("{:.6}", i64_to_f64(local) / 86_400_000.0 + 25_569.0),
                 true,
             )
         }
@@ -225,7 +233,7 @@ pub fn render(table: &Table, options: &ExportOptions, digits: u32, chart_zone: Z
             let cx = cx(text_decimal);
             if options.notes {
                 for (name, value) in &table.notes {
-                    out.push_str(&format!("# {name}: {value}{eol}"));
+                    push(&mut out, format_args!("# {name}: {value}{eol}"));
                 }
             }
             if options.header {
@@ -283,10 +291,13 @@ pub fn render(table: &Table, options: &ExportOptions, digits: u32, chart_zone: Z
                         .iter()
                         .map(|(k, v)| format!("{}:{}", json_string(k), json_string(v)))
                         .collect();
-                    out.push_str(&format!(
-                        "{{{nl}{pad}\"meta\":{{{}}},{nl}{pad}\"data\":{body}{nl}}}",
-                        meta.join(sep)
-                    ));
+                    push(
+                        &mut out,
+                        format_args!(
+                            "{{{nl}{pad}\"meta\":{{{}}},{nl}{pad}\"data\":{body}{nl}}}",
+                            meta.join(sep)
+                        ),
+                    );
                 } else {
                     out.push_str(&body);
                 }
@@ -297,7 +308,7 @@ pub fn render(table: &Table, options: &ExportOptions, digits: u32, chart_zone: Z
             let cx = cx(text_decimal);
             let clean = |s: &str| s.replace('|', "\\|").replace(['\n', '\r'], " ");
             let names: Vec<String> = table.columns.iter().map(|c| clean(&c.name)).collect();
-            out.push_str(&format!("| {} |{eol}", names.join(" | ")));
+            push(&mut out, format_args!("| {} |{eol}", names.join(" | ")));
             let aligns: Vec<&str> = table
                 .columns
                 .iter()
@@ -311,13 +322,13 @@ pub fn render(table: &Table, options: &ExportOptions, digits: u32, chart_zone: Z
                     }
                 })
                 .collect();
-            out.push_str(&format!("| {} |{eol}", aligns.join(" | ")));
+            push(&mut out, format_args!("| {} |{eol}", aligns.join(" | ")));
             for row in &table.rows {
                 let cells: Vec<String> = row
                     .iter()
                     .map(|c| cell_text(c, &cx).map_or_else(|| empty.to_owned(), |w| clean(&w.text)))
                     .collect();
-                out.push_str(&format!("| {} |{eol}", cells.join(" | ")));
+                push(&mut out, format_args!("| {} |{eol}", cells.join(" | ")));
             }
         }
         Format::Sql => {
@@ -338,22 +349,25 @@ pub fn render(table: &Table, options: &ExportOptions, digits: u32, chart_zone: Z
                 .collect();
             if options.notes {
                 for (k, v) in &table.notes {
-                    out.push_str(&format!("-- {k}: {v}{eol}"));
+                    push(&mut out, format_args!("-- {k}: {v}{eol}"));
                 }
             }
             for batch in table.rows.chunks(SQL_BATCH) {
-                out.push_str(&format!(
-                    "INSERT INTO {name} ({}) VALUES{eol}",
-                    names.join(", ")
-                ));
+                push(
+                    &mut out,
+                    format_args!("INSERT INTO {name} ({}) VALUES{eol}", names.join(", ")),
+                );
                 let last = batch.len() - 1;
                 for (n, row) in batch.iter().enumerate() {
                     let values: Vec<String> = row.iter().map(|c| sql_literal(c, &cx)).collect();
-                    out.push_str(&format!(
-                        "  ({}){}{eol}",
-                        values.join(", "),
-                        if n == last { ";" } else { "," }
-                    ));
+                    push(
+                        &mut out,
+                        format_args!(
+                            "  ({}){}{eol}",
+                            values.join(", "),
+                            if n == last { ";" } else { "," }
+                        ),
+                    );
                 }
             }
         }

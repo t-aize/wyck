@@ -2,11 +2,12 @@
 
 use super::{
     Anchor, HANDLE_REACH, LINE_REACH, P, Part, Prim, Projection, anchors, board_size,
-    distance_to_segment, prims, prims_with,
+    distance_to_segment, lead, prims, prims_with,
 };
 use crate::extras;
 use crate::model::Drawing;
 use crate::model::tool::Tool;
+use wyck_core::math::count_f32;
 
 /// The grips of a drawing: where its points are on the screen.
 pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
@@ -15,10 +16,13 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
         tool if tool.is_freehand() => Vec::new(),
         // The far corner of the square is where the pointer would put it on the grid.
         Tool::GannSquareFixed => anchors(drawing, proj)
-            .map(|pts| vec![pts[0], extras::fixed_square_corner(pts[0], pts[1])])
+            .and_then(|pts| {
+                let [first, second] = lead(&pts)?;
+                Some(vec![first, extras::fixed_square_corner(first, second)])
+            })
             .unwrap_or_default(),
         tool if tool.is_box() => anchors(drawing, proj)
-            .map(|pts| box_handles(pts[0], pts[1]))
+            .and_then(|pts| lead(&pts).map(|[first, second]| box_handles(first, second)))
             .unwrap_or_default(),
         _ => anchors(drawing, proj).unwrap_or_default(),
     }
@@ -28,7 +32,7 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
 /// corners, then the middle of each side (the side through the first corner's height, the second
 /// corner's height, the first corner's time, the second's).
 pub(crate) fn box_handles(a: P, b: P) -> Vec<P> {
-    let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+    let (mx, my) = (f32::midpoint(a.0, b.0), f32::midpoint(a.1, b.1));
     vec![
         a,
         b,
@@ -42,7 +46,7 @@ pub(crate) fn box_handles(a: P, b: P) -> Vec<P> {
 }
 
 pub(super) fn label_box(at: P, text: &str, anchor: Anchor, size: f32) -> (P, P) {
-    let width = text.chars().count() as f32 * size * 0.6 + 14.0;
+    let width = count_f32(text.chars().count()) * size * 0.6 + 14.0;
     let half = size * 0.8;
     let (l, r) = match anchor {
         Anchor::Left => (at.0, at.0 + width),
@@ -105,13 +109,13 @@ pub(crate) fn hit(
             return None;
         }
         let pts = anchors(drawing, proj)?;
-        if pts.len() != 4 {
+        let &[p0, p1, p2, p3] = pts.as_slice() else {
             return None;
-        }
-        let left = pts[0].0;
-        let right = pts[3].0.max(left + 1.0);
-        return (inside_rect(at, (left, pts[0].1), (right, pts[1].1))
-            || inside_rect(at, (left, pts[0].1), (right, pts[2].1)))
+        };
+        let left = p0.0;
+        let right = p3.0.max(left + 1.0);
+        return (inside_rect(at, (left, p0.1), (right, p1.1))
+            || inside_rect(at, (left, p0.1), (right, p2.1)))
         .then_some(Part::Body);
     }
     let reach = LINE_REACH + drawing.style.width / 2.0;
@@ -148,9 +152,12 @@ pub(crate) fn hit(
                 }
             }
             Prim::Polygon { points, .. } => points.len() >= 3 && point_in_polygon(at, points),
-            Prim::Polyline { points, .. } => points
-                .windows(2)
-                .any(|pair| distance_to_segment(at, pair[0], pair[1]) <= reach),
+            Prim::Polyline { points, .. } => points.windows(2).any(|pair| {
+                let &[from, to] = pair else {
+                    return false;
+                };
+                distance_to_segment(at, from, to) <= reach
+            }),
             Prim::Label {
                 at: position,
                 text,
@@ -181,13 +188,16 @@ pub(crate) fn hit(
 
 pub(super) fn point_in_polygon(p: P, polygon: &[P]) -> bool {
     let mut inside = false;
-    let mut j = polygon.len() - 1;
-    for i in 0..polygon.len() {
-        let (a, b) = (polygon[i], polygon[j]);
+    let Some(&last) = polygon.last() else {
+        return false;
+    };
+    let mut previous = last;
+    for &current in polygon {
+        let (a, b) = (current, previous);
         if (a.1 > p.1) != (b.1 > p.1) && p.0 < (b.0 - a.0) * (p.1 - a.1) / (b.1 - a.1) + a.0 {
             inside = !inside;
         }
-        j = i;
+        previous = current;
     }
     inside
 }

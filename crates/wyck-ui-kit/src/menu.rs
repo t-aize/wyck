@@ -269,7 +269,7 @@ impl Menu {
         };
         if open {
             self.close(cx);
-        } else if !dismissed.is_some_and(|at| at.elapsed() < REOPEN_GUARD) {
+        } else if dismissed.is_none_or(|at| at.elapsed() >= REOPEN_GUARD) {
             self.open(None, cx);
         }
     }
@@ -494,7 +494,7 @@ fn step(items: &[Item], from: Option<usize>, forward: bool) -> Option<usize> {
             (Some(i), false) => (i + count - 1) % count,
         };
         at = Some(next);
-        if matches!(&items[next], Item::Entry(entry) if !entry.disabled) {
+        if matches!(items.get(next), Some(Item::Entry(entry)) if !entry.disabled) {
             return at;
         }
     }

@@ -26,6 +26,7 @@
 
 use chrono::DateTime;
 use serde::{Deserialize, Serialize};
+use wyck_core::math::{count_i64, f64_to_i64, i64_to_f64};
 use wyck_market::Bar;
 
 use super::zone::Zone;
@@ -118,6 +119,10 @@ impl TpoColor {
 
 /// The settings of the TPO chart type. Saved with the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct TpoSettings {
     #[serde(default)]
     pub session: SessionKind,
@@ -298,7 +303,7 @@ pub struct Profile {
 impl Profile {
     /// The raw price at the bottom of row `row`.
     pub(crate) fn row_bottom(&self, row: usize) -> i64 {
-        (self.low_row + row as i64) * self.row_size
+        (self.low_row + count_i64(row)) * self.row_size
     }
 
     /// The raw price at the top of row `row`.
@@ -321,7 +326,7 @@ impl Profile {
 
     /// The price in the middle of the range of the session.
     pub(crate) fn midpoint(&self) -> i64 {
-        (self.high + self.low) / 2
+        i64::midpoint(self.high, self.low)
     }
 }
 
@@ -343,7 +348,7 @@ fn point_of_control(rows: &[Vec<u16>]) -> usize {
     let most = rows.iter().map(Vec::len).max().unwrap_or(0);
     let last = rows.len().saturating_sub(1);
     (0..rows.len())
-        .filter(|&r| rows[r].len() == most)
+        .filter(|&r| rows.get(r).is_some_and(|row| row.len() == most))
         // Twice the distance from the middle, to stay in whole numbers.
         .min_by_key(|&r| ((2 * r).abs_diff(last), r))
         .unwrap_or(0)
@@ -382,14 +387,15 @@ fn value_area(rows: &[Vec<u16>], poc: usize, percent: u32) -> (usize, usize) {
 /// The runs of rows with a single mark that are at least `min_rows` long.
 fn single_prints(rows: &[Vec<u16>], min_rows: usize) -> Vec<SinglePrint> {
     let mut out = Vec::new();
+    let marks_in = |row: usize| rows.get(row).map_or(0, Vec::len);
     let mut r = 0;
     while r < rows.len() {
-        if rows[r].len() != 1 {
+        if marks_in(r) != 1 {
             r += 1;
             continue;
         }
         let first = r;
-        while r + 1 < rows.len() && rows[r + 1].len() == 1 {
+        while r + 1 < rows.len() && marks_in(r + 1) == 1 {
             r += 1;
         }
         if r + 1 - first >= min_rows {
@@ -412,10 +418,10 @@ fn nice_ceiling(value: f64) -> i64 {
     let scale = 10f64.powf(value.log10().floor());
     for step in [1.0, 2.0, 5.0, 10.0] {
         if scale * step >= value {
-            return (scale * step) as i64;
+            return f64_to_i64(scale * step);
         }
     }
-    (scale * 10.0) as i64
+    f64_to_i64(scale * 10.0)
 }
 
 /// The height of a row when it is automatic: about [`AUTO_ROWS`] rows for the usual session.
@@ -424,15 +430,22 @@ fn auto_row_units(ranges: &mut [i64], unit: i64) -> i64 {
         return 1;
     }
     ranges.sort_unstable();
-    let typical = ranges[ranges.len() / 2].max(unit);
-    nice_ceiling(typical as f64 / unit as f64 / AUTO_ROWS as f64)
+    let typical = ranges
+        .get(ranges.len() / 2)
+        .copied()
+        .unwrap_or(unit)
+        .max(unit);
+    nice_ceiling(i64_to_f64(typical) / i64_to_f64(unit) / i64_to_f64(AUTO_ROWS))
 }
 
 /// The smallest gap between two bars, which is the length of one, in milliseconds.
 fn bar_span(bars: &[Bar]) -> i64 {
     bars.windows(2)
         .take(2_000)
-        .map(|w| w[1].time_ms - w[0].time_ms)
+        .filter_map(|w| match w {
+            [first, second] => Some(second.time_ms - first.time_ms),
+            _ => None,
+        })
         .filter(|gap| *gap > 0)
         .min()
         .unwrap_or(60_000)
@@ -444,11 +457,15 @@ pub(crate) fn build(bars: &[Bar], settings: &TpoSettings, zone: Zone, unit: i64)
     let mut sessions: Vec<&[Bar]> = Vec::new();
     let mut start = 0;
     for i in 1..=bars.len() {
-        let ends = i == bars.len()
-            || settings.session_key(zone, bars[i].time_ms)
-                != settings.session_key(zone, bars[start].time_ms);
+        let key_at = |n: usize| {
+            bars.get(n)
+                .map(|bar| settings.session_key(zone, bar.time_ms))
+        };
+        let ends = i == bars.len() || key_at(i) != key_at(start);
         if ends {
-            sessions.push(&bars[start..i]);
+            if let Some(session) = bars.get(start..i) {
+                sessions.push(session);
+            }
             start = i;
             if sessions.len() >= MAX_PROFILES {
                 break;
@@ -471,19 +488,19 @@ pub(crate) fn build(bars: &[Bar], settings: &TpoSettings, zone: Zone, unit: i64)
     };
     sessions
         .into_iter()
-        .filter(|s| !s.is_empty())
-        .map(|s| profile(s, settings, period_ms, row_units * unit, unit))
+        .filter_map(|s| profile(s, settings, period_ms, row_units * unit, unit))
         .collect()
 }
 
-/// One session, from its bars (in order, never none).
+/// One session, from its bars (in order); none for no bars.
 fn profile(
     bars: &[Bar],
     settings: &TpoSettings,
     period_ms: i64,
     wanted_row: i64,
     unit: i64,
-) -> Profile {
+) -> Option<Profile> {
+    let (first_bar, last_bar) = (bars.first()?, bars.last()?);
     let high = bars.iter().map(|b| b.high).max().unwrap_or(0);
     let low = bars.iter().map(|b| b.low).min().unwrap_or(0);
     // Taller rows for a session so wide it would have too many.
@@ -495,7 +512,7 @@ fn profile(
     let top_row = high.div_euclid(row_size);
     let mut rows: Vec<Vec<u16>> =
         vec![Vec::new(); usize::try_from(top_row - low_row + 1).unwrap_or(1)];
-    let first_time = bars[0].time_ms;
+    let first_time = first_bar.time_ms;
     let grid = first_time.div_euclid(period_ms) * period_ms;
     let mut periods = 0;
     let (mut ib_high, mut ib_low) = (i64::MIN, i64::MAX);
@@ -503,12 +520,12 @@ fn profile(
     for bar in bars {
         let period = usize::try_from((bar.time_ms - grid) / period_ms).unwrap_or(0);
         periods = periods.max(period + 1);
-        let mark = (period % LETTERS) as u16;
+        let mark = u16::try_from(period % LETTERS).unwrap_or(u16::MAX);
         let from = usize::try_from(bar.low.div_euclid(row_size) - low_row).unwrap_or(0);
         let to = usize::try_from(bar.high.div_euclid(row_size) - low_row)
             .unwrap_or(0)
             .min(rows.len() - 1);
-        for row in &mut rows[from.min(to)..=to] {
+        for row in rows.get_mut(from.min(to)..=to).into_iter().flatten() {
             // Bars come in order, so a period is only ever the last one to have marked a row.
             if row.last() != Some(&mark) {
                 row.push(mark);
@@ -525,10 +542,10 @@ fn profile(
         row_size,
         low_row,
         periods,
-        open: bars[0].open,
+        open: first_bar.open,
         high,
         low,
-        close: bars[bars.len() - 1].close,
+        close: last_bar.close,
         volume: bars.iter().map(|b| b.volume).sum(),
         poc,
         value_area: value_area(&rows, poc, settings.value_area_percent),
@@ -543,7 +560,7 @@ fn profile(
     };
     profile.open_row = profile.row_of(profile.open);
     profile.close_row = profile.row_of(profile.close);
-    profile
+    Some(profile)
 }
 
 /// A time of day as `09:30`, from minutes after midnight.
@@ -554,15 +571,14 @@ pub fn format_clock(minutes: u32) -> String {
 /// Minutes after midnight from a time of day: `9:30`, `09:30`, `9` (an hour) or `930`.
 pub fn parse_clock(text: &str) -> Option<u32> {
     let text = text.trim();
-    let (hours, minutes) = match text.split_once(':') {
-        Some((h, m)) => (h.trim().parse::<u32>().ok()?, m.trim().parse::<u32>().ok()?),
-        None => {
-            let n = text.parse::<u32>().ok()?;
-            if text.len() > 2 {
-                (n / 100, n % 100)
-            } else {
-                (n, 0)
-            }
+    let (hours, minutes) = if let Some((h, m)) = text.split_once(':') {
+        (h.trim().parse::<u32>().ok()?, m.trim().parse::<u32>().ok()?)
+    } else {
+        let n = text.parse::<u32>().ok()?;
+        if text.len() > 2 {
+            (n / 100, n % 100)
+        } else {
+            (n, 0)
         }
     };
     (hours < 24 && minutes < 60).then_some(hours * 60 + minutes)
@@ -572,15 +588,16 @@ pub fn parse_clock(text: &str) -> Option<u32> {
 pub(crate) fn letter(mark: u16) -> char {
     let m = usize::from(mark) % LETTERS;
     if m < 26 {
-        char::from(b'A' + m as u8)
+        char::from(b'A' + u8::try_from(m).unwrap_or_default())
     } else {
-        char::from(b'a' + (m - 26) as u8)
+        char::from(b'a' + u8::try_from(m - 26).unwrap_or_default())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_i64;
 
     const MIN: i64 = 60_000;
     /// Monday 2026-01-05 00:00 UTC.
@@ -609,7 +626,7 @@ mod tests {
         prices
             .iter()
             .enumerate()
-            .map(|(i, (low, high))| bar(MONDAY + i as i64 * 30 * MIN, *low, *high))
+            .map(|(i, (low, high))| bar(MONDAY + count_i64(i) * 30 * MIN, *low, *high))
             .collect()
     }
 
@@ -675,7 +692,7 @@ mod tests {
         // (3 + 1) beat the two below (2 + 1), so 5 + 3 + 1 = 9 is enough.
         let rows: Vec<Vec<u16>> = [1usize, 2, 5, 3, 1]
             .iter()
-            .map(|n| (0..*n as u16).collect())
+            .map(|n| (0..u16::try_from(*n).unwrap_or(u16::MAX)).collect())
             .collect();
         assert_eq!(point_of_control(&rows), 2);
         assert_eq!(value_area(&rows, 2, 70), (2, 4));
@@ -684,7 +701,7 @@ mod tests {
         // Equal sides go up.
         let flat: Vec<Vec<u16>> = [2usize, 2, 4, 2, 2]
             .iter()
-            .map(|n| (0..*n as u16).collect())
+            .map(|n| (0..u16::try_from(*n).unwrap_or(u16::MAX)).collect())
             .collect();
         assert_eq!(value_area(&flat, 2, 70).1, 4);
     }
@@ -707,7 +724,7 @@ mod tests {
     fn single_prints_are_runs_of_one_mark_and_the_ends_are_tails() {
         let rows: Vec<Vec<u16>> = [1usize, 1, 3, 2, 1, 1, 1, 4, 1]
             .iter()
-            .map(|n| (0..*n as u16).collect())
+            .map(|n| (0..u16::try_from(*n).unwrap_or(u16::MAX)).collect())
             .collect();
         let found = single_prints(&rows, 2);
         assert_eq!(
@@ -727,7 +744,7 @@ mod tests {
         );
         // A single row does not count when two are asked for, and does with one.
         assert_eq!(single_prints(&rows, 1).len(), 3);
-        assert!(single_prints(&rows, 4).is_empty());
+        assert_eq!(single_prints(&rows, 4), [] as [SinglePrint; 0]);
     }
 
     #[test]
@@ -848,7 +865,7 @@ mod tests {
         let wide = letters(&[(0, 100_000)]);
         let profile = &utc(&wide, &settings())[0];
         assert!(
-            profile.rows.len() as i64 <= MAX_ROWS + 1,
+            count_i64(profile.rows.len()) <= MAX_ROWS + 1,
             "{}",
             profile.rows.len()
         );
@@ -861,7 +878,7 @@ mod tests {
         let auto = TpoSettings::default();
         let profile = &utc(&bars, &auto)[0];
         assert!(profile.row_size >= 50, "{}", profile.row_size);
-        assert!((profile.rows.len() as i64) < 60, "{}", profile.rows.len());
+        assert!(count_i64(profile.rows.len()) < 60, "{}", profile.rows.len());
         assert_eq!(nice_ceiling(0.3), 1);
         assert_eq!(nice_ceiling(3.0), 5);
         assert_eq!(nice_ceiling(51.0), 100);
@@ -905,7 +922,7 @@ mod tests {
 
     #[test]
     fn nothing_in_gives_nothing_out() {
-        assert!(utc(&[], &settings()).is_empty());
+        assert_eq!(utc(&[], &settings()), [] as [Profile; 0]);
     }
 
     #[test]

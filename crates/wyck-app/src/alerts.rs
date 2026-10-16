@@ -13,9 +13,11 @@
 //! Alerts are saved per account and come back at the next start. [`Alerts`] is the entity that
 //! feeds them, saves them, and tells the app when one fires.
 
+use crate::lost::lost;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
+use wyck_core::math::i64_to_f64;
 
 use gpui::{App, Context, Entity, EventEmitter};
 use wyck_chart::Series;
@@ -129,7 +131,7 @@ impl Alerts {
         let poll = cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(POLL).await;
-                if this.update(cx, |this, cx| this.poll(cx)).is_err() {
+                if this.update(cx, Self::poll).is_err() {
                     break;
                 }
             }
@@ -247,7 +249,7 @@ impl Alerts {
         ask: Option<i64>,
         cx: &mut Context<Self>,
     ) {
-        let real = |raw: Option<i64>| raw.map(|r| r as f64 / PRICE_SCALE as f64);
+        let real = |raw: Option<i64>| raw.map(|r| i64_to_f64(r) / i64_to_f64(PRICE_SCALE));
         let entry = self.quotes.entry(symbol_id).or_insert((None, None));
         entry.0 = real(bid).or(entry.0);
         entry.1 = real(ask).or(entry.1);
@@ -291,6 +293,10 @@ impl Alerts {
 
     /// Judges an alert on a new reading of its value. `Some(bar)` when it fires, with the bar
     /// (its start time) it fired on, for the triggers by bar.
+    #[expect(
+        clippy::option_option,
+        reason = "two answers in one: whether it fires, and the bar it fired on if the timeframe has one"
+    )]
     fn judge(&mut self, alert: &Alert, reading: Reading, now: i64) -> Option<Option<i64>> {
         let before = self.last.insert(alert.id, reading);
         let bar = Timeframe::from_code(&alert.timeframe)
@@ -382,7 +388,7 @@ impl Alerts {
         let drawings = self.drawings.read(cx);
         let drawing = drawings.book().get(&alert.symbol, id)?;
         // A drawing keeps raw prices.
-        let scale = PRICE_SCALE as f64;
+        let scale = i64_to_f64(PRICE_SCALE);
         eval::drawing_level(drawing.tool, &drawing.points, time)
             .map(|(level, upper)| (level / scale, upper.map(|u| u / scale)))
     }
@@ -412,10 +418,9 @@ impl Alerts {
         // What nothing waits for any more is forgotten.
         self.bars.retain(|key, _| wanted.contains(key));
         for key in wanted {
-            let fresh = self
-                .bars
-                .get(&key)
-                .is_some_and(|f| now - f.at < POLL.as_millis() as i64 - 1_000);
+            let fresh = self.bars.get(&key).is_some_and(|f| {
+                now - f.at < i64::try_from(POLL.as_millis()).unwrap_or(i64::MAX) - 1_000
+            });
             if fresh || self.loading.contains(&key) {
                 continue;
             }
@@ -431,14 +436,17 @@ impl Alerts {
                     load::initial(&session, symbol, timeframe, now_ms()).await
                 })
                 .await;
-                let _ = this.update(cx, |this, cx| {
-                    this.loading.remove(&key);
-                    if let Ok(Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. })) = loaded {
-                        this.bars
-                            .insert(key.clone(), Fetched { bars, at: now_ms() });
-                        this.judge_bars(&key, cx);
-                    }
-                });
+                lost(
+                    "alerts: poll",
+                    this.update(cx, |this, cx| {
+                        this.loading.remove(&key);
+                        if let Ok(Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. })) = loaded {
+                            this.bars
+                                .insert(key.clone(), Fetched { bars, at: now_ms() });
+                            this.judge_bars(&key, cx);
+                        }
+                    }),
+                );
             })
             .detach();
         }
@@ -453,7 +461,7 @@ impl Alerts {
         let output = study::compute::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {
-            PRICE_SCALE as f64
+            i64_to_f64(PRICE_SCALE)
         } else {
             1.0
         };
@@ -471,7 +479,7 @@ impl Alerts {
         match source {
             Source::Price { .. } => Some(
                 bars.iter()
-                    .map(|b| b.close as f64 / PRICE_SCALE as f64)
+                    .map(|b| i64_to_f64(b.close) / i64_to_f64(PRICE_SCALE))
                     .collect(),
             ),
             Source::Indicator { study, plot } => Self::plot_of(study, *plot, bars),

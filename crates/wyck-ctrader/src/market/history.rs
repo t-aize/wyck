@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn a_backwards_range_has_no_window() {
-        assert!(tick_windows(5, 4).is_empty());
+        assert_eq!(tick_windows(5, 4), [] as [(i64, i64); 0]);
     }
 
     #[test]

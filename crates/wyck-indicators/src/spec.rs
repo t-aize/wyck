@@ -2,6 +2,7 @@
 //! description of each indicator ([`Spec`]).
 
 use serde::{Deserialize, Serialize};
+use wyck_core::math::count_f64;
 
 use wyck_drawings::model::style::Dash;
 
@@ -134,7 +135,7 @@ pub(super) const fn choice(
         kind: InputKind::Choice(options),
         default,
         min: 0.0,
-        max: (options.len() - 1) as f64,
+        max: count_f64(options.len() - 1),
         step: 1.0,
         group: "",
         tooltip: "",
@@ -224,11 +225,11 @@ pub const SOURCES: [&str; 8] = [
     "Open", "High", "Low", "Close", "HL2", "HLC3", "OHLC4", "HLCC4",
 ];
 
-pub(super) const UP: u32 = 0x26a69a;
-pub(super) const DOWN: u32 = 0xef5350;
-pub(super) const BLUE: u32 = 0x2962ff;
-pub(super) const ORANGE: u32 = 0xff9800;
-pub(super) const PURPLE: u32 = 0x7e57c2;
-pub(super) const TEAL: u32 = 0x00bcd4;
-pub(super) const PINK: u32 = 0xe91e63;
-pub(super) const GRAY: u32 = 0x787b86;
+pub(super) const UP: u32 = 0x26_a69a;
+pub(super) const DOWN: u32 = 0xef_5350;
+pub(super) const BLUE: u32 = 0x29_62ff;
+pub(super) const ORANGE: u32 = 0xff_9800;
+pub(super) const PURPLE: u32 = 0x7e_57c2;
+pub(super) const TEAL: u32 = 0x00_bcd4;
+pub(super) const PINK: u32 = 0xe9_1e63;
+pub(super) const GRAY: u32 = 0x78_7b86;

@@ -214,7 +214,9 @@ impl Drawing {
         if !self.tool.has_levels() {
             self.levels.clear();
         }
-        self.degree = self.degree.min(DEGREES.len() as u8 - 1);
+        self.degree = self
+            .degree
+            .min(u8::try_from(DEGREES.len()).unwrap_or(u8::MAX) - 1);
         if let Some(list) = &mut self.timeframes {
             list.sort();
             list.dedup();
@@ -329,6 +331,7 @@ mod tests {
     use super::style::*;
     use super::tool::*;
     use super::*;
+    use wyck_core::math::{count_f64, count_i64};
 
     fn drawing(id: u64, tool: Tool, count: usize) -> Drawing {
         Drawing::new(
@@ -336,8 +339,8 @@ mod tests {
             tool,
             (0..count)
                 .map(|i| Point {
-                    t: i as i64 * 60_000,
-                    p: 100.0 + i as f64,
+                    t: count_i64(i) * 60_000,
+                    p: 100.0 + count_f64(i),
                 })
                 .collect(),
         )
@@ -491,11 +494,11 @@ mod tests {
         d.style.text_layout.align = HAlign::End;
         d.style.text_layout.valign = VAlign::Bottom;
         d.style.text_layout.background = true;
-        d.style.text_layout.background_color = Some(0x123456);
+        d.style.text_layout.background_color = Some(0x12_3456);
         d.style.caps.start = Cap::Circle;
         d.style.caps.end = Cap::Arrow;
         d.style.measure.percent = false;
-        d.style.measure.down_color = 0xabcdef;
+        d.style.measure.down_color = 0xab_cdef;
         d.style.profile.rows = 60;
         d.style.profile.value_area = 0.5;
         d.style.level_text = LevelText::Percent;

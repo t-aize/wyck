@@ -112,10 +112,14 @@ impl LiveHub {
                 let want = changes.borrow_and_update().clone();
                 let steps = plan(&current, &want);
                 for (symbol, period) in steps.unsubscribe_bars {
-                    let _ = session.unsubscribe_live_bars(symbol, period).await;
+                    if let Err(error) = session.unsubscribe_live_bars(symbol, period).await {
+                        tracing::warn!(%error, symbol, "could not stop following the live bars");
+                    }
                 }
-                if !steps.unsubscribe_spots.is_empty() {
-                    let _ = session.unsubscribe_spots(&steps.unsubscribe_spots).await;
+                if !steps.unsubscribe_spots.is_empty()
+                    && let Err(error) = session.unsubscribe_spots(&steps.unsubscribe_spots).await
+                {
+                    tracing::warn!(%error, "could not stop following the prices");
                 }
                 if !steps.subscribe_spots.is_empty()
                     && let Err(error) = session.subscribe_spots(&steps.subscribe_spots).await
@@ -131,11 +135,15 @@ impl LiveHub {
             }
             // Every owner is gone: leave nothing subscribed.
             for (symbol, period) in current.bars {
-                let _ = session.unsubscribe_live_bars(symbol, period).await;
+                if let Err(error) = session.unsubscribe_live_bars(symbol, period).await {
+                    tracing::warn!(%error, symbol, "could not stop following the live bars");
+                }
             }
             let spots: Vec<i64> = current.spots.into_iter().collect();
-            if !spots.is_empty() {
-                let _ = session.unsubscribe_spots(&spots).await;
+            if !spots.is_empty()
+                && let Err(error) = session.unsubscribe_spots(&spots).await
+            {
+                tracing::warn!(%error, "could not stop following the prices");
             }
         });
         Self {

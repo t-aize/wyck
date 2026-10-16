@@ -258,7 +258,7 @@ pub fn describe(error: &ApiError) -> Reason {
             message: "The server sent something that could not be read.".to_owned(),
             hint: None,
         },
-        other => Reason {
+        other @ ApiError::Config(_) => Reason {
             message: sentence(&other.to_string()),
             hint: None,
         },
@@ -377,7 +377,7 @@ mod tests {
             open_position: None,
         });
         assert_eq!(notice.title, "Position closed");
-        assert!(notice.actions.is_empty());
+        assert_eq!(notice.actions, [] as [NoticeAction; 0]);
     }
 
     #[test]

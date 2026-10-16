@@ -34,7 +34,7 @@ impl IntoElement for TextElement {
     }
 }
 
-impl gpui::Element for TextElement {
+impl Element for TextElement {
     type RequestLayoutState = ();
     type PrepaintState = PrepaintState;
 
@@ -190,7 +190,7 @@ impl gpui::Element for TextElement {
             cx,
         );
         if let Some(selection) = prepaint.selection.take() {
-            window.paint_quad(selection)
+            window.paint_quad(selection);
         }
         let Some(line) = prepaint.line.take() else {
             return;

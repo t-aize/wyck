@@ -207,20 +207,20 @@ pub(super) fn indicators(engine: &mut Engine) {
 
 /// Colors by name, for `color: "orange"` in the options of a plot.
 pub(super) const NAMED: [(&str, u32); 14] = [
-    ("white", 0xffffff),
-    ("black", 0x000000),
-    ("gray", 0x787b86),
-    ("red", 0xef5350),
-    ("green", 0x26a69a),
-    ("blue", 0x2962ff),
-    ("orange", 0xff9800),
-    ("yellow", 0xffeb3b),
-    ("purple", 0x7e57c2),
-    ("teal", 0x00bcd4),
-    ("pink", 0xe91e63),
-    ("lime", 0x9ccc65),
-    ("aqua", 0x00e5ff),
-    ("silver", 0xb2b5be),
+    ("white", 0xff_ffff),
+    ("black", 0x00_0000),
+    ("gray", 0x78_7b86),
+    ("red", 0xef_5350),
+    ("green", 0x26_a69a),
+    ("blue", 0x29_62ff),
+    ("orange", 0xff_9800),
+    ("yellow", 0xff_eb3b),
+    ("purple", 0x7e_57c2),
+    ("teal", 0x00_bcd4),
+    ("pink", 0xe9_1e63),
+    ("lime", 0x9c_cc65),
+    ("aqua", 0x00_e5ff),
+    ("silver", 0xb2_b5be),
 ];
 
 /// A color: `"#2962ff"`, `"2962ff"` or a name.
@@ -240,7 +240,7 @@ pub(crate) fn parse_color(text: &str) -> Option<u32> {
 
 pub(super) fn colors(engine: &mut Engine) {
     engine.register_fn("rgb", |r: i64, g: i64, b: i64| -> String {
-        let byte = |v: i64| v.clamp(0, 255) as u32;
+        let byte = |v: i64| u32::try_from(v.clamp(0, 255)).unwrap_or_default();
         format!("#{:06x}", byte(r) << 16 | byte(g) << 8 | byte(b))
     });
 }

@@ -91,7 +91,7 @@ impl History for MarketClient {
         from_ms: i64,
         to_ms: i64,
     ) -> impl Future<Output = Result<Vec<Bar>>> + Send {
-        MarketClient::bars(self, symbol_id, period, from_ms, to_ms)
+        Self::bars(self, symbol_id, period, from_ms, to_ms)
     }
 
     fn ticks(
@@ -100,7 +100,7 @@ impl History for MarketClient {
         from_ms: i64,
         to_ms: i64,
     ) -> impl Future<Output = Result<Vec<Tick>>> + Send {
-        MarketClient::ticks(self, symbol_id, QuoteType::Bid, from_ms, to_ms)
+        Self::ticks(self, symbol_id, QuoteType::Bid, from_ms, to_ms)
     }
 }
 
@@ -359,8 +359,7 @@ mod tests {
                     "a request asks for more bars than the server serves"
                 );
                 let first = from_ms.max(start).div_euclid(step) * step;
-                Ok((0..)
-                    .map(|i| first + i * step)
+                Ok(std::iter::successors(Some(first), |t| t.checked_add(step))
                     .take_while(|t| *t <= to_ms.min(end))
                     .filter(|t| *t >= from_ms && *t >= start)
                     .map(|t| Bar {
@@ -389,8 +388,7 @@ mod tests {
                     "a tick request is too long"
                 );
                 let first = (from_ms.max(start) + 999).div_euclid(1_000) * 1_000;
-                Ok((0..)
-                    .map(|i| first + i * 1_000)
+                Ok(std::iter::successors(Some(first), |t| t.checked_add(1_000))
                     .take_while(|t| *t <= to_ms.min(end))
                     .map(|t| Tick {
                         time_ms: t,
@@ -444,7 +442,7 @@ mod tests {
         let fake = Fake::new(NOW - 30 * 86_400_000, NOW);
         let oldest = NOW - 2_000 * MINUTE;
         let bars = bars(run(older_from(&fake, 1, Timeframe::Bars(Period::M1), oldest)).unwrap());
-        assert!(!bars.is_empty());
+        assert_ne!(bars, [] as [Bar; 0]);
         assert!(bars.iter().all(|b| b.time_ms < oldest));
     }
 
@@ -479,7 +477,7 @@ mod tests {
         let Loaded::Ticks(ticks) = loaded else {
             panic!("bars where ticks were expected");
         };
-        assert!(!ticks.is_empty());
+        assert_ne!(ticks, [] as [Tick; 0]);
         assert!(fake.count() > 1, "it looked further back");
         assert!(ticks.last().unwrap().time_ms <= NOW - 2 * 3_600_000);
     }
@@ -505,7 +503,7 @@ mod tests {
         assert!(!tail.is_empty() && tail.len() <= 7);
         assert_eq!(tail.last().unwrap().time_ms, NOW);
         let older = bars(run(older_from(&fake, 1, m7, grouped[0].time_ms)).unwrap());
-        assert!(!older.is_empty());
+        assert_ne!(older, [] as [Bar; 0]);
         assert!(older.iter().all(|b| b.time_ms < grouped[0].time_ms));
     }
 

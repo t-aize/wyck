@@ -12,6 +12,7 @@
 //! [`crate::controls`].
 
 use std::rc::Rc;
+use wyck_core::math::f32_of;
 
 use gpui::prelude::*;
 use gpui::{
@@ -81,10 +82,10 @@ impl SliderField {
         let value = value.clamp(min, max);
         let slider = cx.new(|_| {
             SliderState::new()
-                .min(min as f32)
-                .max(max as f32)
-                .step(spec.step as f32)
-                .default_value(value as f32)
+                .min(f32_of(min))
+                .max(f32_of(max))
+                .step(f32_of(spec.step))
+                .default_value(f32_of(value))
         });
         let input = cx.new(|cx| number::state(kind, value, window, cx).min(min).max(max));
         let subscriptions = vec![
@@ -131,7 +132,7 @@ impl SliderField {
         }
         self.value = value;
         self.slider
-            .update(cx, |s, cx| s.set_value(value as f32, window, cx));
+            .update(cx, |s, cx| s.set_value(f32_of(value), window, cx));
         let text = number::format(value, self.decimals);
         self.input.update(cx, |s, cx| s.set_value(text, window, cx));
         cx.notify();
@@ -147,7 +148,7 @@ impl SliderField {
             self.input.update(cx, |s, cx| s.set_value(text, window, cx));
         } else {
             self.slider
-                .update(cx, |s, cx| s.set_value(value as f32, window, cx));
+                .update(cx, |s, cx| s.set_value(f32_of(value), window, cx));
         }
         cx.emit(ValueChanged(value));
         cx.notify();
@@ -215,7 +216,7 @@ pub fn icon_choice(
         .border_color(theme::border_subtle());
     for (index, (name, label)) in options.iter().enumerate() {
         let chosen = index == selected;
-        let on_select = on_select.clone();
+        let on_select = Rc::clone(&on_select);
         strip = strip.child(
             div()
                 .id(child_id(&id, index))

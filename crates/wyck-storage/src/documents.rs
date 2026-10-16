@@ -333,7 +333,7 @@ mod tests {
         std::fs::write(store.path("x"), b"title = \"kept\"\nfrom_the_future = 3\n").unwrap();
         let loaded: Sample = store.load_or_default("x");
         assert_eq!(loaded.title, "kept");
-        assert!(loaded.numbers.is_empty());
+        assert_eq!(loaded.numbers, [] as [i64; 0]);
     }
 
     #[test]

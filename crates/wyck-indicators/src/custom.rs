@@ -126,7 +126,7 @@ mod tests {
         config.inputs.insert("length".to_owned(), 7.0);
         let config = config.normalized();
         assert_eq!(config.inputs["length"], 7.0, "the saved values stay");
-        assert!(config.spec().inputs.is_empty());
+        assert_eq!(config.spec().inputs, []);
         let problems =
             compute(&config, &StudyInput::default(), Limits::default(), None).unwrap_err();
         assert!(problems[0].message.contains("Never existed"));

@@ -87,12 +87,15 @@ impl Kind {
 
 /// How many decimals it takes to write `step`: 2 for 0.01, 0 for 5.
 fn decimals_of(step: f64) -> usize {
-    (0..=10)
-        .find(|&d| {
-            let scaled = step * 10f64.powi(d);
-            (scaled - scaled.round()).abs() < 1e-6
-        })
-        .unwrap_or(10) as usize
+    usize::try_from(
+        (0..=10)
+            .find(|&d| {
+                let scaled = step * 10f64.powi(d);
+                (scaled - scaled.round()).abs() < 1e-6
+            })
+            .unwrap_or(10),
+    )
+    .unwrap_or_default()
 }
 
 /// A number field with steppers, for a state made by [`state`]. `width` is one of

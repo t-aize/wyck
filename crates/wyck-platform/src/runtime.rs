@@ -46,7 +46,7 @@ pub fn handle() -> Handle {
             // Leaking the `Runtime` keeps its worker threads (and their reactor/timer) alive for
             // the rest of the process; there is exactly one of these for the app's lifetime, and
             // it must outlive every `JoinHandle` ever produced by `spawn` below.
-            std::mem::forget(runtime);
+            let _leaked = std::mem::ManuallyDrop::new(runtime);
             handle
         })
         .clone()
@@ -57,7 +57,7 @@ pub fn handle() -> Handle {
 /// Await the result from a gpui task: `runtime::spawn(fut).await` inside `cx.spawn`.
 pub fn spawn<F>(future: F) -> JoinHandle<F::Output>
 where
-    F: std::future::Future + Send + 'static,
+    F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
     handle().spawn(future)

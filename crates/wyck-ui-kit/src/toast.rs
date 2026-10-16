@@ -161,10 +161,15 @@ impl Toast {
             let Some(window) = cx.active_window().or_else(|| cx.windows().first().copied()) else {
                 return;
             };
-            let _ = window.update(cx, |_, window, cx| {
-                let note = self.build();
-                window.push_notification(note, cx);
-            });
+            if window
+                .update(cx, |_, window, cx| {
+                    let note = self.build();
+                    window.push_notification(note, cx);
+                })
+                .is_err()
+            {
+                tracing::debug!("a window closed before its notice could be shown");
+            }
         });
     }
 
@@ -196,7 +201,7 @@ impl Toast {
                 let spoken = [Some(&title), Some(&message), hint.as_ref()]
                     .into_iter()
                     .flatten()
-                    .map(|part| part.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .join(". ");
                 let mut column = div()
@@ -236,7 +241,7 @@ impl Toast {
                         .gap_1()
                         .pt_1();
                     for (index, (label, run)) in actions.iter().enumerate() {
-                        let (run, this) = (run.clone(), this.clone());
+                        let (run, this) = (Rc::clone(run), this.clone());
                         row = row.child(
                             crate::button::dense(("toast-action", index))
                                 .outline()
@@ -248,7 +253,7 @@ impl Toast {
                         );
                     }
                     if let Some(details) = &details {
-                        let (details, copied) = (details.clone(), copied.clone());
+                        let (details, copied) = (details.clone(), Rc::clone(&copied));
                         let done = copied.get();
                         row = row.child(
                             crate::button::dense("toast-copy")

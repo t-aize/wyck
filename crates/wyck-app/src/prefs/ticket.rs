@@ -521,13 +521,18 @@ impl TicketPrefs {
         if plan.name.is_empty() {
             return None;
         }
-        let same = |p: &PlanTemplate| p.name.to_lowercase() == plan.name.to_lowercase();
-        match self.plans.iter().position(same) {
-            Some(at) => {
-                self.plans[at] = plan;
+        let name = plan.name.to_lowercase();
+        let full = self.plans.len() >= MAX_PLANS;
+        match self
+            .plans
+            .iter_mut()
+            .find(|p| p.name.to_lowercase() == name)
+        {
+            Some(slot) => {
+                *slot = plan;
                 Some(true)
             }
-            None if self.plans.len() >= MAX_PLANS => None,
+            None if full => None,
             None => {
                 self.plans.push(plan);
                 Some(false)
@@ -630,20 +635,24 @@ mod tests {
         layout.defaults.stop_pips = -3.0;
         layout.presets.lots = vec![0.0, -1.0, f64::NAN, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
         let layout = layout.normalized();
-        assert_eq!(layout.width, WIDTH_MAX);
-        assert_eq!(layout.high_risk, 5.0);
-        assert_eq!(layout.defaults.stop_pips, 0.1);
+        assert!(layout.width.total_cmp(&WIDTH_MAX).is_eq());
+        assert!(layout.high_risk.total_cmp(&5.0).is_eq());
+        assert!(layout.defaults.stop_pips.total_cmp(&0.1).is_eq());
         assert_eq!(layout.presets.lots.len(), MAX_PRESETS);
-        assert_eq!(layout.presets.lots[0], 1.0);
-        assert_eq!(
-            Layout {
-                width: f32::NAN,
-                ..Layout::default()
-            }
-            .normalized()
-            .width,
-            WIDTH_DEFAULT
+        assert!(
+            layout
+                .presets
+                .lots
+                .first()
+                .is_some_and(|lot| lot.total_cmp(&1.0).is_eq())
         );
+        let nan_width = Layout {
+            width: f32::NAN,
+            ..Layout::default()
+        }
+        .normalized()
+        .width;
+        assert!(nan_width.total_cmp(&WIDTH_DEFAULT).is_eq());
     }
 
     #[test]
@@ -686,6 +695,6 @@ mod tests {
             presets.of(SizeMode::RiskEquity),
             presets.of(SizeMode::RiskBalance)
         );
-        assert!(presets.of(SizeMode::RiskMoney).is_empty());
+        assert_eq!(presets.of(SizeMode::RiskMoney), [] as [f64; 0]);
     }
 }

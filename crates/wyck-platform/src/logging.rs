@@ -185,7 +185,7 @@ fn message_of(info: &PanicHookInfo<'_>) -> String {
 /// Writes the report of a panic into `dir` and trims the old ones. `None` when it could not be
 /// written. Never panics.
 fn record_panic(dir: &Path, summary: &str, thread: &str, backtrace: &str) -> Option<PathBuf> {
-    let now = chrono::Local::now();
+    let now = chrono::DateTime::<chrono::Local>::from(wyck_clock::now());
     let text = report_text(&now.to_rfc3339(), summary, thread, backtrace);
     // The counter is padded so that, within one second, the names still sort in the order the
     // reports were written.
@@ -254,7 +254,9 @@ fn prune(dir: &Path, prefix: &str, suffix: &str, keep: usize) {
     let found = matching(dir, prefix, suffix);
     let extra = found.len().saturating_sub(keep);
     for path in found.into_iter().take(extra) {
-        let _ = fs::remove_file(path);
+        if let Err(error) = fs::remove_file(&path) {
+            tracing::warn!(%error, path = %path.display(), "could not remove an old file");
+        }
     }
 }
 
@@ -377,7 +379,7 @@ mod tests {
     #[test]
     fn reports_are_only_the_panic_files_and_a_missing_folder_has_none() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(reports(&dir.path().join("nothing")).is_empty());
+        assert_eq!(reports(&dir.path().join("nothing")), [] as [PathBuf; 0]);
         fs::write(dir.path().join("wyck.2026-10-12.log"), "log").unwrap();
         fs::write(dir.path().join("panic-1.txt"), "report").unwrap();
         fs::write(dir.path().join("panic-1.txt.bad"), "other").unwrap();
@@ -404,13 +406,11 @@ mod tests {
         let outcome = std::thread::Builder::new()
             .name("doomed".to_owned())
             .spawn(|| {
-                if std::hint::black_box(true) {
-                    panic!("a test panic with a message");
-                }
+                assert!(!std::hint::black_box(true), "a test panic with a message");
             })
             .unwrap()
             .join();
-        let _ = std::panic::take_hook();
+        drop(std::panic::take_hook());
         std::panic::set_hook(before);
 
         assert!(outcome.is_err());

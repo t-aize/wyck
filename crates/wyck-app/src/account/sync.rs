@@ -4,6 +4,7 @@ use super::orders::missed_exits;
 use super::reverse::ReverseOrder;
 use super::{Account, Conversion, HISTORY_DAYS, Notice, Status, Tone, flatten, refusal};
 use crate::broker::{Error as ApiError, Event};
+use crate::lost::lost;
 use crate::system::runtime;
 use gpui::Context;
 use std::collections::HashMap;
@@ -34,29 +35,32 @@ impl Account {
                     .await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                let conversion = match flatten(chain) {
-                    Ok(symbols) => {
-                        let links: Option<Vec<Link>> = symbols
-                            .iter()
-                            .map(|s| {
-                                Some(Link {
-                                    symbol_id: s.symbol_id,
-                                    base: s.base_asset_id?,
-                                    quote: s.quote_asset_id?,
+            lost(
+                "account/sync: ensure_rate",
+                this.update(cx, |this, cx| {
+                    let conversion = match flatten(chain) {
+                        Ok(symbols) => {
+                            let links: Option<Vec<Link>> = symbols
+                                .iter()
+                                .map(|s| {
+                                    Some(Link {
+                                        symbol_id: s.symbol_id,
+                                        base: s.base_asset_id?,
+                                        quote: s.quote_asset_id?,
+                                    })
                                 })
-                            })
-                            .collect();
-                        links.map_or(Conversion::Failed, Conversion::Chain)
-                    }
-                    Err(error) => {
-                        tracing::debug!(%error, quote, deposit, "no conversion chain");
-                        Conversion::Failed
-                    }
-                };
-                this.conversions.insert(quote, conversion);
-                this.changed(cx);
-            });
+                                .collect();
+                            links.map_or(Conversion::Failed, Conversion::Chain)
+                        }
+                        Err(error) => {
+                            tracing::debug!(%error, quote, deposit, "no conversion chain");
+                            Conversion::Failed
+                        }
+                    };
+                    this.conversions.insert(quote, conversion);
+                    this.changed(cx);
+                }),
+            );
         })
         .detach();
     }
@@ -128,7 +132,7 @@ impl Account {
                 Ok::<_, ApiError>((trader, positions, orders, deals, currency, missed))
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
+            lost("account/sync: on_ready", this.update(cx, |this, cx| {
                 if epoch != this.epoch {
                     return;
                 }
@@ -137,6 +141,10 @@ impl Account {
                         this.book.trader = Some(trader);
                         this.book.currency = currency;
                         this.book.reconcile(positions, orders);
+                        #[expect(
+                            clippy::needless_collect,
+                            reason = "`closed` needs the reversals mutably, so the ids are collected before they are asked for"
+                        )]
                         let closed: Vec<i64> = this
                             .reversals
                             .0
@@ -153,6 +161,7 @@ impl Account {
                         this.status = Status::Ready;
                         // The account was read again: whatever a silent call did is in it now.
                         this.uncertain = false;
+                        this.settle_in_doubt(cx);
                         for symbol in this.book.symbols() {
                             this.ensure_contract(symbol, cx);
                         }
@@ -175,7 +184,7 @@ impl Account {
                         cx.notify();
                     }
                 }
-            });
+            }));
         })
         .detach();
     }
@@ -195,19 +204,22 @@ impl Account {
                 account.market().symbol_details(&[symbol_id]).await
             })
             .await;
-            let _ = this.update(cx, |this, cx| match flatten(fetched) {
-                Ok(details) => {
-                    if let Some(symbol) = details.iter().find(|s| s.symbol_id == symbol_id) {
-                        this.book
-                            .contracts
-                            .insert(symbol_id, Contract::from_symbol(symbol));
-                        cx.notify();
+            lost(
+                "account/sync: ensure_contract",
+                this.update(cx, |this, cx| match flatten(fetched) {
+                    Ok(details) => {
+                        if let Some(symbol) = details.iter().find(|s| s.symbol_id == symbol_id) {
+                            this.book
+                                .contracts
+                                .insert(symbol_id, Contract::from_symbol(symbol));
+                            cx.notify();
+                        }
                     }
-                }
-                Err(_) => {
-                    this.book.contracts.remove(&symbol_id);
-                }
-            });
+                    Err(_) => {
+                        this.book.contracts.remove(&symbol_id);
+                    }
+                }),
+            );
         })
         .detach();
     }
@@ -222,28 +234,31 @@ impl Account {
                 account.account_data().unrealized_pnl().await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                if epoch != this.epoch {
-                    return;
-                }
-                if let Ok(answer) = flatten(answer) {
-                    let digits = answer
-                        .money_digits
-                        .and_then(|d| u32::try_from(d).ok())
-                        .or_else(|| this.book.money_digits());
-                    let quotes: HashMap<i64, (Option<f64>, Option<f64>)> = this
-                        .book
-                        .symbols()
-                        .into_iter()
-                        .map(|id| (id, this.quote(id)))
-                        .collect();
-                    this.book
-                        .set_pnl(&answer.position_unrealized_pnl, digits, &|id| {
-                            quotes.get(&id).copied().unwrap_or((None, None))
-                        });
-                    cx.notify();
-                }
-            });
+            lost(
+                "account/sync: refresh_pnl",
+                this.update(cx, |this, cx| {
+                    if epoch != this.epoch {
+                        return;
+                    }
+                    if let Ok(answer) = flatten(answer) {
+                        let digits = answer
+                            .money_digits
+                            .and_then(|d| u32::try_from(d).ok())
+                            .or_else(|| this.book.money_digits());
+                        let quotes: HashMap<i64, (Option<f64>, Option<f64>)> = this
+                            .book
+                            .symbols()
+                            .into_iter()
+                            .map(|id| (id, this.quote(id)))
+                            .collect();
+                        this.book
+                            .set_pnl(&answer.position_unrealized_pnl, digits, &|id| {
+                                quotes.get(&id).copied().unwrap_or((None, None))
+                            });
+                        cx.notify();
+                    }
+                }),
+            );
         })
         .detach();
     }
@@ -261,10 +276,13 @@ impl Account {
             })
             .await;
             if let Ok(trader) = flatten(trader) {
-                let _ = this.update(cx, |this, cx| {
-                    this.book.trader = Some(trader);
-                    cx.notify();
-                });
+                lost(
+                    "account/sync: refresh_trader",
+                    this.update(cx, |this, cx| {
+                        this.book.trader = Some(trader);
+                        cx.notify();
+                    }),
+                );
             }
         })
         .detach();
@@ -281,6 +299,14 @@ impl Account {
                 }
             }
             Event::Execution(execution) => {
+                // An event that names the id of an order in doubt answers the doubt.
+                if let Some(id) = execution
+                    .order
+                    .as_ref()
+                    .and_then(|o| o.client_order_id.as_deref())
+                {
+                    self.in_doubt.retain(|d| d.client_order_id != id);
+                }
                 if matches!(
                     execution.kind(),
                     Some(
@@ -310,7 +336,7 @@ impl Account {
                     None
                 };
                 if let Some(outcome) = applied.outcome {
-                    Account::tell(super::notice::of(outcome), cx);
+                    Self::tell(super::notice::of(outcome), cx);
                 }
                 if applied.balance_changed {
                     self.refresh_trader(cx);
@@ -328,7 +354,7 @@ impl Account {
                 self.reversals
                     .cancel_related(error.position_id, error.order_id);
                 let reason = refusal(&error.error_code, error.description.as_deref());
-                Account::tell(
+                Self::tell(
                     Notice::new(Tone::Error, "Order refused", reason.message)
                         .hint(reason.hint)
                         .details(match &error.description {
@@ -355,7 +381,7 @@ impl Account {
                 }
             }
             Event::MarginCallTriggered(_) => {
-                Account::tell(
+                Self::tell(
                     Notice::new(
                         Tone::Warning,
                         "Margin call",

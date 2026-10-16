@@ -261,8 +261,11 @@ impl Timeframe {
             (Unit::Months, rest.to_owned())
         } else if let Some(rest) = upper.strip_suffix("MN") {
             (Unit::Months, rest.to_owned())
-        } else if code.ends_with('M') && code.len() > 1 && !code.starts_with('M') {
-            (Unit::Months, upper[..upper.len() - 1].to_owned())
+        } else if let Some(rest) = code
+            .strip_suffix('M')
+            .filter(|rest| !rest.is_empty() && !code.starts_with('M'))
+        {
+            (Unit::Months, rest.to_ascii_uppercase())
         } else {
             let lead = upper.chars().next()?;
             let tail = upper.chars().last()?;
@@ -274,10 +277,15 @@ impl Timeframe {
                 'W' => Some(Unit::Weeks),
                 _ => None,
             };
+            // `lead` and `tail` are ASCII when they name a unit, so the cuts fall on a character
+            // boundary; anything else was refused above, and an empty rest is refused below.
             if let Some(unit) = unit_of(lead) {
-                (unit, upper[1..].to_owned())
+                (unit, upper.get(1..).unwrap_or_default().to_owned())
             } else {
-                (unit_of(tail)?, upper[..upper.len() - 1].to_owned())
+                (
+                    unit_of(tail)?,
+                    upper.get(..upper.len() - 1).unwrap_or_default().to_owned(),
+                )
             }
         };
         if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
@@ -577,10 +585,10 @@ mod tests {
         assert!(h5.group_key(day + 24 * H) > h5.group_key(day + 23 * H));
         // Months are counted on the calendar.
         let quarter = Timeframe::from_code("MN3").unwrap();
-        let jan = chrono::Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
-        let mar = chrono::Utc.with_ymd_and_hms(2026, 3, 31, 0, 0, 0).unwrap();
-        let apr = chrono::Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap();
-        let key = |d: chrono::DateTime<chrono::Utc>| quarter.group_key(d.timestamp_millis());
+        let jan = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+        let mar = Utc.with_ymd_and_hms(2026, 3, 31, 0, 0, 0).unwrap();
+        let apr = Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap();
+        let key = |d: chrono::DateTime<Utc>| quarter.group_key(d.timestamp_millis());
         assert_eq!(key(jan), key(mar));
         assert!(key(apr) > key(mar));
         assert_eq!(quarter.group_open(0), None);

@@ -9,6 +9,8 @@
 //! The volume here is the tick volume the Open API gives (price changes, not traded amounts),
 //! which is what every spot forex and CFD chart works with.
 
+use wyck_core::math::{count_f64, f64_to_usize};
+
 /// One row of the profile.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Row {
@@ -59,11 +61,11 @@ pub fn build(bars: &[Slice], rows: usize, value_area: f64) -> Option<Profile> {
         .filter(|v| v.is_finite())
         .reduce(f64::max)?;
     let span = (hi - lo).max(f64::EPSILON);
-    let height = span / rows as f64;
+    let height = span / count_f64(rows);
     let mut out: Vec<Row> = (0..rows)
         .map(|i| Row {
-            lo: lo + height * i as f64,
-            hi: lo + height * (i + 1) as f64,
+            lo: lo + height * count_f64(i),
+            hi: lo + height * count_f64(i + 1),
             up: 0.0,
             down: 0.0,
         })
@@ -73,13 +75,13 @@ pub fn build(bars: &[Slice], rows: usize, value_area: f64) -> Option<Profile> {
             continue;
         }
         let up = bar.close >= bar.open;
-        let first = (((bar.low - lo) / height).floor().max(0.0) as usize).min(rows - 1);
-        let last = (((bar.high - lo) / height).floor().max(0.0) as usize).min(rows - 1);
+        let first = f64_to_usize(((bar.low - lo) / height).floor().max(0.0)).min(rows - 1);
+        let last = f64_to_usize(((bar.high - lo) / height).floor().max(0.0)).min(rows - 1);
         let range = bar.high - bar.low;
         for row in out.iter_mut().take(last + 1).skip(first) {
             // A bar with no range puts all of its volume in its one row.
             let share = if range <= 0.0 {
-                1.0 / (last - first + 1) as f64
+                1.0 / count_f64(last - first + 1)
             } else {
                 ((bar.high.min(row.hi) - bar.low.max(row.lo)) / range).max(0.0)
             };
@@ -101,10 +103,15 @@ pub fn build(bars: &[Slice], rows: usize, value_area: f64) -> Option<Profile> {
         .map_or(0, |(i, _)| i);
     let target = total * value_area.clamp(0.0, 1.0);
     let (mut first, mut last) = (poc, poc);
-    let mut held = out[poc].total();
+    let mut held = out.get(poc).map_or(0.0, Row::total);
     while held < target && (first > 0 || last + 1 < rows) {
-        let below = (first > 0).then(|| out[first - 1].total());
-        let above = (last + 1 < rows).then(|| out[last + 1].total());
+        let below = first
+            .checked_sub(1)
+            .and_then(|row| out.get(row))
+            .map(Row::total);
+        let above = (last + 1 < rows)
+            .then(|| out.get(last + 1).map(Row::total))
+            .flatten();
         match (below, above) {
             (Some(b), Some(a)) if a >= b => {
                 last += 1;
@@ -165,7 +172,7 @@ mod tests {
         let bars: Vec<Slice> = volumes
             .iter()
             .enumerate()
-            .map(|(i, v)| bar(i as f64 + 0.1, i as f64 + 0.9, true, *v))
+            .map(|(i, v)| bar(count_f64(i) + 0.1, count_f64(i) + 0.9, true, *v))
             .collect();
         let mut with_edges = bars;
         with_edges.push(bar(0.0, 0.0, true, 0.0));

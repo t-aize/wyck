@@ -4,6 +4,7 @@
 //! (which bar a tick belongs to, how a page of older history joins, what a reconnect refill
 //! replaces) are unit tested without a window.
 
+use wyck_core::math::{count_f64, f64_to_i64, f64_to_usize, i64_to_f64};
 use wyck_market::{Bar, Tick};
 
 use wyck_market::Timeframe;
@@ -91,10 +92,10 @@ impl Series {
     /// The time between two points: the timeframe's own length for bars, the average for ticks.
     pub fn step_ms(&self, nominal: Option<i64>) -> f64 {
         if let Some(nominal) = nominal {
-            return nominal.max(1) as f64;
+            return i64_to_f64(nominal.max(1));
         }
         match (self.first_time(), self.last_time(), self.len()) {
-            (Some(a), Some(b), n) if n > 1 => ((b - a) as f64 / (n - 1) as f64).max(1.0),
+            (Some(a), Some(b), n) if n > 1 => (i64_to_f64(b - a) / count_f64(n - 1)).max(1.0),
             _ => 1_000.0,
         }
     }
@@ -106,12 +107,12 @@ impl Series {
         let (first, last) = (self.first_time()?, self.last_time()?);
         let up_to = self.count_up_to(time_ms);
         Some(if up_to == 0 {
-            -((first - time_ms) as f64) / step_ms
+            -i64_to_f64(first - time_ms) / step_ms
         } else if up_to == n {
-            (n - 1) as f64 + (time_ms - last) as f64 / step_ms
+            count_f64(n - 1) + i64_to_f64(time_ms - last) / step_ms
         } else {
             let (a, b) = (self.time_at(up_to - 1)?, self.time_at(up_to)?);
-            (up_to - 1) as f64 + (time_ms - a) as f64 / ((b - a).max(1)) as f64
+            count_f64(up_to - 1) + i64_to_f64(time_ms - a) / i64_to_f64((b - a).max(1))
         })
     }
 
@@ -123,13 +124,13 @@ impl Series {
             return None;
         }
         Some(if index <= 0.0 {
-            first + (index * step_ms).round() as i64
-        } else if index >= (n - 1) as f64 {
-            last + ((index - (n - 1) as f64) * step_ms).round() as i64
+            first + f64_to_i64((index * step_ms).round())
+        } else if index >= count_f64(n - 1) {
+            last + f64_to_i64(((index - count_f64(n - 1)) * step_ms).round())
         } else {
-            let i = index.floor() as usize;
+            let i = f64_to_usize(index.floor());
             let (a, b) = (self.time_at(i)?, self.time_at(i + 1)?);
-            a + ((index - i as f64) * (b - a) as f64).round() as i64
+            a + f64_to_i64(((index - count_f64(i)) * i64_to_f64(b - a)).round())
         })
     }
 
@@ -219,7 +220,9 @@ pub fn touch_last_bar(bars: &mut [Bar], period_ms: i64, tick: Tick) {
 pub fn apply_live_bar(bars: &mut Vec<Bar>, live: Bar) -> bool {
     match bars.binary_search_by_key(&live.time_ms, |b| b.time_ms) {
         Ok(at) => {
-            bars[at] = live;
+            if let Some(slot) = bars.get_mut(at) {
+                *slot = live;
+            }
             false
         }
         Err(at) if at == bars.len() => {
@@ -271,7 +274,7 @@ pub fn last_group(bars: &[Bar], timeframe: Timeframe) -> Vec<Bar> {
         .iter()
         .rposition(|b| timeframe.group_key(b.time_ms) != key)
         .map_or(0, |at| at + 1);
-    bars[start..].to_vec()
+    bars.get(start..).unwrap_or_default().to_vec()
 }
 
 /// A live server bar for a grouped timeframe: it joins `tail` (the server bars of the newest

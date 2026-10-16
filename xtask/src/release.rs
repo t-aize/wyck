@@ -6,12 +6,13 @@
 //! if every package of every platform is there and signed.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
-use chrono::{SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use clap::{Subcommand, ValueEnum};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use semver::Version;
@@ -330,13 +331,15 @@ fn manifest(assets: &Path, tag: &str, repository: &str, notes: &Path) -> Result<
         }
     }
 
+    let pub_date =
+        DateTime::<Utc>::from(wyck_clock::now()).to_rfc3339_opts(SecondsFormat::Secs, true);
     let manifest = Manifest {
         version,
         notes: fs::read_to_string(notes)
             .with_context(|| format!("reading {}", notes.display()))?
             .trim()
             .to_owned(),
-        pub_date: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+        pub_date,
         platforms,
     };
     let text = serde_json::to_string_pretty(&manifest)? + "\n";
@@ -357,7 +360,7 @@ fn write_checksums(dir: &Path) -> Result<()> {
     let mut text = String::new();
     for path in files {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
-        text.push_str(&format!("{}  {name}\n", sha256(&path)?));
+        writeln!(text, "{}  {name}", sha256(&path)?)?;
     }
     fs::write(dir.join(CHECKSUMS), text).context("writing the checksums")
 }
@@ -373,13 +376,16 @@ fn sha256(path: &Path) -> Result<String> {
         if read == 0 {
             break;
         }
-        hasher.update(&block[..read]);
+        let chunk = block
+            .get(..read)
+            .context("a read returned more bytes than the buffer holds")?;
+        hasher.update(chunk);
     }
-    Ok(hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect())
+    let mut hex = String::new();
+    for byte in hasher.finalize() {
+        write!(hex, "{byte:02x}")?;
+    }
+    Ok(hex)
 }
 #[cfg(test)]
 mod tests {

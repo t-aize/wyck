@@ -10,6 +10,7 @@
 )]
 
 mod check;
+mod ci;
 mod deps;
 mod release;
 mod run;
@@ -33,13 +34,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Everything CI runs: format, clippy, tests, docs and the dependency rules.
+    /// What `ci` runs (cargo-deny is skipped when missing), plus the dependency rules.
     Check {
         /// Also run the tools that need installing (cargo-deny, cargo-machete, typos, taplo,
         /// zizmor, actionlint). The ones that are missing are skipped.
         #[arg(long)]
         full: bool,
     },
+    /// What CI runs: format, clippy, tests, cargo-deny and rustdoc, all strict, stopping at the
+    /// first failure. Needs cargo-deny installed.
+    Ci,
     /// Check that every crate takes its dependencies, metadata and lints from the root
     /// Cargo.toml, and only depends on the crates its layer allows.
     Deps,
@@ -54,6 +58,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Check { full } => check::run(full),
+        Command::Ci => ci::run(),
         Command::Deps => deps::run(),
         Command::Release { step } => release::run(step),
     };

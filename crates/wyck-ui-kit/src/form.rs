@@ -157,13 +157,13 @@ pub fn frame(
         .bg(theme::fg_alpha(0.03));
     for (index, tab) in tabs.iter().enumerate() {
         let chosen = index == active;
-        let on_tab = on_tab.clone();
+        let on_tab = Rc::clone(&on_tab);
         rail = rail.child(
             div()
                 .id(("settings-tab", index))
                 .keyboard()
                 .role(gpui::Role::Tab)
-                .aria_label(gpui::SharedString::from(tab.label.to_string()))
+                .aria_label(SharedString::from(tab.label.to_string()))
                 .aria_selected(chosen)
                 .flex()
                 .flex_row()
@@ -378,18 +378,21 @@ impl Row {
     }
 
     /// A short line under the label.
+    #[must_use]
     pub fn hint(mut self, hint: impl Into<SharedString>) -> Self {
         self.hint = Some(hint.into());
         self
     }
 
     /// A longer explanation, shown in a tooltip on the help mark after the label.
+    #[must_use]
     pub fn help(mut self, help: impl Into<SharedString>) -> Self {
         self.help = Some(help.into());
         self
     }
 
     /// Shows a reset button while `modified` is true; `on_reset` puts the default back.
+    #[must_use]
     pub fn reset(
         mut self,
         modified: bool,

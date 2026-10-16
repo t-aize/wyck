@@ -60,6 +60,7 @@ impl Default for AtrStop {
 }
 
 impl AtrStop {
+    #[must_use]
     pub fn normalized(mut self) -> Self {
         self.length = self.length.clamp(1, MAX_LENGTH);
         if !self.multiplier.is_finite() || self.multiplier <= 0.0 {

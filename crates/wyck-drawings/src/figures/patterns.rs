@@ -2,7 +2,7 @@
 
 use super::{add, point_label, ratio, ratio_label, scale, sub};
 use crate::geometry::fib::fill_of;
-use crate::geometry::{P, Prim, Rect, extended, seg};
+use crate::geometry::{P, Prim, Rect, extended, lead, seg};
 use crate::model::style::Dash;
 use crate::model::tool::Tool;
 use crate::model::{Drawing, wave_label};
@@ -10,15 +10,8 @@ use crate::model::{Drawing, wave_label};
 /// The zigzag through every point.
 fn zigzag(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    for pair in pts.windows(2) {
-        out.push(seg(
-            pair[0],
-            pair[1],
-            style.color,
-            1.0,
-            style.width,
-            style.dash,
-        ));
+    for (&from, &to) in pts.iter().zip(pts.iter().skip(1)) {
+        out.push(seg(from, to, style.color, 1.0, style.width, style.dash));
     }
 }
 
@@ -38,43 +31,49 @@ pub(super) fn harmonic(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             _ => vec![[1, 2, 3], [3, 4, 5]],
         };
         for [i, j, k] in triangles {
-            out.push(Prim::Polygon {
-                points: vec![pts[i], pts[j], pts[k]],
-                fill,
-            });
+            if let (Some(&a), Some(&b), Some(&c)) = (pts.get(i), pts.get(j), pts.get(k)) {
+                out.push(Prim::Polygon {
+                    points: vec![a, b, c],
+                    fill,
+                });
+            }
         }
     }
     zigzag(drawing, pts, out);
     if style.middle {
+        // The ratio of the move between the points `a` and `b` against the one between `c` and `d`.
+        let ratio_at = |a: usize, b: usize, c: usize, d: usize| {
+            ratio(*p.get(a)?, *p.get(b)?, *p.get(c)?, *p.get(d)?)
+        };
         // Which moves are compared, as (dashed line from, to, the ratio of the moves).
         let ratios: Vec<(usize, usize, Option<String>)> = match drawing.tool {
             Tool::Xabcd => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-                (2, 4, ratio(p[3], p[4], p[2], p[3])),
-                (0, 4, ratio(p[1], p[4], p[0], p[1])),
+                (0, 2, ratio_at(1, 2, 0, 1)),
+                (1, 3, ratio_at(2, 3, 1, 2)),
+                (2, 4, ratio_at(3, 4, 2, 3)),
+                (0, 4, ratio_at(1, 4, 0, 1)),
             ],
             Tool::Cypher => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[0], p[3], p[0], p[1])),
-                (0, 4, ratio(p[3], p[4], p[0], p[3])),
+                (0, 2, ratio_at(1, 2, 0, 1)),
+                (1, 3, ratio_at(0, 3, 0, 1)),
+                (0, 4, ratio_at(3, 4, 0, 3)),
             ],
-            Tool::Abcd => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-            ],
+            Tool::Abcd => vec![(0, 2, ratio_at(1, 2, 0, 1)), (1, 3, ratio_at(2, 3, 1, 2))],
             _ => vec![
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-                (3, 5, ratio(p[4], p[5], p[3], p[4])),
-                (2, 4, ratio(p[3], p[4], p[2], p[3])),
+                (1, 3, ratio_at(2, 3, 1, 2)),
+                (3, 5, ratio_at(4, 5, 3, 4)),
+                (2, 4, ratio_at(3, 4, 2, 3)),
             ],
         };
         for (from, to, text) in ratios {
-            out.push(seg(pts[from], pts[to], style.color, 0.7, 1.0, Dash::Dashed));
+            let (Some(&start), Some(&end)) = (pts.get(from), pts.get(to)) else {
+                continue;
+            };
+            out.push(seg(start, end, style.color, 0.7, 1.0, Dash::Dashed));
             if style.labels
                 && let Some(text) = text
             {
-                out.push(ratio_label(pts[from], pts[to], text, drawing));
+                out.push(ratio_label(start, end, text, drawing));
             }
         }
     }
@@ -88,28 +87,30 @@ pub(super) fn harmonic(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
                 }
                 _ => (*name).to_owned(),
             };
-            out.push(point_label(pts, i, text, drawing, true));
+            out.extend(point_label(pts, i, text, drawing, true));
         }
     }
 }
 
 pub(super) fn head_and_shoulders(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let style = &drawing.style;
+    let Some([p0, p1, n1, p3, n2, p5, p6]) = lead(pts) else {
+        return;
+    };
     if let Some(fill) = fill_of(style) {
-        for [i, j, k] in [[0, 1, 2], [2, 3, 4], [4, 5, 6]] {
+        for points in [[p0, p1, n1], [n1, p3, n2], [n2, p5, p6]] {
             out.push(Prim::Polygon {
-                points: vec![pts[i], pts[j], pts[k]],
+                points: points.to_vec(),
                 fill,
             });
         }
     }
     zigzag(drawing, pts, out);
     // The neckline, through the two troughs, from the first point to the last.
-    let (n1, n2) = (pts[2], pts[4]);
     if (n2.0 - n1.0).abs() > 1e-3 {
         let slope = (n2.1 - n1.1) / (n2.0 - n1.0);
         let at = |x: f32| (x, n1.1 + slope * (x - n1.0));
-        let (mut start, mut end) = (at(pts[0].0.min(n1.0)), at(pts[6].0.max(n2.0)));
+        let (mut start, mut end) = (at(p0.0.min(n1.0)), at(p6.0.max(n2.0)));
         if (style.extend_left || style.extend_right)
             && let Some((p, q)) = extended(start, end, style.extend_left, style.extend_right, rect)
         {
@@ -119,25 +120,28 @@ pub(super) fn head_and_shoulders(drawing: &Drawing, pts: &[P], rect: Rect, out: 
     }
     if style.labels {
         for (i, name) in [(1, "Left shoulder"), (3, "Head"), (5, "Right shoulder")] {
-            out.push(point_label(pts, i, name.to_owned(), drawing, true));
+            out.extend(point_label(pts, i, name.to_owned(), drawing, true));
         }
     }
 }
 
-/// Where the lines `a` to `b` and `c` to `d` meet, if they are not parallel.
-fn intersection(a: P, b: P, c: P, d: P) -> Option<P> {
-    let (r, s) = (sub(b, a), sub(d, c));
+/// Where the line `from_ab` to `to_ab` and the line `from_cd` to `to_cd` meet, if they are not
+/// parallel.
+fn intersection(from_ab: P, to_ab: P, from_cd: P, to_cd: P) -> Option<P> {
+    let (r, s) = (sub(to_ab, from_ab), sub(to_cd, from_cd));
     let denominator = r.0 * s.1 - r.1 * s.0;
     if denominator.abs() < 1e-6 {
         return None;
     }
-    let t = ((c.0 - a.0) * s.1 - (c.1 - a.1) * s.0) / denominator;
-    Some(add(a, scale(r, t)))
+    let t = ((from_cd.0 - from_ab.0) * s.1 - (from_cd.1 - from_ab.1) * s.0) / denominator;
+    Some(add(from_ab, scale(r, t)))
 }
 
 pub(super) fn triangle_pattern(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b, c, d) = (pts[0], pts[1], pts[2], pts[3]);
+    let Some([a, b, c, d]) = lead(pts) else {
+        return;
+    };
     let right = a.0.max(b.0).max(c.0).max(d.0);
     // The two sides run on to where they meet, when that is ahead; otherwise to the last point.
     let apex = intersection(a, c, b, d).filter(|p| p.0 > right);
@@ -162,7 +166,7 @@ pub(super) fn triangle_pattern(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>
     zigzag(drawing, pts, out);
     if style.labels {
         for (i, name) in ["A", "B", "C", "D"].iter().enumerate() {
-            out.push(point_label(pts, i, (*name).to_owned(), drawing, true));
+            out.extend(point_label(pts, i, (*name).to_owned(), drawing, true));
         }
     }
 }
@@ -187,7 +191,7 @@ pub(super) fn elliott(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     for (i, name) in wave_names(drawing.tool).iter().enumerate().skip(1) {
         if i < pts.len() {
             let text = wave_label(name, drawing.degree);
-            out.push(point_label(pts, i, text, drawing, false));
+            out.extend(point_label(pts, i, text, drawing, false));
         }
     }
 }

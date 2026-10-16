@@ -4,19 +4,19 @@ use crate::compute::*;
 use crate::config::*;
 use crate::kind::*;
 use crate::spec::*;
-use wyck_core::math;
+use wyck_core::math::{self, count_f64, count_i64};
 
 fn input(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)
-        .map(|i| 100_000.0 + (i as f64 * 0.7).sin() * 500.0 + i as f64 * 10.0)
+        .map(|i| 100_000.0 + (count_f64(i) * 0.7).sin() * 500.0 + count_f64(i) * 10.0)
         .collect();
     StudyInput {
-        time: (0..n as i64).map(|i| i * 60_000).collect(),
+        time: (0..count_i64(n)).map(|i| i * 60_000).collect(),
         open: close.iter().map(|c| c - 20.0).collect(),
         high: close.iter().map(|c| c + 80.0).collect(),
         low: close.iter().map(|c| c - 90.0).collect(),
-        volume: (0..n).map(|i| 1.0 + (i % 5) as f64).collect(),
-        day: (0..n as i64).map(|i| i / 100).collect(),
+        volume: (0..n).map(|i| 1.0 + count_f64(i % 5)).collect(),
+        day: (0..count_i64(n)).map(|i| i / 100).collect(),
         close,
     }
 }
@@ -80,10 +80,10 @@ fn a_config_is_repaired_to_its_spec() {
 #[test]
 fn extended_formulas_use_documented_prices_and_warmup() {
     let mut data = input(60);
-    data.open = (0..60).map(|i| 10.0 + i as f64).collect();
-    data.high = (0..60).map(|i| 14.0 + i as f64).collect();
-    data.low = (0..60).map(|i| 8.0 + i as f64).collect();
-    data.close = (0..60).map(|i| 12.0 + i as f64).collect();
+    data.open = (0..60).map(|i| 10.0 + f64::from(i)).collect();
+    data.high = (0..60).map(|i| 14.0 + f64::from(i)).collect();
+    data.low = (0..60).map(|i| 8.0 + f64::from(i)).collect();
+    data.close = (0..60).map(|i| 12.0 + f64::from(i)).collect();
     data.volume = vec![2.0; 60];
 
     let mut rma = StudyConfig::new(StudyKind::Rma);
@@ -192,7 +192,7 @@ fn the_average_on_a_timeframe_reads_the_closed_bars_of_that_timeframe() {
     let values = &out.plots[0].values;
     // The two five minute bars before minute 15 are minutes 5..10 and 10..15.
     let closes = [bars.close[9], bars.close[14]];
-    let expected = (closes[0] + closes[1]) / 2.0;
+    let expected = f64::midpoint(closes[0], closes[1]);
     assert!(
         (values[15] - expected).abs() < 1e-9,
         "{} vs {expected}",

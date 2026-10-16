@@ -14,7 +14,8 @@ pub(crate) mod symbols;
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
 use rhai::{Dynamic, Engine, Map};
-use wyck_core::math;
+use wyck_core::math::Series as _;
+use wyck_core::math::{self, count_i64, i64_to_f64};
 
 /// The longest period a function takes.
 pub(crate) const MAX_PERIOD: i64 = 100_000;
@@ -33,8 +34,10 @@ pub(crate) fn register(engine: &mut Engine) {
 
 /// A period, checked.
 fn period(name: &str, value: i64) -> Fallible<usize> {
-    if (1..=MAX_PERIOD).contains(&value) {
-        Ok(value as usize)
+    if (1..=MAX_PERIOD).contains(&value)
+        && let Ok(period) = usize::try_from(value)
+    {
+        Ok(period)
     } else {
         Err(format!("{name}: the period must be between 1 and {MAX_PERIOD}, not {value}").into())
     }
@@ -49,7 +52,7 @@ fn series_of(len: usize, value: &Dynamic) -> Fallible<Series> {
         return Ok(Series::constant(len, x));
     }
     if let Ok(x) = value.as_int() {
-        return Ok(Series::constant(len, x as f64));
+        return Ok(Series::constant(len, i64_to_f64(x)));
     }
     Err(format!("expected a series or a number, found {}", value.type_name()).into())
 }
@@ -110,13 +113,13 @@ fn elementwise(engine: &mut Engine) {
         Ok(b.map(|x| nan_max(a, x)))
     });
     engine.register_fn("min", |a: Series, b: i64| -> Fallible<Series> {
-        Ok(a.map(|x| nan_min(x, b as f64)))
+        Ok(a.map(|x| nan_min(x, i64_to_f64(b))))
     });
     engine.register_fn("max", |a: Series, b: i64| -> Fallible<Series> {
-        Ok(a.map(|x| nan_max(x, b as f64)))
+        Ok(a.map(|x| nan_max(x, i64_to_f64(b))))
     });
     engine.register_fn("pow", |a: Series, b: f64| a.map(|x| x.powf(b)));
-    engine.register_fn("pow", |a: Series, b: i64| a.map(|x| x.powf(b as f64)));
+    engine.register_fn("pow", |a: Series, b: i64| a.map(|x| x.powf(i64_to_f64(b))));
     engine.register_fn("clamp", |s: Series, low: f64, high: f64| {
         s.map(|x| {
             if x.is_nan() {
@@ -192,7 +195,7 @@ fn windows(engine: &mut Engine) {
     });
     engine.register_fn("change", |s: Series| s.zip(&s.shifted(1), |a, b| a - b));
     engine.register_fn("change", |s: Series, n: i64| -> Fallible<Series> {
-        let p = period("change", n)? as i64;
+        let p = count_i64(period("change", n)?);
         s.zip(&s.shifted(p), |a, b| a - b)
     });
     engine.register_fn("cum", |s: Series| Series::new(math::cumulative(s.values())));
@@ -216,10 +219,10 @@ fn logic(engine: &mut Engine) {
             Ok(Series::new(
                 (0..cond.len())
                     .map(|i| {
-                        if is_true(cond.values()[i]) {
-                            a.values()[i]
+                        if is_true(cond.values().at(i)) {
+                            a.values().at(i)
                         } else {
-                            b.values()[i]
+                            b.values().at(i)
                         }
                     })
                     .collect(),
@@ -236,7 +239,7 @@ fn logic(engine: &mut Engine) {
                 crossing(&a, &Series::constant(a.len(), b), $test)
             });
             engine.register_fn($name, |a: Series, b: i64| -> Fallible<Series> {
-                crossing(&a, &Series::constant(a.len(), b as f64), $test)
+                crossing(&a, &Series::constant(a.len(), i64_to_f64(b)), $test)
             });
         };
     }

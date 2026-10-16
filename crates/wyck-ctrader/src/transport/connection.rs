@@ -50,6 +50,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tracing::{debug, info, trace, warn};
+use wyck_trading::guard::Mode;
 
 use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{Error, ErrorKind, Result};
@@ -100,6 +101,8 @@ struct Shared {
     silence_timeout: Duration,
     rate_limit_retries: u32,
     max_retry_wait: Duration,
+    /// The kind of account the connection is for.
+    mode: Mode,
     /// How many live [`Client`] values point at this connection, `run` itself excluded (it holds
     /// an `Arc<Shared>` of its own, which would otherwise hide the last external clone going away
     /// from `outgoing`'s sender count). See the [`Drop`] impl below.
@@ -136,8 +139,13 @@ impl Shared {
         if let Some(id) = envelope.client_msg_id.as_deref() {
             let waiter = self.pending().remove(id);
             if let Some(waiter) = waiter {
-                // The waiter may have timed out and gone: nothing to do then.
-                let _ = waiter.send(Ok(envelope));
+                // The waiter may have timed out and gone: nothing to do then but to say so.
+                if let Err(Ok(returned)) = waiter.send(Ok(envelope)) {
+                    debug!(
+                        id = returned.client_msg_id.as_deref(),
+                        "the request gave up before its answer came"
+                    );
+                }
                 return;
             }
             debug!(
@@ -148,7 +156,9 @@ impl Shared {
         }
         if let Some(event) = event_from(&envelope) {
             // No reader is not an error: events are for whoever cares to listen.
-            let _ = self.events.send(event);
+            if self.events.send(event).is_err() {
+                trace!("an event had no one to hear it");
+            }
         }
     }
 
@@ -160,11 +170,15 @@ impl Shared {
         }
         let waiters: Vec<_> = self.pending().drain().map(|(_, waiter)| waiter).collect();
         for waiter in waiters {
-            let _ = waiter.send(Err(Error::Closed));
+            if waiter.send(Err(Error::Closed)).is_err() {
+                debug!("a request gave up before the connection closed");
+            }
         }
         self.state
             .send_replace(ConnectionState::Closed(reason.clone()));
-        let _ = self.events.send(Event::Disconnected(reason));
+        if self.events.send(Event::Disconnected(reason)).is_err() {
+            trace!("the disconnection had no one to hear it");
+        }
     }
 }
 
@@ -270,6 +284,7 @@ impl Client {
             silence_timeout: config.silence_timeout,
             rate_limit_retries: config.rate_limit_retries,
             max_retry_wait: config.max_retry_wait,
+            mode: config.mode,
             handles: AtomicUsize::new(1),
         });
         tokio::spawn(task::run(
@@ -289,6 +304,12 @@ impl Client {
     #[must_use]
     pub fn events(&self) -> broadcast::Receiver<Event> {
         self.shared.events.subscribe()
+    }
+
+    /// The kind of account this connection is for (demo or live).
+    #[must_use]
+    pub fn mode(&self) -> Mode {
+        self.shared.mode
     }
 
     /// Whether the connection has ended.
@@ -570,7 +591,8 @@ mod cancellation_tests {
                 .unwrap();
             assert_eq!(client.shared.pending().len(), 1);
             call.abort();
-            let _ = call.await;
+            // An aborted task answers with a cancelled `JoinError`: that is what was asked for.
+            assert!(call.await.is_err_and(|error| error.is_cancelled()));
             assert!(client.shared.pending().is_empty());
         }
         client.close();

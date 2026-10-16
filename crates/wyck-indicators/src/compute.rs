@@ -3,7 +3,7 @@
 use super::config::StudyConfig;
 use super::kind::StudyKind;
 use super::spec::{DOWN, PlotKind, UP};
-use wyck_core::math;
+use wyck_core::math::{self, Series, count_f64, count_i64, f64_to_i64, f64_to_usize};
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
 pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
@@ -35,20 +35,20 @@ fn forming_average(
         // The exponential kinds only need the average one bar back.
         1 | 3 => {
             let alpha = if method == 1 {
-                2.0 / (length as f64 + 1.0)
+                2.0 / (count_f64(length) + 1.0)
             } else {
-                1.0 / length as f64
+                1.0 / count_f64(length)
             };
-            match before.map(|b| average[b]) {
+            match before.map(|b| average.at(b)) {
                 Some(prev) if prev.is_finite() => alpha * now + (1.0 - alpha) * prev,
                 _ => f64::NAN,
             }
         }
         // The others read a window: the bars before, then this one.
         _ => {
-            let reach = length + (length as f64).sqrt() as usize + 2;
+            let reach = length + f64_to_usize(count_f64(length).sqrt()) + 2;
             let start = at.saturating_sub(reach);
-            let mut window: Vec<f64> = src[start..at].to_vec();
+            let mut window: Vec<f64> = src.get(start..at).unwrap_or_default().to_vec();
             window.push(now);
             moving_average(&window, length, method)
                 .last()
@@ -84,19 +84,23 @@ impl StudyInput {
     /// The price a source input names.
     pub fn source(&self, which: f64) -> Vec<f64> {
         let n = self.len();
-        match which as usize {
+        match f64_to_usize(which) {
             0 => self.open.clone(),
             1 => self.high.clone(),
             2 => self.low.clone(),
-            4 => (0..n).map(|i| (self.high[i] + self.low[i]) / 2.0).collect(),
+            4 => (0..n)
+                .map(|i| f64::midpoint(self.high.at(i), self.low.at(i)))
+                .collect(),
             5 => (0..n)
-                .map(|i| (self.high[i] + self.low[i] + self.close[i]) / 3.0)
+                .map(|i| (self.high.at(i) + self.low.at(i) + self.close.at(i)) / 3.0)
                 .collect(),
             6 => (0..n)
-                .map(|i| (self.open[i] + self.high[i] + self.low[i] + self.close[i]) / 4.0)
+                .map(|i| {
+                    (self.open.at(i) + self.high.at(i) + self.low.at(i) + self.close.at(i)) / 4.0
+                })
                 .collect(),
             7 => (0..n)
-                .map(|i| (self.high[i] + self.low[i] + 2.0 * self.close[i]) / 4.0)
+                .map(|i| (self.high.at(i) + self.low.at(i) + 2.0 * self.close.at(i)) / 4.0)
                 .collect(),
             _ => self.close.clone(),
         }
@@ -170,7 +174,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         return out;
     }
     let source = || input.source(config.input("source"));
-    let offset = config.input("offset") as i64;
+    let offset = f64_to_i64(config.input("offset"));
     match config.kind {
         StudyKind::Sma | StudyKind::Ema | StudyKind::Wma | StudyKind::Hma => {
             let length = config.length("length");
@@ -188,29 +192,25 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         }
         StudyKind::MtfMa => {
             let length = config.length("length");
-            let method = config.input("method") as usize;
+            let method = f64_to_usize(config.input("method"));
             let timeframe = wyck_market::Timeframe::from_code(&config.text("timeframe"));
             let values = match timeframe.and_then(|tf| super::higher::higher(input, tf)) {
                 Some(grouped) => {
                     let which = config.input("source");
                     let src = grouped.input.source(which);
                     let average = moving_average(&src, length, method);
-                    if config.input("confirmed") != 0.0 {
-                        super::higher::carry_back(&average, &grouped.of, true)
-                    } else {
+                    if config.input("confirmed") == 0.0 {
                         let live = grouped.forming.source(which);
                         (0..n)
                             .map(|i| {
-                                forming_average(
-                                    &src,
-                                    &average,
-                                    grouped.of[i],
-                                    live[i],
-                                    length,
-                                    method,
-                                )
+                                let Some(&of) = grouped.of.get(i) else {
+                                    return f64::NAN;
+                                };
+                                forming_average(&src, &average, of, live.at(i), length, method)
                             })
                             .collect()
+                    } else {
+                        super::higher::carry_back(&average, &grouped.of, true)
                     }
                 }
                 // No timeframe, or one that is not higher than the chart's: the chart's own bars.
@@ -227,32 +227,36 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             let mut deviation = vec![f64::NAN; n];
             let (mut pv, mut pv2, mut vol, mut anchor) = (0.0, 0.0, 0.0, None);
             for i in 0..n {
+                let Some(&day) = input.day.get(i) else {
+                    continue;
+                };
                 let period =
-                    super::extended::pivot_period(input.day[i], config.input("anchor") as usize);
+                    super::extended::pivot_period(day, f64_to_usize(config.input("anchor")));
                 if anchor != Some(period) {
                     anchor = Some(period);
                     pv = 0.0;
                     pv2 = 0.0;
                     vol = 0.0;
                 }
-                if !src[i].is_finite() || !input.volume[i].is_finite() {
+                if !src.at(i).is_finite() || !input.volume.at(i).is_finite() {
                     continue;
                 }
-                let v = input.volume[i].max(0.0);
-                pv += src[i] * v;
-                pv2 += src[i] * src[i] * v;
+                let v = input.volume.at(i).max(0.0);
+                pv += src.at(i) * v;
+                pv2 += src.at(i) * src.at(i) * v;
                 vol += v;
-                values[i] = if vol > 0.0 { pv / vol } else { src[i] };
-                deviation[i] = if vol > 0.0 {
+                values.put(i, if vol > 0.0 { pv / vol } else { src.at(i) });
+                let spread = if vol > 0.0 {
                     #[expect(
                         clippy::suspicious_operation_groupings,
                         reason = "the variance is E[x^2] minus the square of the mean"
                     )]
-                    let variance = pv2 / vol - values[i] * values[i];
+                    let variance = pv2 / vol - values.at(i) * values.at(i);
                     variance.max(0.0).sqrt()
                 } else {
                     0.0
                 };
+                deviation.put(i, spread);
             }
             out.plots.push(plot("vwap", values));
             for (key, sign, mult) in [
@@ -261,12 +265,14 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 ("upper_2", 1.0, config.input("band_2")),
                 ("lower_2", -1.0, config.input("band_2")),
             ] {
-                let series = out.plots[0]
-                    .values
-                    .iter()
-                    .zip(&deviation)
-                    .map(|(v, d)| v + sign * mult * d)
-                    .collect();
+                let series = out.plots.first().map_or_else(Vec::new, |first| {
+                    first
+                        .values
+                        .iter()
+                        .zip(&deviation)
+                        .map(|(v, d)| v + sign * mult * d)
+                        .collect()
+                });
                 out.plots.push(plot(key, series));
             }
             out.fills.push(FillOut {
@@ -287,7 +293,8 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Bollinger => {
             let (length, mult) = (config.length("length"), config.input("mult"));
             let src = source();
-            let basis = super::extended::average(&src, length, config.input("method") as usize);
+            let basis =
+                super::extended::average(&src, length, f64_to_usize(config.input("method")));
             let dev = math::stdev(&src, length);
             let upper = basis.iter().zip(&dev).map(|(b, d)| b + mult * d).collect();
             let lower = basis.iter().zip(&dev).map(|(b, d)| b - mult * d).collect();
@@ -305,7 +312,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Keltner => {
             let (length, mult) = (config.length("length"), config.input("mult"));
             let basis =
-                super::extended::average(&source(), length, config.input("method") as usize);
+                super::extended::average(&source(), length, f64_to_usize(config.input("method")));
             let range = math::atr(&input.high, &input.low, &input.close, config.length("atr"));
             let upper = basis
                 .iter()
@@ -364,7 +371,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 .map(|(c, b)| (c + b) / 2.0)
                 .collect();
             let span_b = middle(config.length("span_b"));
-            let shift = config.length("displacement") as i64 - 1;
+            let shift = count_i64(config.length("displacement")) - 1;
             out.plots.push(plot("conversion", conversion));
             out.plots.push(plot("base", base));
             out.plots.push(PlotOut {
@@ -382,9 +389,9 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             out.fills.push(FillOut {
                 a: 3,
                 b: 4,
-                color: 0x43a047,
+                color: 0x43_a047,
                 alpha: 0.12,
-                other: Some(0xf44336),
+                other: Some(0xf4_4336),
             });
         }
         StudyKind::ParabolicSar => {
@@ -402,7 +409,9 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         }
         StudyKind::VolumeProfile | StudyKind::Unknown | StudyKind::Custom => {}
         StudyKind::Volume => {
-            let up = (0..n).map(|i| input.close[i] >= input.open[i]).collect();
+            let up = (0..n)
+                .map(|i| input.close.at(i) >= input.open.at(i))
+                .collect();
             out.plots.push(PlotOut {
                 kind: PlotKind::Histogram,
                 up: Some(up),
@@ -461,24 +470,26 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             let mut atr = smooth(
                 &tr,
                 config.length("length"),
-                config.input("smoothing") as usize,
+                f64_to_usize(config.input("smoothing")),
             );
             let mut tr = tr;
-            if config.input("unit") == 1.0 {
-                for (i, close) in input.close.iter().enumerate() {
+            if config.input("unit").total_cmp(&1.0).is_eq() {
+                for (close, (atr_value, tr_value)) in
+                    input.close.iter().zip(atr.iter_mut().zip(tr.iter_mut()))
+                {
                     let scale = if close.is_finite() && *close != 0.0 {
                         100.0 / close.abs()
                     } else {
                         f64::NAN
                     };
-                    atr[i] *= scale;
-                    tr[i] *= scale;
+                    *atr_value *= scale;
+                    *tr_value *= scale;
                 }
             }
             let signal = smooth(
                 &atr,
                 config.length("signal_length"),
-                config.input("signal_smoothing") as usize,
+                f64_to_usize(config.input("signal_smoothing")),
             );
             out.plots.push(plot("atr", atr));
             out.plots.push(plot("signal", signal));

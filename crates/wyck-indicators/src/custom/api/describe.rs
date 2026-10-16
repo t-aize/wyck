@@ -3,6 +3,7 @@
 use super::indicators::parse_color;
 use super::inputs::{input_choice, input_color, input_number, input_source, input_text};
 use super::plots::{band, fill, hline, plot, plot_number};
+use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
 
 use crate::custom::run::decl::{InputDecl, InputType, MAX_INPUTS, Meta};
 use crate::custom::run::{Mode, with_run};
@@ -55,7 +56,7 @@ impl<'a> Options<'a> {
             Some(v) => v
                 .as_float()
                 .ok()
-                .or_else(|| v.as_int().ok().map(|i| i as f64))
+                .or_else(|| v.as_int().ok().map(i64_to_f64))
                 .filter(|x| x.is_finite())
                 .map(Some)
                 .ok_or_else(|| {
@@ -112,10 +113,10 @@ pub(super) fn describing(engine: &mut Engine) {
 
     // Inputs.
     engine.register_fn("input_int", |key: &str, default: i64| {
-        input_number(InputType::Int, key, default as f64, Map::new()).map(|value| value as i64)
+        input_number(InputType::Int, key, i64_to_f64(default), Map::new()).map(f64_to_i64)
     });
     engine.register_fn("input_int", |key: &str, default: i64, opts: Map| {
-        input_number(InputType::Int, key, default as f64, opts).map(|value| value as i64)
+        input_number(InputType::Int, key, i64_to_f64(default), opts).map(f64_to_i64)
     });
     engine.register_fn("input_float", |key: &str, default: f64| {
         input_number(InputType::Float, key, default, Map::new())
@@ -124,10 +125,10 @@ pub(super) fn describing(engine: &mut Engine) {
         input_number(InputType::Float, key, default, opts)
     });
     engine.register_fn("input_float", |key: &str, default: i64| {
-        input_number(InputType::Float, key, default as f64, Map::new())
+        input_number(InputType::Float, key, i64_to_f64(default), Map::new())
     });
     engine.register_fn("input_float", |key: &str, default: i64, opts: Map| {
-        input_number(InputType::Float, key, default as f64, opts)
+        input_number(InputType::Float, key, i64_to_f64(default), opts)
     });
     engine.register_fn("input_bool", |key: &str, default: bool| {
         input_number(InputType::Bool, key, truth(default), Map::new()).map(|v| v != 0.0)
@@ -189,18 +190,20 @@ pub(super) fn describing(engine: &mut Engine) {
         plot_number(key, value, Map::new())
     });
     engine.register_fn("plot", |key: &str, value: i64| {
-        plot_number(key, value as f64, Map::new())
+        plot_number(key, i64_to_f64(value), Map::new())
     });
     engine.register_fn("plot", |key: &str, value: f64, opts: Map| {
         plot_number(key, value, opts)
     });
     engine.register_fn("plot", |key: &str, value: i64, opts: Map| {
-        plot_number(key, value as f64, opts)
+        plot_number(key, i64_to_f64(value), opts)
     });
     engine.register_fn("hline", |value: f64| hline(value));
-    engine.register_fn("hline", |value: i64| hline(value as f64));
+    engine.register_fn("hline", |value: i64| hline(i64_to_f64(value)));
     engine.register_fn("band", |low: f64, high: f64| band(low, high));
-    engine.register_fn("band", |low: i64, high: i64| band(low as f64, high as f64));
+    engine.register_fn("band", |low: i64, high: i64| {
+        band(i64_to_f64(low), i64_to_f64(high))
+    });
     engine.register_fn("fill", |a: &str, b: &str| fill(a, b, Map::new()));
     engine.register_fn("fill", |a: &str, b: &str, opts: Map| fill(a, b, opts));
 }
@@ -234,7 +237,7 @@ pub(super) fn indicator(opts: Map) -> Fallible<()> {
     };
     let decimals = options
         .number("decimals")?
-        .map_or(2, |d| d.clamp(0.0, 8.0) as u32);
+        .map_or(2, |d| f64_to_u32(d.clamp(0.0, 8.0)));
     meta.format = match options.text("format")?.as_deref() {
         None | Some("plain") => ValueFormat::Plain(decimals),
         Some("price") => ValueFormat::Price,
@@ -251,7 +254,7 @@ pub(super) fn indicator(opts: Map) -> Fallible<()> {
         let number = |d: &Dynamic| {
             d.as_float()
                 .ok()
-                .or_else(|| d.as_int().ok().map(|i| i as f64))
+                .or_else(|| d.as_int().ok().map(i64_to_f64))
         };
         match pair.as_deref() {
             Some([low, high]) => match (number(low), number(high)) {

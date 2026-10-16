@@ -83,12 +83,15 @@ pub(crate) fn defined_names(text: &str) -> BTreeSet<String> {
     let tokens = lexer::lex(text);
     let mut names = BTreeSet::new();
     for pair in tokens.windows(2) {
-        let first = &text[pair[0].range.clone()];
-        if pair[0].kind == Kind::Keyword
+        let [keyword, name] = pair else {
+            continue;
+        };
+        let first = text.get(keyword.range.clone()).unwrap_or_default();
+        if keyword.kind == Kind::Keyword
             && matches!(first, "let" | "const" | "fn" | "for")
-            && matches!(pair[1].kind, Kind::Identifier | Kind::Function)
+            && matches!(name.kind, Kind::Identifier | Kind::Function)
         {
-            names.insert(text[pair[1].range.clone()].to_owned());
+            names.insert(text.get(name.range.clone()).unwrap_or_default().to_owned());
         }
     }
     names
@@ -213,7 +216,11 @@ pub fn candidates(text: &str, offset: usize) -> (usize, Vec<Candidate>) {
             );
         }
         // The names the script defines, except the one being typed.
-        let own = defined_names(&format!("{} {}", &text[..start], &text[offset..]));
+        let own = defined_names(&format!(
+            "{} {}",
+            text.get(..start).unwrap_or_default(),
+            text.get(offset..).unwrap_or_default()
+        ));
         for name in own {
             add(
                 0,
@@ -316,9 +323,9 @@ mod tests {
 
     #[test]
     fn nothing_is_offered_in_a_string_or_a_comment() {
-        assert!(labels("// a comment about sm").is_empty());
-        assert!(labels("let s = \"sm").is_empty());
-        assert!(!labels("let s = \"a\"; sm").is_empty());
+        assert_eq!(labels("// a comment about sm"), [] as [String; 0]);
+        assert_eq!(labels("let s = \"sm"), [] as [String; 0]);
+        assert_ne!(labels("let s = \"a\"; sm"), [] as [String; 0]);
     }
 
     #[test]
@@ -360,7 +367,7 @@ mod tests {
     fn hovering_a_name_tells_what_it_is() {
         let text = "plot(\"a\", sma(close, 20));";
         let (range, help) = hover(text, 13).unwrap();
-        assert_eq!(&text[range], "sma");
+        assert_eq!(text.get(range), Some("sma"));
         assert!(help.contains("Simple moving average"));
         assert!(hover(text, 18).unwrap().1.contains("close of every bar"));
         assert!(hover(text, 3).unwrap().1.contains("Draws a series"));

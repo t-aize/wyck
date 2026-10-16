@@ -75,6 +75,7 @@ impl RateLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     #[tokio::test(start_paused = true)]
     async fn requests_are_spaced_at_the_configured_rate() {
@@ -111,11 +112,11 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn callers_are_served_in_order() {
-        let limiter = std::sync::Arc::new(RateLimiter::new(2));
-        let order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let limiter = Arc::new(RateLimiter::new(2));
+        let order = Arc::new(std::sync::Mutex::new(Vec::new()));
         let mut tasks = Vec::new();
         for i in 0..6 {
-            let (limiter, order) = (limiter.clone(), order.clone());
+            let (limiter, order) = (Arc::clone(&limiter), Arc::clone(&order));
             tasks.push(tokio::spawn(async move {
                 limiter.acquire().await;
                 order.lock().unwrap().push(i);

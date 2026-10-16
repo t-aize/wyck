@@ -1,5 +1,6 @@
 //! How a chart maps times and prices to screen positions, for the drawings.
 
+use wyck_core::math::{count_f64, f32_of, f64_to_i64, f64_to_usize, i64_to_f64};
 use wyck_market::{PRICE_SCALE, format_price};
 
 use super::data::Series;
@@ -44,7 +45,7 @@ impl ChartProjection<'_> {
         let y = self.map.y(price);
         [bar.open, bar.high, bar.low, bar.close]
             .into_iter()
-            .map(|value| value as f64)
+            .map(i64_to_f64)
             .map(|value| ((self.map.y(value) - y).abs(), value))
             .filter(|(distance, _)| *distance <= MAGNET_REACH)
             .min_by(|a, b| a.0.total_cmp(&b.0))
@@ -54,14 +55,14 @@ impl ChartProjection<'_> {
 
 impl Projection for ChartProjection<'_> {
     fn plot(&self) -> Rect {
-        Rect::new(self.plot_w as f32, self.plot_h as f32)
+        Rect::new(f32_of(self.plot_w), f32_of(self.plot_h))
     }
 
     fn to_screen(&self, point: Point) -> Option<P> {
         let index = self.series.index_of_time(point.t, self.step_ms)?;
         let x = self.view.x_of(index, self.len(), self.plot_w);
         let y = self.map.y(point.p);
-        (x.is_finite() && y.is_finite()).then_some((x as f32, y as f32))
+        (x.is_finite() && y.is_finite()).then_some((f32_of(x), f32_of(y)))
     }
 
     fn point_at(&self, x: f32, y: f32, magnet: bool) -> Option<Point> {
@@ -73,7 +74,7 @@ impl Projection for ChartProjection<'_> {
         let t = self.series.time_of_index(index, self.step_ms)?;
         let mut price = self.map.price(f64::from(y));
         if magnet && index >= 0.0 {
-            price = self.magnet_price(index as usize, price);
+            price = self.magnet_price(f64_to_usize(index), price);
         }
         price.is_finite().then_some(Point { t, p: price })
     }
@@ -88,7 +89,7 @@ impl Projection for ChartProjection<'_> {
     }
 
     fn format_price(&self, price: f64) -> String {
-        format_price(price.round() as i64, self.digits)
+        format_price(f64_to_i64(price.round()), self.digits)
     }
 
     fn price_span(&self) -> f64 {
@@ -102,32 +103,33 @@ impl Projection for ChartProjection<'_> {
         let start = bars.partition_point(|bar| bar.time_ms < from_ms);
         let end = bars.partition_point(|bar| bar.time_ms <= to_ms);
         let len = bars.len();
-        bars[start..end.max(start)]
+        bars.get(start..end.max(start))
+            .unwrap_or_default()
             .iter()
             .take(MAX_TOOL_BARS)
             .enumerate()
             .map(|(offset, bar)| BarView {
                 time: bar.time_ms,
-                x: self.view.x_of((start + offset) as f64, len, self.plot_w) as f32,
-                open: bar.open as f64,
-                high: bar.high as f64,
-                low: bar.low as f64,
-                close: bar.close as f64,
-                volume: bar.volume as f64,
+                x: f32_of(self.view.x_of(count_f64(start + offset), len, self.plot_w)),
+                open: i64_to_f64(bar.open),
+                high: i64_to_f64(bar.high),
+                low: i64_to_f64(bar.low),
+                close: i64_to_f64(bar.close),
+                volume: i64_to_f64(bar.volume),
             })
             .collect()
     }
 
     fn y_of(&self, price: f64) -> f32 {
-        self.map.y(price) as f32
+        f32_of(self.map.y(price))
     }
 
     fn real_price(&self, raw: f64) -> f64 {
-        raw / PRICE_SCALE as f64
+        raw / i64_to_f64(PRICE_SCALE)
     }
 
     fn tick(&self) -> f64 {
-        super::scene::quote_unit(self.digits) / PRICE_SCALE as f64
+        super::scene::quote_unit(self.digits) / i64_to_f64(PRICE_SCALE)
     }
 
     fn pip(&self) -> f64 {
@@ -251,10 +253,8 @@ mod tests {
             assert_ne!(free.p, bar_high);
             // Far from any of the four: left alone.
             let far = proj.point_at(x, y_high - 150.0, true).unwrap();
-            assert!(
-                far.p != bar_high
-                    && (far.p - proj.map.price(f64::from(y_high - 150.0))).abs() < 1e-6
-            );
+            assert_ne!(far.p, bar_high);
+            assert!((far.p - proj.map.price(f64::from(y_high - 150.0))).abs() < 1e-6);
         });
     }
 

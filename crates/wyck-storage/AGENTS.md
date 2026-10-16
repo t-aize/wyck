@@ -4,7 +4,7 @@ The one place that decides where the app's files live, how they are written, and
 secret is kept: the config, the documents (layouts, drawings, favorites), the indicator scripts, the
 backups, the credentials and the encryption behind them. No screen, no network.
 
-Depends on: `wyck-platform`, `serde`, `serde_json`, `toml`, `secrecy`, `zeroize`, `keyring`,
+Depends on: `wyck-clock`, `wyck-platform`, `serde`, `serde_json`, `toml`, `secrecy`, `zeroize`, `keyring`,
 `directories`, `argon2`, `chacha20poly1305`, `getrandom`, `uuid`, `thiserror`, `tracing`
 (`proptest` and `tempfile` in tests only).
 

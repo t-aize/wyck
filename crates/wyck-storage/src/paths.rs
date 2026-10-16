@@ -492,7 +492,7 @@ mod tests {
         assert_eq!(paths.backups_dir(), base.join("backups"));
         assert_eq!(paths.standard_dir(Kind::Settings), base.join("state"));
         assert_eq!(paths.documents().dir(), chosen, "the documents follow");
-        assert!(paths.problems().is_empty());
+        assert_eq!(paths.problems(), []);
         assert_eq!(paths.config_dir(), base, "the config folder never moves");
     }
 

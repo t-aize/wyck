@@ -4,6 +4,7 @@
 pub mod atr_stop;
 pub mod book;
 pub mod contract;
+pub mod doubt;
 pub mod events;
 pub mod follow;
 pub mod guard;

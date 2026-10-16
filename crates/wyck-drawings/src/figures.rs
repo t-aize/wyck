@@ -8,10 +8,11 @@ pub(crate) mod gann;
 pub(crate) mod patterns;
 
 use super::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
-use super::geometry::{Anchor, P, Prim, Projection, Rect, seg};
+use super::geometry::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use super::model::style::Dash;
 use super::model::tool::Tool;
 use super::model::{Drawing, Point};
+use wyck_core::math::f32_of;
 
 /// How far a label sits above or below the point it names.
 const LABEL_GAP: f32 = 14.0;
@@ -58,7 +59,7 @@ fn scale(a: P, k: f32) -> P {
 }
 
 fn mid(a: P, b: P) -> P {
-    ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0)
+    (f32::midpoint(a.0, b.0), f32::midpoint(a.1, b.1))
 }
 
 /// How many times `d` fits between `from` and the farthest corner of the plot, forwards: the
@@ -85,25 +86,29 @@ fn ratio(a: Point, b: Point, c: Point, d: Point) -> Option<String> {
     (base > 0.0).then(|| level_text((b.p - a.p).abs() / base))
 }
 
-/// Whether point `i` is a top (above its neighbours) on the screen, where up is smaller y.
+/// Whether point `i` is a top (above its neighbours) on the screen, where up is smaller y. There
+/// is no top where there is no point.
 fn is_top(pts: &[P], i: usize) -> bool {
-    let y = pts[i].1;
-    let before = i.checked_sub(1).map(|j| pts[j].1);
+    let Some(&(_, y)) = pts.get(i) else {
+        return false;
+    };
+    let before = i.checked_sub(1).and_then(|j| pts.get(j)).map(|p| p.1);
     let after = pts.get(i + 1).map(|p| p.1);
     match (before, after) {
-        (Some(b), Some(a)) => y <= b.min(a) || (y < b && y < a) || y <= (a + b) / 2.0,
+        (Some(b), Some(a)) => y <= b.min(a) || (y < b && y < a) || y <= f32::midpoint(a, b),
         (Some(b), None) => y <= b,
         (None, Some(a)) => y <= a,
         (None, None) => true,
     }
 }
 
-/// A name over a top or under a bottom.
-fn point_label(pts: &[P], i: usize, text: String, drawing: &Drawing, boxed: bool) -> Prim {
+/// A name over a top or under a bottom; none when there is no point `i`.
+fn point_label(pts: &[P], i: usize, text: String, drawing: &Drawing, boxed: bool) -> Option<Prim> {
     let style = &drawing.style;
+    let &(x, y) = pts.get(i)?;
     let up = is_top(pts, i);
     let gap = LABEL_GAP + style.text_size * 0.3;
-    let at = (pts[i].0, pts[i].1 + if up { -gap } else { gap });
+    let at = (x, y + if up { -gap } else { gap });
     let mut prim = label(at, text, style.text_color(), Anchor::Center, style);
     if boxed
         && let Prim::Label {
@@ -111,9 +116,9 @@ fn point_label(pts: &[P], i: usize, text: String, drawing: &Drawing, boxed: bool
         } = &mut prim
     {
         *background = Some((style.color, 0.9));
-        *color = style.text_color.unwrap_or(0xffffff);
+        *color = style.text_color.unwrap_or(0xff_ffff);
     }
-    prim
+    Some(prim)
 }
 
 /// A ratio written in the middle of the dashed line between two points.
@@ -121,19 +126,25 @@ fn ratio_label(a: P, b: P, text: String, drawing: &Drawing) -> Prim {
     let style = &drawing.style;
     let mut prim = label(mid(a, b), text, style.text_color(), Anchor::Center, style);
     if let Prim::Label { background, .. } = &mut prim {
-        *background = Some((0x131722, 0.85));
+        *background = Some((0x13_1722, 0.85));
     }
     prim
 }
 
+#[expect(
+    clippy::many_single_char_names,
+    reason = "`a`, `b` and `c` are the three anchor points and `m` the middle of the base, as in the definition of a pitchfork"
+)]
 fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b, c) = (pts[0], pts[1], pts[2]);
+    let Some([a, b, c]) = lead(pts) else {
+        return;
+    };
     let m = mid(b, c);
     // Where the median line starts, a point it passes through, and the step from it to a tine.
     let (origin, pivot, half) = match drawing.tool {
         Tool::SchiffPitchfork => (mid(a, b), m, sub(b, m)),
-        Tool::ModifiedSchiffPitchfork => ((a.0, (a.1 + b.1) / 2.0), m, sub(b, m)),
+        Tool::ModifiedSchiffPitchfork => ((a.0, f32::midpoint(a.1, b.1)), m, sub(b, m)),
         Tool::InsidePitchfork => (mid(a, b), c, sub(b, c)),
         _ => (a, m, sub(b, m)),
     };
@@ -148,7 +159,7 @@ fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
         .collect();
     let starts: Vec<P> = lines
         .iter()
-        .map(|&(k, _)| add(pivot, scale(half, k as f32)))
+        .map(|&(k, _)| add(pivot, scale(half, f32_of(k))))
         .chain([pivot])
         .collect();
     let far = if style.extend_right {
@@ -180,7 +191,7 @@ fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
                 .collect();
             ordered.sort_by(|x, y| x.0.abs().total_cmp(&y.0.abs()));
             for (k, color) in ordered {
-                let outer = add(pivot, scale(half, k as f32));
+                let outer = add(pivot, scale(half, f32_of(k)));
                 let (i0, i1) = ends(inner);
                 let (o0, o1) = ends(outer);
                 out.push(Prim::Polygon {
@@ -201,7 +212,7 @@ fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     }
     out.push(seg(b, c, median_color, 0.8, 1.0, style.dash));
     for &(k, color) in &lines {
-        let start = add(pivot, scale(half, k as f32));
+        let start = add(pivot, scale(half, f32_of(k)));
         let (s0, s1) = ends(start);
         out.push(seg(s0, s1, color, 1.0, style.width, style.dash));
         if style.labels && k > 0.0 {
@@ -216,9 +227,15 @@ fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     }
 }
 
+#[expect(
+    clippy::many_single_char_names,
+    reason = "`a`, `b` and `c` are the three anchor points and `p` and `q` the ends of a level, as in the definition of the channel"
+)]
 fn fib_channel(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b, c) = (pts[0], pts[1], pts[2]);
+    let Some([a, b, c]) = lead(pts) else {
+        return;
+    };
     let dx = b.0 - a.0;
     let line_y_at_c = if dx.abs() < 1e-6 {
         a.1
@@ -229,11 +246,11 @@ fn fib_channel(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let (a, b) = stretch(a, b, style, rect);
     let mut previous: Option<(P, P)> = None;
     for level in visible_levels(drawing) {
-        let k = if drawing.reverse {
+        let k = f32_of(if drawing.reverse {
             1.0 - level.value
         } else {
             level.value
-        } as f32;
+        });
         let (p, q) = ((a.0, a.1 + offset * k), (b.0, b.1 + offset * k));
         if let (Some((pp, pq)), Some((_, opacity))) = (previous, fill_of(style)) {
             out.push(Prim::Polygon {
@@ -266,14 +283,16 @@ fn fib_channel(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
 fn fib_time_zone(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let (a, b) = (drawing.points[0], drawing.points[1]);
+    let (Some([a, b]), Some([screen_a, screen_b])) = (lead(&drawing.points), lead(pts)) else {
+        return;
+    };
     let (Some(ia), Some(ib)) = (proj.index_of(a.t), proj.index_of(b.t)) else {
         return;
     };
     let bars = ib - ia;
     for level in visible_levels(drawing) {
         let x = if bars.abs() < 1e-9 {
-            pts[0].0
+            screen_a.0
         } else {
             let Some(t) = proj.shift_bars(a.t, bars * level.value) else {
                 continue;
@@ -301,7 +320,7 @@ fn fib_time_zone(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
             ));
         }
     }
-    out.push(seg(pts[0], pts[1], style.color, 0.6, 1.0, Dash::Dashed));
+    out.push(seg(screen_a, screen_b, style.color, 0.6, 1.0, Dash::Dashed));
 }
 
 /// Lines from `origin` through each of `through`, with the zones between them filled.
@@ -321,15 +340,19 @@ pub(super) fn fan(
         })
         .collect();
     if let Some((_, opacity)) = fill_of(style) {
-        for i in 1..through.len() {
+        for ((&previous, &current), (_, color, _)) in far
+            .iter()
+            .zip(far.iter().skip(1))
+            .zip(through.iter().skip(1))
+        {
             out.push(Prim::Polygon {
-                points: vec![origin, far[i - 1], far[i]],
-                fill: (through[i].1, opacity),
+                points: vec![origin, previous, current],
+                fill: (*color, opacity),
             });
         }
     }
-    for (i, (p, color, text)) in through.iter().enumerate() {
-        out.push(seg(origin, far[i], *color, 1.0, style.width, style.dash));
+    for ((p, color, text), &end) in through.iter().zip(&far) {
+        out.push(seg(origin, end, *color, 1.0, style.width, style.dash));
         if style.labels && !text.is_empty() {
             out.push(label(
                 (p.0 + 4.0, p.1),
@@ -343,11 +366,13 @@ pub(super) fn fan(
 }
 
 fn fib_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let through: Vec<(P, u32, String)> = visible_levels(drawing)
         .into_iter()
         .map(|l| {
-            let y = b.1 + (a.1 - b.1) * l.value as f32;
+            let y = b.1 + (a.1 - b.1) * f32_of(l.value);
             ((b.0, y), l.color, level_text(l.value))
         })
         .collect();
@@ -368,6 +393,7 @@ mod tests {
     use crate::geometry::hit::hit;
     use crate::geometry::prims;
     use crate::geometry::tests::{Linear, drawing};
+    use wyck_core::math::{count_f64, count_i64};
 
     fn labels(shapes: &[Prim]) -> Vec<String> {
         shapes
@@ -450,6 +476,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the linear projection maps whole numbers of seconds and price units to whole pixel coordinates, which are exact"
+    )]
     fn a_gann_box_divides_both_sides_at_its_levels() {
         let d = drawing(Tool::GannBox, &[(0, 100.0), (400, 300.0)]);
         let segs = segments(&prims(&d, &Linear));
@@ -459,6 +489,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the linear projection maps whole numbers of seconds and price units to whole pixel coordinates, which are exact"
+    )]
     fn a_fib_channel_repeats_its_base_at_each_level() {
         let d = drawing(Tool::FibChannel, &[(0, 100.0), (400, 100.0), (200, 200.0)]);
         let segs = segments(&prims(&d, &Linear));
@@ -470,6 +504,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the linear projection maps whole numbers of seconds and price units to whole pixel coordinates, which are exact"
+    )]
     fn fib_time_zones_fall_on_the_fibonacci_numbers_of_bars() {
         // One minute bars; the second point is 2 bars on, so zone 3 is 6 bars on (360 s).
         let d = drawing(Tool::FibTimeZone, &[(0, 100.0), (120, 100.0)]);
@@ -573,8 +611,8 @@ mod tests {
             let points: Vec<(i64, f64)> = (0..tool.anchors().max(2))
                 .map(|i| {
                     (
-                        100 + i as i64 * 60,
-                        if i % 2 == 0 { 150.0 } else { 250.0 } + i as f64,
+                        100 + count_i64(i) * 60,
+                        if i % 2 == 0 { 150.0 } else { 250.0 } + count_f64(i),
                     )
                 })
                 .collect();

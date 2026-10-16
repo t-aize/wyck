@@ -3,7 +3,7 @@
 use super::{move_text, span_text, stat, stat_rows};
 
 use crate::geometry::fib::fill_of;
-use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, label_size, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, label_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
 
@@ -20,7 +20,9 @@ pub(super) fn price_range(
     out: &mut Vec<Prim>,
 ) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let (Some([a, b]), Some([from_point, to_point])) = (lead(pts), lead(&drawing.points)) else {
+        return;
+    };
     let (left, right) = (a.0.min(b.0), a.0.max(b.0).max(a.0.min(b.0) + 1.0));
     if let Some(fill) = fill_of(style) {
         out.push(Prim::Rect {
@@ -40,10 +42,10 @@ pub(super) fn price_range(
             style.dash,
         ));
     }
-    let x = (left + right) / 2.0;
+    let x = f32::midpoint(left, right);
     arrow((x, a.1), (x, b.1), style.color, 1.0, out);
     if style.labels {
-        let text = move_text(proj, drawing.points[0], drawing.points[1], &style.measure);
+        let text = move_text(proj, from_point, to_point, &style.measure);
         out.push(stat(
             style,
             (x, a.1.min(b.1) - 14.0),
@@ -57,7 +59,9 @@ pub(super) fn price_range(
 pub(super) fn date_range(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let (a, b) = (pts[0], pts[1]);
+    let (Some([a, b]), Some([from_point, to_point])) = (lead(pts), lead(&drawing.points)) else {
+        return;
+    };
     let (left, right) = (a.0.min(b.0), a.0.max(b.0).max(a.0.min(b.0) + 1.0));
     if let Some(fill) = fill_of(style) {
         out.push(Prim::Rect {
@@ -81,8 +85,8 @@ pub(super) fn date_range(drawing: &Drawing, pts: &[P], proj: &dyn Projection, ou
     if style.labels {
         out.push(stat(
             style,
-            ((a.0 + b.0) / 2.0, a.1 - 14.0),
-            span_text(proj, drawing.points[0], drawing.points[1], &style.measure),
+            (f32::midpoint(a.0, b.0), a.1 - 14.0),
+            span_text(proj, from_point, to_point, &style.measure),
             style.color,
             Anchor::Center,
         ));
@@ -96,29 +100,30 @@ pub(super) fn date_price_range(
     out: &mut Vec<Prim>,
 ) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let (Some([a, b]), Some([from_point, to_point])) = (lead(pts), lead(&drawing.points)) else {
+        return;
+    };
     out.push(Prim::Rect {
         a,
         b,
         fill: fill_of(style),
         stroke: Some((style.color, style.width)),
     });
-    let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+    let (mx, my) = (f32::midpoint(a.0, b.0), f32::midpoint(a.1, b.1));
     arrow((a.0, my), (b.0, my), style.color, 1.0, out);
     arrow((mx, a.1), (mx, b.1), style.color, 1.0, out);
     if style.labels {
-        let (p, q) = (drawing.points[0], drawing.points[1]);
         out.push(stat(
             style,
             (mx, a.1.min(b.1) - 14.0),
-            move_text(proj, p, q, &style.measure),
+            move_text(proj, from_point, to_point, &style.measure),
             style.color,
             Anchor::Center,
         ));
         out.push(stat(
             style,
             (mx, a.1.max(b.1) + 14.0),
-            span_text(proj, p, q, &style.measure),
+            span_text(proj, from_point, to_point, &style.measure),
             style.color,
             Anchor::Center,
         ));
@@ -127,7 +132,9 @@ pub(super) fn date_price_range(
 
 pub(super) fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let (Some([a, b]), Some([from_point, to_point])) = (lead(pts), lead(&drawing.points)) else {
+        return;
+    };
     out.push(seg(a, b, style.color, 1.0, style.width, style.dash));
     out.extend(arrow_head(a, b, style.color, style.width));
     out.push(Prim::Ellipse {
@@ -138,7 +145,6 @@ pub(super) fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out:
         stroke: None,
     });
     if style.labels {
-        let (p, q) = (drawing.points[0], drawing.points[1]);
         let side = if b.0 >= a.0 { 12.0 } else { -12.0 };
         let anchor = if b.0 >= a.0 {
             Anchor::Left
@@ -147,14 +153,14 @@ pub(super) fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out:
         };
         let rows = vec![
             {
-                let moved = move_text(proj, p, q, &style.measure);
+                let moved = move_text(proj, from_point, to_point, &style.measure);
                 if moved.is_empty() {
-                    proj.format_price(q.p)
+                    proj.format_price(to_point.p)
                 } else {
-                    format!("{} ({moved})", proj.format_price(q.p))
+                    format!("{} ({moved})", proj.format_price(to_point.p))
                 }
             },
-            span_text(proj, p, q, &style.measure),
+            span_text(proj, from_point, to_point, &style.measure),
         ];
         stat_rows(
             style,

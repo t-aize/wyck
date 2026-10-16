@@ -109,6 +109,17 @@ impl Error {
         }
     }
 
+    /// Whether a request that failed with this may still have reached the server: the answer was
+    /// lost, not necessarily the request. A new order that fails this way is not sent again; the
+    /// account is read to see what became of it (`wyck_trading::doubt`).
+    #[must_use]
+    pub fn outcome_unknown(&self) -> bool {
+        matches!(
+            self,
+            Self::Transport(_) | Self::Closed | Self::Timeout { .. }
+        )
+    }
+
     /// The error code the server sent, if this is a server error.
     #[must_use]
     pub(crate) fn code(&self) -> Option<&str> {

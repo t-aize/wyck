@@ -33,6 +33,10 @@ pub enum ChordError {
 }
 
 /// A key and the modifiers held with it.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per modifier key, as a key combination is: no state is hidden in a bit set"
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Chord {
     /// Cmd on a Mac, Ctrl elsewhere.
@@ -46,6 +50,10 @@ pub struct Chord {
 }
 
 /// The modifiers a key event came with, as the platform reports them.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the four modifier keys of a key event, as the platform reports them"
+)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Held {
     pub control: bool,
@@ -473,7 +481,7 @@ mod tests {
     fn an_action_can_be_left_with_no_key_and_then_reset() {
         let mut prefs = ShortcutPrefs::default();
         prefs.set("undo", Vec::new(), &["secondary-z"]);
-        assert!(prefs.keys_of("undo", &["secondary-z"]).is_empty());
+        assert_eq!(prefs.keys_of("undo", &["secondary-z"]), [] as [String; 0]);
         prefs.reset("undo");
         assert_eq!(prefs.keys_of("undo", &["secondary-z"]), ["secondary-z"]);
         prefs.set("redo", vec!["alt-r".into()], &[]);

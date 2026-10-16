@@ -1,0 +1,13 @@
+[package]
+name = "wyck-clock"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "The one place Wyck reads the wall clock, so that the rest of the code and its tests can be given another."
+
+[lints]
+workspace = true

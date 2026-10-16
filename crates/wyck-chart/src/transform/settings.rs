@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::PricePath;
-use wyck_core::math;
+use wyck_core::math::{self, f64_to_i64, i64_to_f64};
 use wyck_market::Bar;
 
 /// How a box (or a reversal, or a range) is sized.
@@ -30,9 +30,9 @@ impl BoxSize {
         let unit = unit.max(1);
         let raw = match self {
             Self::Atr { length } => {
-                let high: Vec<f64> = bars.iter().map(|b| b.high as f64).collect();
-                let low: Vec<f64> = bars.iter().map(|b| b.low as f64).collect();
-                let close: Vec<f64> = bars.iter().map(|b| b.close as f64).collect();
+                let high: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.high)).collect();
+                let low: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.low)).collect();
+                let close: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.close)).collect();
                 math::atr(&high, &low, &close, length.max(1) as usize)
                     .last()
                     .copied()
@@ -40,21 +40,21 @@ impl BoxSize {
                     .unwrap_or_else(|| {
                         // Too few bars for the average: a share of the whole range instead.
                         let (lo, hi) = bars.iter().fold((f64::MAX, f64::MIN), |(l, h), b| {
-                            (l.min(b.low as f64), h.max(b.high as f64))
+                            (l.min(i64_to_f64(b.low)), h.max(i64_to_f64(b.high)))
                         });
-                        ((hi - lo) / 20.0).max(unit as f64)
+                        ((hi - lo) / 20.0).max(i64_to_f64(unit))
                     })
             }
-            Self::Fixed { price } => price * wyck_market::PRICE_SCALE as f64,
+            Self::Fixed { price } => price * i64_to_f64(wyck_market::PRICE_SCALE),
             Self::Percent { percent } => {
-                bars.last().map_or(0.0, |b| b.close as f64) * percent / 100.0
+                bars.last().map_or(0.0, |b| i64_to_f64(b.close)) * percent / 100.0
             }
         };
         if !raw.is_finite() {
             return unit;
         }
         // A round number of quote units.
-        (((raw / unit as f64).round() as i64).max(1)) * unit
+        (f64_to_i64((raw / i64_to_f64(unit)).round()).max(1)) * unit
     }
 }
 

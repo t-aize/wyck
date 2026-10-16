@@ -70,7 +70,7 @@ pub(crate) const PLANS: [Plan; 4] = [
     clippy::unnecessary_wraps,
     reason = "the signature of a migration step, which can fail"
 )]
-fn trim_account_panel(table: &mut toml::Table) -> std::result::Result<(), StepError> {
+fn trim_account_panel(table: &mut toml::Table) -> Result<(), StepError> {
     if let Some(panel) = table
         .get_mut("account_panel")
         .and_then(toml::Value::as_table_mut)
@@ -104,7 +104,7 @@ const LOOK_KEYS: [&str; 12] = [
     clippy::unnecessary_wraps,
     reason = "the signature of a migration step, which can fail"
 )]
-fn lift_chart_look(table: &mut toml::Table) -> std::result::Result<(), StepError> {
+fn lift_chart_look(table: &mut toml::Table) -> Result<(), StepError> {
     use toml::Value;
     let active = table
         .get("active_chart")
@@ -125,7 +125,10 @@ fn lift_chart_look(table: &mut toml::Table) -> std::result::Result<(), StepError
                 .position(|c| c.get("settings").is_some_and(Value::is_table))
         };
         if let Some(source) = source
-            && let Some(settings) = charts[source].get("settings").and_then(Value::as_table)
+            && let Some(settings) = charts
+                .get(source)
+                .and_then(|chart| chart.get("settings"))
+                .and_then(Value::as_table)
         {
             for key in LOOK_KEYS {
                 if let Some(value) = settings.get(key) {

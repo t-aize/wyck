@@ -6,6 +6,7 @@
 //! at the times of the bars, not at their positions.
 
 use chrono::{DateTime, Datelike, Timelike};
+use wyck_core::math::{count_f64, f64_to_i64, i64_to_f64};
 
 use super::zone::Zone;
 
@@ -79,7 +80,7 @@ pub(crate) fn nice_step(range: f64, target: usize) -> f64 {
     if !(range.is_finite() && range > 0.0) {
         return 1.0;
     }
-    let raw = range / target.max(1) as f64;
+    let raw = range / count_f64(target.max(1));
     let magnitude = 10f64.powf(raw.log10().floor());
     let n = raw / magnitude;
     let multiple = if n <= 1.0 {
@@ -125,12 +126,12 @@ fn civil(time_ms: i64) -> Option<Civil> {
     let dt = DateTime::from_timestamp(seconds, 0)?;
     Some(Civil {
         year: dt.year(),
-        month: dt.month() as u8,
-        day: dt.day() as u8,
-        hour: dt.hour() as u8,
-        minute: dt.minute() as u8,
-        second: dt.second() as u8,
-        millisecond: time_ms.rem_euclid(1_000) as u16,
+        month: u8::try_from(dt.month()).unwrap_or(u8::MAX),
+        day: u8::try_from(dt.day()).unwrap_or(u8::MAX),
+        hour: u8::try_from(dt.hour()).unwrap_or(u8::MAX),
+        minute: u8::try_from(dt.minute()).unwrap_or(u8::MAX),
+        second: u8::try_from(dt.second()).unwrap_or(u8::MAX),
+        millisecond: u16::try_from(time_ms.rem_euclid(1_000)).unwrap_or_default(),
     })
 }
 
@@ -139,18 +140,19 @@ const MONTHS: [&str; 12] = [
 ];
 
 fn month_name(month: u8) -> &'static str {
-    MONTHS[usize::from(month.clamp(1, 12)) - 1]
+    MONTHS
+        .get(usize::from(month.clamp(1, 12)) - 1)
+        .copied()
+        .unwrap_or_default()
 }
 
 fn bucket(unit: Unit, time_ms: i64) -> i64 {
     match unit {
         Unit::Fixed(ms) => time_ms.div_euclid(ms),
-        Unit::Months(n) => civil(time_ms)
-            .map(|c| (i64::from(c.year) * 12 + i64::from(c.month) - 1).div_euclid(n))
-            .unwrap_or(0),
-        Unit::Years(n) => civil(time_ms)
-            .map(|c| i64::from(c.year).div_euclid(n))
-            .unwrap_or(0),
+        Unit::Months(n) => civil(time_ms).map_or(0, |c| {
+            (i64::from(c.year) * 12 + i64::from(c.month) - 1).div_euclid(n)
+        }),
+        Unit::Years(n) => civil(time_ms).map_or(0, |c| i64::from(c.year).div_euclid(n)),
     }
 }
 
@@ -175,7 +177,7 @@ pub(crate) fn time_labels(
         return Vec::new();
     };
     let slots = (plot_w / min_gap).floor().max(1.0);
-    let wanted = ((t1 - t0).max(1) as f64 / slots) as i64;
+    let wanted = f64_to_i64(i64_to_f64((t1 - t0).max(1)) / slots);
     let unit = LADDER
         .iter()
         .copied()
@@ -289,10 +291,10 @@ pub fn full_time(time_ms: i64, zone: Zone, with_seconds: bool, with_millis: bool
         c.minute
     );
     if with_seconds || with_millis {
-        text.push_str(&format!(":{:02}", c.second));
+        text = format!("{text}:{:02}", c.second);
     }
     if with_millis {
-        text.push_str(&format!(".{:03}", c.millisecond));
+        text = format!("{text}.{:03}", c.millisecond);
     }
     text
 }
@@ -300,6 +302,7 @@ pub fn full_time(time_ms: i64, zone: Zone, with_seconds: bool, with_millis: bool
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_f64;
 
     #[test]
     fn steps_are_one_two_or_five_times_a_power_of_ten() {
@@ -333,8 +336,8 @@ mod tests {
     fn price_ticks_never_go_below_the_quote_step() {
         let ticks = price_ticks(100.0, 100.4, 8, 1.0);
         assert!(ticks.windows(2).all(|w| w[1] - w[0] >= 1.0 - 1e-9));
-        assert!(price_ticks(5.0, 5.0, 8, 1.0).is_empty());
-        assert!(price_ticks(f64::NAN, 5.0, 8, 1.0).is_empty());
+        assert_eq!(price_ticks(5.0, 5.0, 8, 1.0), [] as [f64; 0]);
+        assert_eq!(price_ticks(f64::NAN, 5.0, 8, 1.0), [] as [f64; 0]);
     }
 
     fn minutes(range: std::ops::Range<i64>) -> Vec<i64> {
@@ -349,7 +352,7 @@ mod tests {
             0,
             times.len(),
             |i| times.get(i).copied(),
-            |i| i as f64 * 2.0,
+            |i| count_f64(i) * 2.0,
             1_200.0,
             80.0,
             Zone::Utc,
@@ -372,7 +375,7 @@ mod tests {
             0,
             times.len(),
             |i| times.get(i).copied(),
-            |i| i as f64 * 0.5,
+            |i| count_f64(i) * 0.5,
             1_500.0,
             90.0,
             Zone::Utc,
@@ -392,7 +395,7 @@ mod tests {
             0,
             times.len(),
             |i| times.get(i).copied(),
-            |i| i as f64 * 7.99,
+            |i| count_f64(i) * 7.99,
             560.0,
             96.0,
             Zone::Utc,
@@ -410,7 +413,10 @@ mod tests {
 
     #[test]
     fn no_points_no_labels() {
-        assert!(time_labels(0, 0, |_| None, |_| 0.0, 500.0, 80.0, Zone::Utc).is_empty());
+        assert_eq!(
+            time_labels(0, 0, |_| None, |_| 0.0, 500.0, 80.0, Zone::Utc),
+            [] as [TimeLabel; 0]
+        );
     }
 
     #[test]
@@ -425,6 +431,6 @@ mod tests {
 
     #[test]
     fn times_before_the_epoch_do_not_panic() {
-        assert!(!full_time(-86_400_000, Zone::Utc, false, false).is_empty());
+        assert_ne!(full_time(-86_400_000, Zone::Utc, false, false), "");
     }
 }

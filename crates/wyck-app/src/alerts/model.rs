@@ -517,6 +517,7 @@ impl AlertBook {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_i64;
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
 
@@ -649,7 +650,7 @@ mod tests {
         assert_eq!(book.firings(once).count(), 1);
         assert_eq!(book.watched(), vec![7]);
         for n in 0..(MAX_HISTORY + 20) {
-            book.fire(again, n.to_string(), None, 5, 20 + n as i64);
+            book.fire(again, n.to_string(), None, 5, 20 + count_i64(n));
         }
         assert_eq!(book.history.len(), MAX_HISTORY);
     }
@@ -664,9 +665,9 @@ mod tests {
             a.snoozed_until = Some(50);
             assert!(a.is_snoozed(10) && !a.is_snoozed(50));
         }
-        assert!(book.expire(99).is_empty());
+        assert_eq!(book.expire(99), [] as [u64; 0]);
         assert_eq!(book.expire(100), vec![id]);
-        assert!(book.watched().is_empty());
+        assert_eq!(book.watched(), [] as [i64; 0]);
     }
 
     #[test]
@@ -720,7 +721,9 @@ mod tests {
         let wild = wild.normalized();
         assert_eq!(wild.alerts[0].condition, Condition::Crossing);
         assert_eq!(wild.alerts[0].trigger, Trigger::EveryTime);
-        assert!(matches!(wild.alerts[0].source, Source::Spread { pip } if pip == 0.0001));
+        assert!(
+            matches!(wild.alerts[0].source, Source::Spread { pip } if pip.total_cmp(&0.0001).is_eq())
+        );
         assert_eq!(wild.alerts[1].condition, Condition::Crossing);
         assert!(wild.alerts[1].versus.is_none());
         assert_eq!(

@@ -63,13 +63,14 @@ impl Saved {
             options: options.clone().normalized(),
         };
         let key = name.to_lowercase();
+        let room = self.presets.len() < MAX_PRESETS;
         let same = self
             .presets
-            .iter()
-            .position(|p| p.name.to_lowercase() == key);
+            .iter_mut()
+            .find(|p| p.name.to_lowercase() == key);
         match same {
-            Some(at) => self.presets[at] = preset,
-            None if self.presets.len() < MAX_PRESETS => self.presets.push(preset),
+            Some(slot) => *slot = preset,
+            None if room => self.presets.push(preset),
             None => return false,
         }
         true
@@ -161,7 +162,7 @@ mod tests {
         assert!(!saved.save_preset("   ", &ExportOptions::default()));
         assert!(saved.remove_preset("daily"));
         assert!(!saved.remove_preset("daily"));
-        assert!(saved.presets.is_empty());
+        assert_eq!(saved.presets, [] as [Preset; 0]);
     }
 
     #[test]

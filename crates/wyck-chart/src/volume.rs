@@ -13,6 +13,7 @@
 //!   by their length, since the bar does not say when the price was where.
 
 use serde::{Deserialize, Serialize};
+use wyck_core::math::{count_f64, f32_of, f64_to_i64, f64_to_usize, i64_to_f64};
 use wyck_market::Bar;
 
 use super::transform::PricePath;
@@ -217,11 +218,11 @@ impl VolumeCandleSettings {
             .iter()
             .map(|&v| {
                 let share = if reference > 0.0 {
-                    (v.max(0) as f64 / reference).min(1.0)
+                    (i64_to_f64(v.max(0)) / reference).min(1.0)
                 } else {
                     0.0
                 };
-                (min + (max - min) * self.scale.curve(share).min(1.0)) as f32
+                f32_of(min + (max - min) * self.scale.curve(share).min(1.0))
             })
             .collect()
     }
@@ -232,15 +233,16 @@ impl VolumeCandleSettings {
             return 0.0;
         }
         match self.reference {
-            WidthReference::Max => volumes.iter().copied().max().unwrap_or(0) as f64,
+            WidthReference::Max => i64_to_f64(volumes.iter().copied().max().unwrap_or(0)),
             WidthReference::Average => {
-                2.0 * volumes.iter().map(|&v| v.max(0) as f64).sum::<f64>() / volumes.len() as f64
+                2.0 * volumes.iter().map(|&v| i64_to_f64(v.max(0))).sum::<f64>()
+                    / count_f64(volumes.len())
             }
             WidthReference::Typical => {
                 let mut sorted: Vec<i64> = volumes.to_vec();
                 sorted.sort_unstable();
-                let at = ((sorted.len() - 1) as f64 * 0.95).round() as usize;
-                sorted[at] as f64
+                let at = f64_to_usize((count_f64(sorted.len() - 1) * 0.95).round());
+                sorted.get(at).copied().map_or(0.0, i64_to_f64)
             }
         }
     }
@@ -272,11 +274,14 @@ impl VolumeSize {
                 if bars.is_empty() {
                     return 1;
                 }
-                let mean =
-                    bars.iter().map(|b| b.volume.max(0) as f64).sum::<f64>() / bars.len() as f64;
+                let mean = bars
+                    .iter()
+                    .map(|b| i64_to_f64(b.volume.max(0)))
+                    .sum::<f64>()
+                    / count_f64(bars.len());
                 let size = (mean * multiple).round();
                 if size.is_finite() {
-                    (size as i64).max(1)
+                    f64_to_i64(size).max(1)
                 } else {
                     1
                 }
@@ -351,10 +356,10 @@ impl Builder {
             }
             // The price where the bar is full: the share of the leg that fits.
             let share = if volume > 0.0 { room / volume } else { 1.0 };
-            let at = from + ((to - from) as f64 * share).round() as i64;
+            let at = from + f64_to_i64((i64_to_f64(to - from) * share).round());
             self.reach(time_ms, at);
             if let Some(mut bar) = self.current.take() {
-                bar.volume = self.size.round() as i64;
+                bar.volume = f64_to_i64(self.size.round());
                 self.out.push(bar);
             }
             self.held = 0.0;
@@ -372,7 +377,7 @@ impl Builder {
 /// the time of the source bar it opened in.
 pub(crate) fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> {
     let mut builder = Builder {
-        size: size.max(1) as f64,
+        size: i64_to_f64(size.max(1)),
         out: Vec::new(),
         current: None,
         held: 0.0,
@@ -380,34 +385,43 @@ pub(crate) fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> 
     let mut last_price: Option<i64> = None;
     for bar in bars {
         let points = path.points(bar);
-        let volume = bar.volume.max(0) as f64;
+        let volume = i64_to_f64(bar.volume.max(0));
         // The path inside the bar carries its volume, split by length. Getting to its first price
         // (a gap from the bar before) carries none.
-        let start = last_price.unwrap_or(points[0]);
-        if !builder.leg(bar.time_ms, start, points[0], 0.0) {
+        let (Some(&first_point), Some(&last_point)) = (points.first(), points.last()) else {
+            continue;
+        };
+        let start = last_price.unwrap_or(first_point);
+        if !builder.leg(bar.time_ms, start, first_point, 0.0) {
             return builder.out;
         }
         let lengths: Vec<f64> = points
             .windows(2)
-            .map(|w| (w[1] - w[0]).abs() as f64)
+            .filter_map(|w| match w {
+                &[from, to] => Some(i64_to_f64((to - from).abs())),
+                _ => None,
+            })
             .collect();
         let total: f64 = lengths.iter().sum();
         if points.len() == 1 || total == 0.0 {
-            if !builder.leg(bar.time_ms, points[0], points[points.len() - 1], volume) {
+            if !builder.leg(bar.time_ms, first_point, last_point, volume) {
                 return builder.out;
             }
         } else {
-            for (i, w) in points.windows(2).enumerate() {
-                let part = volume * lengths[i] / total;
-                if !builder.leg(bar.time_ms, w[0], w[1], part) {
+            for (w, length) in points.windows(2).zip(&lengths) {
+                let &[from, to] = w else {
+                    continue;
+                };
+                let part = volume * length / total;
+                if !builder.leg(bar.time_ms, from, to, part) {
                     return builder.out;
                 }
             }
         }
-        last_price = points.last().copied();
+        last_price = Some(last_point);
     }
     if let Some(mut bar) = builder.current.take() {
-        bar.volume = builder.held.round() as i64;
+        bar.volume = f64_to_i64(builder.held.round());
         builder.out.push(bar);
     }
     builder.out
@@ -416,6 +430,7 @@ pub(crate) fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_i64;
 
     fn bar(time_ms: i64, open: i64, high: i64, low: i64, close: i64, volume: i64) -> Bar {
         Bar {
@@ -474,7 +489,7 @@ mod tests {
     fn no_volume_at_all_gives_the_minimum_width() {
         let widths = VolumeCandleSettings::default().widths(&[0, 0, 0]);
         assert!(widths.iter().all(|w| (*w - 0.25).abs() < 1e-6));
-        assert!(VolumeCandleSettings::default().widths(&[]).is_empty());
+        assert_eq!(VolumeCandleSettings::default().widths(&[]), [] as [f32; 0]);
     }
 
     #[test]
@@ -552,7 +567,7 @@ mod tests {
             let held: i64 = out.iter().map(|b| b.volume).sum();
             // Each bar rounds its share, so the total is right to within one unit a bar.
             assert!(
-                (held - total).abs() <= out.len() as i64,
+                (held - total).abs() <= count_i64(out.len()),
                 "{held} against {total}"
             );
             assert!(out.windows(2).all(|w| w[0].time_ms <= w[1].time_ms));
@@ -569,7 +584,7 @@ mod tests {
         let out = volume_bars(&source, 25, PricePath::Ohlc);
         // Ten quiet bars make less than one volume bar; the busy one makes four.
         assert_eq!(out.iter().filter(|b| b.volume == 25).count(), 4);
-        assert!(out[0].time_ms == 0);
+        assert_eq!(out[0].time_ms, 0);
     }
 
     #[test]
@@ -600,6 +615,6 @@ mod tests {
         let out = volume_bars(&source, 1, PricePath::Ohlc);
         assert!(out.len() <= MAX_OUT);
         assert!(out.len() >= 900);
-        assert!(volume_bars(&[], 10, PricePath::Ohlc).is_empty());
+        assert_eq!(volume_bars(&[], 10, PricePath::Ohlc), [] as [Bar; 0]);
     }
 }

@@ -43,24 +43,39 @@ pub struct Token {
 const OPERATORS: &str = "+-*/%=<>!&|^~?.@";
 const PUNCT: &str = "()[]{},;:#";
 
+/// `text` from `from` on; empty when `from` is not on a character boundary (a cut the editor
+/// should never ask for, but which must not take it down).
+fn tail(text: &str, from: usize) -> &str {
+    text.get(from..).unwrap_or_default()
+}
+
+/// `text` up to `to`; empty when `to` is not on a character boundary.
+fn head(text: &str, to: usize) -> &str {
+    text.get(..to).unwrap_or_default()
+}
+
+/// `text` over `range`; empty when the range does not fit on character boundaries.
+fn piece(text: &str, range: Range<usize>) -> &str {
+    text.get(range).unwrap_or_default()
+}
+
 /// Cuts `text` into tokens. The tokens are in order and never overlap; white space is between
 /// them.
 pub fn lex(text: &str) -> Vec<Token> {
     let bytes = text.as_bytes();
     let mut tokens = Vec::new();
     let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i];
+    while let Some(&c) = bytes.get(i) {
         let start = i;
         if c.is_ascii_whitespace() {
             i += 1;
-        } else if text[i..].starts_with("//") {
-            i = text[i..].find('\n').map_or(text.len(), |n| i + n);
+        } else if tail(text, i).starts_with("//") {
+            i = tail(text, i).find('\n').map_or(text.len(), |n| i + n);
             tokens.push(Token {
                 range: start..i,
                 kind: Kind::Comment,
             });
-        } else if text[i..].starts_with("/*") {
+        } else if tail(text, i).starts_with("/*") {
             i = block_comment_end(text, i);
             tokens.push(Token {
                 range: start..i,
@@ -94,7 +109,7 @@ pub fn lex(text: &str) -> Vec<Token> {
             });
         } else if is_word_start(text, i) {
             i = word_end(text, i);
-            let word = &text[start..i];
+            let word = piece(text, start..i);
             let after_dot = previous_sign(&tokens, text) == Some('.');
             let call = next_sign(text, i) == Some('(');
             let after_fn = previous_word(&tokens, text) == Some("fn");
@@ -121,7 +136,7 @@ pub fn lex(text: &str) -> Vec<Token> {
                 range: start..i,
                 kind,
             });
-        } else if text[i..].starts_with("#{") {
+        } else if tail(text, i).starts_with("#{") {
             i += 2;
             tokens.push(Token {
                 range: start..i,
@@ -129,7 +144,10 @@ pub fn lex(text: &str) -> Vec<Token> {
             });
         } else if OPERATORS.contains(c as char) {
             i += 1;
-            while i < bytes.len() && OPERATORS.contains(bytes[i] as char) && bytes[i] != b'/' {
+            while bytes
+                .get(i)
+                .is_some_and(|&b| OPERATORS.contains(char::from(b)) && b != b'/')
+            {
                 i += 1;
             }
             tokens.push(Token {
@@ -144,7 +162,7 @@ pub fn lex(text: &str) -> Vec<Token> {
             });
         } else {
             // Anything else (a stray character, part of a multi byte letter): one whole character.
-            i += text[i..].chars().next().map_or(1, char::len_utf8);
+            i += tail(text, i).chars().next().map_or(1, char::len_utf8);
             tokens.push(Token {
                 range: start..i,
                 kind: Kind::Identifier,
@@ -160,14 +178,14 @@ fn is_call_word(word: &str) -> bool {
 }
 
 fn is_word_start(text: &str, at: usize) -> bool {
-    text[at..]
+    tail(text, at)
         .chars()
         .next()
         .is_some_and(|c| c.is_alphabetic() || c == '_')
 }
 
 fn word_end(text: &str, from: usize) -> usize {
-    let rest = &text[from..];
+    let rest = &tail(text, from);
     from + rest
         .char_indices()
         .find(|(_, c)| !(c.is_alphanumeric() || *c == '_'))
@@ -177,20 +195,32 @@ fn word_end(text: &str, from: usize) -> usize {
 fn number_end(text: &str, from: usize) -> usize {
     let bytes = text.as_bytes();
     let mut i = from;
-    if text[i..].starts_with("0x") || text[i..].starts_with("0b") || text[i..].starts_with("0o") {
+    if tail(text, i).starts_with("0x")
+        || tail(text, i).starts_with("0b")
+        || tail(text, i).starts_with("0o")
+    {
         i += 2;
-        while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+        while bytes
+            .get(i)
+            .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        {
             i += 1;
         }
         return i;
     }
-    while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'_') {
+    while bytes
+        .get(i)
+        .is_some_and(|b| b.is_ascii_digit() || *b == b'_')
+    {
         i += 1;
     }
     // A decimal part, but not the `..` of a range or a method call on a number.
     if bytes.get(i) == Some(&b'.') && bytes.get(i + 1).is_some_and(u8::is_ascii_digit) {
         i += 1;
-        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'_') {
+        while bytes
+            .get(i)
+            .is_some_and(|b| b.is_ascii_digit() || *b == b'_')
+        {
             i += 1;
         }
     }
@@ -201,7 +231,7 @@ fn number_end(text: &str, from: usize) -> usize {
         }
         if bytes.get(j).is_some_and(u8::is_ascii_digit) {
             i = j;
-            while i < bytes.len() && bytes[i].is_ascii_digit() {
+            while bytes.get(i).is_some_and(u8::is_ascii_digit) {
                 i += 1;
             }
         }
@@ -215,8 +245,8 @@ fn number_end(text: &str, from: usize) -> usize {
 fn string_end(text: &str, from: usize, quote: u8) -> usize {
     let bytes = text.as_bytes();
     let mut i = from + 1;
-    while i < bytes.len() {
-        match bytes[i] {
+    while let Some(&byte) = bytes.get(i) {
+        match byte {
             b'\\' => i += 2,
             b if b == quote => return i + 1,
             b'\n' if quote != b'`' => return i,
@@ -231,17 +261,17 @@ fn block_comment_end(text: &str, from: usize) -> usize {
     let mut depth = 0usize;
     let mut i = from;
     while i < text.len() {
-        if text[i..].starts_with("/*") {
+        if tail(text, i).starts_with("/*") {
             depth += 1;
             i += 2;
-        } else if text[i..].starts_with("*/") {
+        } else if tail(text, i).starts_with("*/") {
             depth -= 1;
             i += 2;
             if depth == 0 {
                 return i;
             }
         } else {
-            i += text[i..].chars().next().map_or(1, char::len_utf8);
+            i += tail(text, i).chars().next().map_or(1, char::len_utf8);
         }
     }
     text.len()
@@ -250,17 +280,18 @@ fn block_comment_end(text: &str, from: usize) -> usize {
 /// `Some('.')` when the last token is a dot (member access), not the `..` of a range.
 fn previous_sign(tokens: &[Token], text: &str) -> Option<char> {
     let last = tokens.last()?;
-    (last.kind == Kind::Operator && matches!(&text[last.range.clone()], "." | "?.")).then_some('.')
+    (last.kind == Kind::Operator && matches!(piece(text, last.range.clone()), "." | "?."))
+        .then_some('.')
 }
 
 fn previous_word<'a>(tokens: &[Token], text: &'a str) -> Option<&'a str> {
     let last = tokens.last()?;
-    (last.kind == Kind::Keyword).then(|| &text[last.range.clone()])
+    (last.kind == Kind::Keyword).then(|| piece(text, last.range.clone()))
 }
 
 /// The next character that is not white space, from `from`.
 fn next_sign(text: &str, from: usize) -> Option<char> {
-    text[from..].chars().find(|c| !c.is_whitespace())
+    tail(text, from).chars().find(|c| !c.is_whitespace())
 }
 
 /// Where a position of the text is, for what the editor offers there.
@@ -284,13 +315,14 @@ pub(crate) fn place_at(text: &str, offset: usize) -> Place {
         // at its end is still inside it; a closed one is over at its end.
         let closed = match token.kind {
             Kind::String => {
-                let quote = text.as_bytes()[token.range.start];
-                token.range.len() >= 2 && text.as_bytes()[token.range.end - 1] == quote
+                let bytes = text.as_bytes();
+                let quote = bytes.get(token.range.start);
+                token.range.len() >= 2 && quote.is_some() && bytes.get(token.range.end - 1) == quote
             }
             // A line comment runs to the end of its line: the cursor at its end is still in it.
             Kind::Comment => {
-                !text[token.range.clone()].starts_with("//")
-                    && text[token.range.clone()].ends_with("*/")
+                !piece(text, token.range.clone()).starts_with("//")
+                    && piece(text, token.range.clone()).ends_with("*/")
             }
             _ => continue,
         };
@@ -310,38 +342,40 @@ pub(crate) fn place_at(text: &str, offset: usize) -> Place {
 /// The word that ends at `offset` (what is being typed), and where it starts.
 pub(crate) fn word_before(text: &str, offset: usize) -> (usize, &str) {
     let offset = offset.min(text.len());
-    let head = &text[..offset];
+    let head = &head(text, offset);
     let start = head
         .char_indices()
         .rev()
         .take_while(|(_, c)| c.is_alphanumeric() || *c == '_')
         .last()
         .map_or(offset, |(n, _)| n);
-    (start, &text[start..offset])
+    (start, piece(text, start..offset))
 }
 
 /// Whether the word that ends at `offset` comes right after a dot (a property of a value).
 pub(crate) fn after_dot(text: &str, offset: usize) -> bool {
     let (start, _) = word_before(text, offset);
-    text[..start].trim_end_matches([' ', '\t']).ends_with('.')
+    head(text, start)
+        .trim_end_matches([' ', '\t'])
+        .ends_with('.')
 }
 
 /// The whole word around `offset`, with where it is.
 pub(crate) fn word_at(text: &str, offset: usize) -> Option<(Range<usize>, &str)> {
     let offset = offset.min(text.len());
     let is_word = |c: char| c.is_alphanumeric() || c == '_';
-    let start = text[..offset]
+    let start = head(text, offset)
         .char_indices()
         .rev()
         .take_while(|(_, c)| is_word(*c))
         .last()
         .map_or(offset, |(n, _)| n);
     let end = offset
-        + text[offset..]
+        + tail(text, offset)
             .char_indices()
             .find(|(_, c)| !is_word(*c))
             .map_or(text.len() - offset, |(n, _)| n);
-    (start < end).then(|| (start..end, &text[start..end]))
+    (start < end).then(|| (start..end, piece(text, start..end)))
 }
 
 /// The lines (from 0) of the blocks between `{` and `}` that go over several lines, for folding.
@@ -351,13 +385,13 @@ pub fn blocks(text: &str) -> Vec<(usize, usize)> {
     let mut line = 0usize;
     let mut last = 0usize;
     for token in lex(text) {
-        line += text[last..token.range.start].matches('\n').count();
+        line += piece(text, last..token.range.start).matches('\n').count();
         last = token.range.start;
         if token.kind == Kind::Punct {
-            let piece = &text[token.range.clone()];
-            if piece.ends_with('{') {
+            let word = piece(text, token.range.clone());
+            if word.ends_with('{') {
                 stack.push(line);
-            } else if piece == "}"
+            } else if word == "}"
                 && let Some(open) = stack.pop()
                 && open < line
             {
@@ -376,7 +410,7 @@ mod tests {
     fn kinds(text: &str) -> Vec<(&str, Kind)> {
         lex(text)
             .into_iter()
-            .map(|t| (&text[t.range], t.kind))
+            .map(|t| (piece(text, t.range), t.kind))
             .collect()
     }
 
@@ -461,7 +495,7 @@ mod tests {
             );
             end = token.range.end;
         }
-        assert!(lex("").is_empty());
+        assert_eq!(lex(""), [] as [Token; 0]);
     }
 
     #[test]

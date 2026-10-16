@@ -1,4 +1,5 @@
-//! `cargo xtask check`: what CI runs, in the order of how fast each step fails.
+//! `cargo xtask check`: `cargo xtask ci` and the rules of the workspace, plus with `--full` the
+//! tools that need installing.
 
 use std::process::Command;
 
@@ -7,31 +8,9 @@ use anyhow::Result;
 use crate::run::{Action, Step, cargo, cargo_subcommand_installed, command, installed, run_all};
 
 pub(crate) fn run(full: bool) -> Result<()> {
-    let mut steps = vec![
-        cargo_step("format", &["fmt", "--all", "--check"]),
-        cargo_step(
-            "clippy",
-            &[
-                "clippy",
-                "--workspace",
-                "--all-targets",
-                "--locked",
-                "--",
-                "-D",
-                "warnings",
-            ],
-        ),
-    ];
-    // `cargo test` and not nextest: nextest starts a process for each test, which costs more than
-    // the tests themselves on Windows (22 s against 3 s for the same 1189 tests).
-    steps.push(cargo_step("tests", &["test", "--workspace", "--locked"]));
-    let mut docs = cargo();
-    docs.args(["doc", "--workspace", "--no-deps", "--locked"])
-        .env("RUSTDOCFLAGS", "-D warnings");
-    steps.push(Step {
-        name: "rustdoc",
-        action: Action::Command(docs),
-    });
+    // The steps of `cargo xtask ci`, then the rules of the workspace; cargo-deny is skipped here
+    // when it is missing, where `ci` fails.
+    let mut steps = crate::ci::steps(false);
     steps.push(Step {
         name: "dependency rules",
         action: Action::Function(crate::deps::run),
@@ -42,25 +21,10 @@ pub(crate) fn run(full: bool) -> Result<()> {
     run_all(steps)
 }
 
-fn cargo_step(name: &'static str, args: &[&str]) -> Step {
-    let mut command = cargo();
-    command.args(args);
-    Step {
-        name,
-        action: Action::Command(command),
-    }
-}
-
 /// The checks that need a tool installed. A missing tool is skipped with the command that
 /// installs it: CI always has them.
 fn external_tools() -> Vec<Step> {
     vec![
-        optional(
-            "cargo-deny",
-            cargo_subcommand_installed("deny"),
-            "cargo install --locked cargo-deny",
-            cargo_command(&["deny", "check", "--hide-inclusion-graph"]),
-        ),
         optional(
             "cargo-machete",
             cargo_subcommand_installed("machete"),

@@ -1,6 +1,6 @@
 //! How the measure and the position tools are drawn.
 
-use super::{Anchor, P, Prim, Projection, seg};
+use super::{Anchor, P, Prim, Projection, lead, seg};
 use crate::extras;
 use crate::model::Drawing;
 use crate::model::style::Dash;
@@ -13,7 +13,9 @@ pub(super) fn measure_prims(
     out: &mut Vec<Prim>,
 ) {
     let style = &drawing.style;
-    let (a, b) = (drawing.points[0], drawing.points[1]);
+    let (Some([a, b]), Some([(x0, y0), (x1, y1)])) = (lead(&drawing.points), lead(pts)) else {
+        return;
+    };
     let up = b.p - a.p >= 0.0;
     // The color of the drawing is for a move up, the one of the look for a move down.
     let color = if up {
@@ -23,30 +25,16 @@ pub(super) fn measure_prims(
     };
     let width = style.width;
     out.push(Prim::Rect {
-        a: pts[0],
-        b: pts[1],
+        a: (x0, y0),
+        b: (x1, y1),
         fill: (style.fill && style.fill_opacity > 0.0)
             .then(|| (style.fill_color.unwrap_or(color), style.fill_opacity)),
         stroke: Some((color, width)),
     });
     // A cross through the middle.
-    let (mx, my) = ((pts[0].0 + pts[1].0) / 2.0, (pts[0].1 + pts[1].1) / 2.0);
-    out.push(seg(
-        (mx, pts[0].1),
-        (mx, pts[1].1),
-        color,
-        0.9,
-        width,
-        style.dash,
-    ));
-    out.push(seg(
-        (pts[0].0, my),
-        (pts[1].0, my),
-        color,
-        0.9,
-        width,
-        style.dash,
-    ));
+    let (mx, my) = (f32::midpoint(x0, x1), f32::midpoint(y0, y1));
+    out.push(seg((mx, y0), (mx, y1), color, 0.9, width, style.dash));
+    out.push(seg((x0, my), (x1, my), color, 0.9, width, style.dash));
 
     if !style.labels {
         return;
@@ -59,11 +47,11 @@ pub(super) fn measure_prims(
     .filter(|part| !part.is_empty())
     .collect::<Vec<_>>()
     .join("   ");
-    let top = pts[0].1.min(pts[1].1);
+    let top = y0.min(y1);
     out.push(Prim::Label {
         at: (mx, top - 14.0),
         text,
-        color: style.text_color.unwrap_or(0xffffff),
+        color: style.text_color.unwrap_or(0xff_ffff),
         background: Some((color, 0.9)),
         anchor: Anchor::Center,
         size: style.text_size,
@@ -82,10 +70,15 @@ pub(super) fn position_prims(
     let long = drawing.tool == Tool::LongPosition;
     let style = &drawing.style;
     let cfg = &style.position;
-    let entry = drawing.points[0].p;
-    let (stop, target) = (drawing.points[1].p, drawing.points[2].p);
-    let (left, right) = (pts[0].0, pts[3].0.max(pts[0].0 + 1.0));
-    let (y_entry, y_stop, y_target) = (pts[0].1, pts[1].1, pts[2].1);
+    let (Some([entry_point, stop_point, target_point]), Some([p0, p1, p2, p3])) =
+        (lead(&drawing.points), lead(pts))
+    else {
+        return;
+    };
+    let entry = entry_point.p;
+    let (stop, target) = (stop_point.p, target_point.p);
+    let (left, right) = (p0.0, p3.0.max(p0.0 + 1.0));
+    let (y_entry, y_stop, y_target) = (p0.1, p1.1, p2.1);
     let width = style.width;
 
     if style.fill && style.fill_opacity > 0.0 {
@@ -131,10 +124,10 @@ pub(super) fn position_prims(
     }
 
     let pct = |price: f64| {
-        if entry != 0.0 {
-            (price - entry) / entry * 100.0
-        } else {
+        if entry == 0.0 {
             0.0
+        } else {
+            (price - entry) / entry * 100.0
         }
     };
     let reward = (target - entry).abs();
@@ -186,10 +179,10 @@ pub(super) fn position_prims(
                 .or_else(|| cfg.show_percent.then(|| format!("{:+.2}%", pct(price))))
                 .unwrap_or_else(|| proj.format_price(price));
             if cfg.show_pips && pip > 0.0 {
-                text.push_str(&format!(" | {:.1} pips", pips_of(price)));
+                text = format!("{text} | {:.1} pips", pips_of(price));
             }
             if cfg.show_ticks && tick > 0.0 {
-                text.push_str(&format!(" | {} ticks", ticks_of(price).round()));
+                text = format!("{text} | {} ticks", ticks_of(price).round());
             }
             return text;
         }
@@ -211,7 +204,7 @@ pub(super) fn position_prims(
     };
     let ink = style.text_color;
     let (size, bold, face) = (style.text_size, style.bold, style.face());
-    let middle = (left + right) / 2.0;
+    let middle = f32::midpoint(left, right);
 
     out.push(Prim::Label {
         at: (
@@ -219,7 +212,7 @@ pub(super) fn position_prims(
             y_target + if y_target < y_entry { -12.0 } else { 12.0 },
         ),
         text: level_text("Target", target, stats.map(|s| s.profit)),
-        color: ink.unwrap_or(0x0a0a0a),
+        color: ink.unwrap_or(0x0a_0a0a),
         background: Some((cfg.target_color, 0.95)),
         anchor: Anchor::Center,
         size,
@@ -229,7 +222,7 @@ pub(super) fn position_prims(
     out.push(Prim::Label {
         at: (middle, y_stop + if y_stop < y_entry { -12.0 } else { 12.0 }),
         text: level_text("Stop", stop, stats.map(|s| -s.loss)),
-        color: ink.unwrap_or(0x0a0a0a),
+        color: ink.unwrap_or(0x0a_0a0a),
         background: Some((cfg.stop_color, 0.95)),
         anchor: Anchor::Center,
         size,
@@ -238,9 +231,7 @@ pub(super) fn position_prims(
     });
 
     let name = if long { "Long" } else { "Short" };
-    let entry_text = if !sensible {
-        "Stop and target are on the wrong sides".to_owned()
-    } else {
+    let entry_text = if sensible {
         let mut parts = vec![name.to_owned()];
         if let Some(stats) = stats.filter(|_| details) {
             if cfg.show_qty {
@@ -273,12 +264,14 @@ pub(super) fn position_prims(
             });
         }
         parts.join(" | ")
+    } else {
+        "Stop and target are on the wrong sides".to_owned()
     };
     out.push(Prim::Label {
         at: (middle, y_entry),
         text: entry_text,
-        color: ink.unwrap_or(0xffffff),
-        background: Some((0x2a2a2a, 0.95)),
+        color: ink.unwrap_or(0xff_ffff),
+        background: Some((0x2a_2a2a, 0.95)),
         anchor: Anchor::Center,
         size,
         bold,

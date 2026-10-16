@@ -27,12 +27,13 @@ use gpui::{Context, EventEmitter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_core::math::i64_to_f64;
 use wyck_market::PRICE_SCALE;
-use wyck_trading::TradeSide;
 use wyck_trading::book::AccountBook;
+use wyck_trading::doubt::InDoubt;
 use wyck_trading::guard;
 use wyck_trading::guard::{
-    DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
+    Blocked, Cleared, DuplicateGuard, Lock, Mode, OrderFacts, RiskPrefs, Standing, Verdict,
 };
 use wyck_trading::math;
 use wyck_trading::math::{Link, Summary};
@@ -86,9 +87,19 @@ pub struct Account {
     /// A call got no answer in time: what the server did with it is not known until the account
     /// is read again.
     uncertain: bool,
-    live: bool,
-    /// Orders of a plan waiting for the one before them to be answered.
-    queue: VecDeque<NewOrderReq>,
+    /// Demo or live money. It is fixed when the account is made: an order is cleared for it and
+    /// refused by the connection if the connection is for the other kind.
+    mode: Mode,
+    /// Orders of a plan waiting for the one before them to be answered, each with the proof that
+    /// the safety checks passed for it.
+    queue: VecDeque<(NewOrderReq, Cleared)>,
+    /// Orders sent by this run, to give each its own id (see [`guard::client_order_id`]).
+    orders_sent: u64,
+    /// The new order in flight, kept in case its answer never comes.
+    placing: Option<InDoubt>,
+    /// New orders whose answer never came: the account says what became of each once it is read
+    /// again, and none is sent a second time because of the doubt.
+    in_doubt: Vec<InDoubt>,
     /// The limits that keep the account safe, and the zone the day is counted in.
     risk: RiskPrefs,
     zone: wyck_chart::Zone,
@@ -120,26 +131,12 @@ enum Conversion {
     Failed,
 }
 
-/// What makes an order the same as another one sent again.
-fn fingerprint(order: &NewOrderReq) -> Fingerprint {
-    Fingerprint {
-        symbol: order.symbol_id,
-        buy: order.trade_side == TradeSide::Buy.number(),
-        volume: order.volume,
-        kind: i64::from(order.order_type),
-        price: order
-            .limit_price
-            .or(order.stop_price)
-            .map_or(0, |p| (p * PRICE_SCALE as f64).round() as i64),
-    }
-}
-
 fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
     result.unwrap_or(Err(ApiError::Closed))
 }
 
 impl Account {
-    pub fn new(session: Session, hub: Rc<LiveHub>, cx: &mut Context<Self>) -> Self {
+    pub fn new(session: Session, hub: Rc<LiveHub>, mode: Mode, cx: &mut Context<Self>) -> Self {
         let poll = cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(PNL_EVERY).await;
@@ -167,8 +164,11 @@ impl Account {
             calls: HashMap::new(),
             call_seq: 0,
             uncertain: false,
-            live: false,
+            mode,
             queue: VecDeque::new(),
+            orders_sent: 0,
+            placing: None,
+            in_doubt: Vec::new(),
             risk: RiskPrefs::default(),
             zone: wyck_chart::Zone::default(),
             duplicates: DuplicateGuard::default(),
@@ -195,11 +195,12 @@ impl Account {
 
     /// Whether this is a live account (real money) rather than a demo one.
     pub fn is_live(&self) -> bool {
-        self.live
+        self.mode.is_live()
     }
 
-    pub fn set_live(&mut self, live: bool) {
-        self.live = live;
+    /// Demo or live.
+    pub fn mode(&self) -> Mode {
+        self.mode
     }
 
     /// Whether a call got no answer in time and the account has not been read again since.
@@ -267,6 +268,28 @@ impl Account {
 
     /// What the safety checks say about a new order.
     pub(crate) fn assess(&self, order: &NewOrderReq, one_click: bool) -> Verdict {
+        guard::check(
+            &self.risk,
+            &self.standing(),
+            &self.facts_of(order, one_click),
+            &|m| self.money(m),
+        )
+    }
+
+    /// Checks a new order and gives the proof the connection asks for before it sends it.
+    pub(crate) fn clear(&self, order: &NewOrderReq, one_click: bool) -> Result<Cleared, Blocked> {
+        guard::clear(
+            &self.risk,
+            &self.standing(),
+            &self.facts_of(order, one_click),
+            order.fingerprint(),
+            self.mode,
+            &|m| self.money(m),
+        )
+    }
+
+    /// An order as the safety checks see it.
+    fn facts_of(&self, order: &NewOrderReq, one_click: bool) -> OrderFacts {
         let contract = self.book.contract(order.symbol_id);
         let (bid, ask) = self.quote(order.symbol_id);
         let mid = math::mid(bid, ask);
@@ -283,7 +306,7 @@ impl Account {
             .zip(mid)
             .filter(|(_, mid)| *mid > 0.0)
             .map(|(price, mid)| (price - mid).abs() / mid * 100.0);
-        let facts = OrderFacts {
+        OrderFacts {
             lots: contract.lots_of_volume(order.volume),
             symbol_lots,
             has_stop: order.stop_loss.is_some() || order.relative_stop_loss.is_some(),
@@ -291,14 +314,13 @@ impl Account {
             spread_pips: bid.zip(ask).map(|(b, a)| contract.pips(a - b)),
             one_click,
             reduces: false,
-        };
-        guard::check(&self.risk, &self.standing(), &facts, &|m| self.money(m))
+        }
     }
 
     /// The real bid and ask of a symbol.
     pub fn quote(&self, symbol_id: i64) -> (Option<f64>, Option<f64>) {
         let (bid, ask) = self.quotes.get(&symbol_id).copied().unwrap_or((None, None));
-        let real = |raw: Option<i64>| raw.map(|r| r as f64 / PRICE_SCALE as f64);
+        let real = |raw: Option<i64>| raw.map(|r| i64_to_f64(r) / i64_to_f64(PRICE_SCALE));
         (real(bid), real(ask))
     }
 

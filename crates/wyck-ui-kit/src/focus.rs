@@ -12,6 +12,7 @@ use crate::theme;
 
 /// Makes an element a stop of the Tab key with a visible focus.
 pub trait Keyboard: InteractiveElement + Sized {
+    #[must_use]
     fn keyboard(self) -> Self {
         self.tab_index(0).focus_visible(|style| {
             // The edge for a control that has one, and a wash for one that has none.

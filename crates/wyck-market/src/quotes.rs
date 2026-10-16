@@ -81,9 +81,10 @@ mod tests {
     #[test]
     fn a_spot_event_may_carry_only_one_side() {
         let e: SpotEvent =
-            serde_json::from_value(json!({"symbolId": 1, "bid": 108499, "timestamp": 99})).unwrap();
+            serde_json::from_value(json!({"symbolId": 1, "bid": 108_499, "timestamp": 99}))
+                .unwrap();
         assert_eq!((e.bid, e.ask, e.timestamp), (Some(108_499), None, Some(99)));
-        assert!(e.trendbar.is_empty());
+        assert_eq!(e.trendbar, [] as [WireTrendbar; 0]);
     }
 
     #[test]

@@ -7,6 +7,7 @@
 //! question does not float in an empty box.
 
 use std::rc::Rc;
+use wyck_core::math::{count_f32, f32_to_usize};
 
 use gpui::prelude::*;
 use gpui::{App, Context, SharedString, Window, div, px};
@@ -44,35 +45,35 @@ pub enum Tone {
 impl Tone {
     fn icon(self) -> IconName {
         match self {
-            Tone::Info => IconName::CircleQuestionMark,
-            Tone::Caution => IconName::TriangleAlert,
-            Tone::Danger => IconName::OctagonAlert,
+            Self::Info => IconName::CircleQuestionMark,
+            Self::Caution => IconName::TriangleAlert,
+            Self::Danger => IconName::OctagonAlert,
         }
     }
 
     fn subtitle(self) -> &'static str {
         match self {
-            Tone::Info => "This asks for your confirmation",
-            Tone::Caution => "Worth a second look",
-            Tone::Danger => "This is hard to take back",
+            Self::Info => "This asks for your confirmation",
+            Self::Caution => "Worth a second look",
+            Self::Danger => "This is hard to take back",
         }
     }
 
     /// The main color of the tone.
     fn color(self) -> gpui::Rgba {
         match self {
-            Tone::Info => theme::accent(),
-            Tone::Caution => theme::amber(),
-            Tone::Danger => theme::destructive(),
+            Self::Info => theme::accent(),
+            Self::Caution => theme::amber(),
+            Self::Danger => theme::destructive(),
         }
     }
 
     /// The soft color behind it.
     fn soft(self) -> gpui::Rgba {
         match self {
-            Tone::Info => theme::accent_alpha(0.15),
-            Tone::Caution => theme::amber_bg(),
-            Tone::Danger => theme::destructive_bg(),
+            Self::Info => theme::accent_alpha(0.15),
+            Self::Caution => theme::amber_bg(),
+            Self::Danger => theme::destructive_bg(),
         }
     }
 
@@ -202,29 +203,29 @@ impl Confirm {
         let scale = tokens::scaled(1.0);
         let pad = if self.boxed() { BOX_PAD } else { 0.0 };
         let glyph = tokens::text::title() * 0.58;
-        let per_line = ((WIDTH - 32.0 - pad) / glyph).floor().max(16.0) as usize;
+        let per_line = f32_to_usize(((WIDTH - 32.0 - pad) / glyph).floor().max(16.0));
         let lines = self.text.chars().count().div_ceil(per_line).max(1);
-        let mut body = lines as f32 * tokens::text::title() * 1.5 + pad;
+        let mut body = count_f32(lines) * tokens::text::title() * 1.5 + pad;
         if self.badge.is_some() {
             body += 30.0 * scale;
         }
         if !self.details.is_empty() {
-            body += 24.0 * scale + 22.0 * scale * self.details.len() as f32;
+            body += 24.0 * scale + 22.0 * scale * count_f32(self.details.len());
         }
-        body += 40.0 * scale * self.warnings.len() as f32;
+        body += 40.0 * scale * count_f32(self.warnings.len());
         // The gaps between the parts.
         let parts = 1
             + usize::from(self.badge.is_some())
             + usize::from(!self.details.is_empty())
             + self.warnings.len();
-        body += 8.0 * parts.saturating_sub(1) as f32;
+        body += 8.0 * count_f32(parts.saturating_sub(1));
         (CHROME + body + 8.0).clamp(MIN_HEIGHT, MAX_HEIGHT)
     }
 }
 
 impl Render for Confirm {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        let then = self.then.clone();
+        let then = Rc::clone(&self.then);
         let tone = self.tone;
         let head = Head {
             icon: tone.icon(),
@@ -356,11 +357,19 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp_const,
+        reason = "the height is clamped to exactly the limit, a constant returned as is"
+    )]
     fn a_short_question_gets_the_smallest_box() {
         assert_eq!(with(Tone::Info, "Sure?").height(), MIN_HEIGHT);
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp_const,
+        reason = "the height is clamped to exactly the limit, a constant returned as is"
+    )]
     fn the_box_grows_with_the_words_and_stops_at_the_maximum() {
         let short = with(Tone::Danger, &"word ".repeat(10)).height();
         let long = with(Tone::Danger, &"word ".repeat(60)).height();

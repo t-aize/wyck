@@ -2,6 +2,7 @@
 
 use super::describe::{Options, check_key, declare_input, title_of};
 use super::indicators::{color_text, parse_color};
+use wyck_core::math::{count_f64, f64_to_u32, f64_to_usize};
 
 use crate::custom::run::decl::{InputDecl, InputSection, InputType, MAX_INPUTS};
 use crate::custom::run::{Mode, source_index, with_run};
@@ -73,9 +74,9 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
         key: key.to_owned(),
         label: options.text("label")?.unwrap_or_else(|| title_of(key)),
         kind: InputType::Source,
-        default: index as f64,
+        default: count_f64(index),
         min: 0.0,
-        max: (crate::spec::SOURCES.len() - 1) as f64,
+        max: count_f64(crate::spec::SOURCES.len() - 1),
         step: 1.0,
         options: Vec::new(),
         section: input_section(&options)?,
@@ -83,7 +84,7 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
         group: options.text("group")?,
         tooltip: options.text("tooltip")?,
     })?;
-    with_run(|run| run.columns.source(chosen as usize))
+    with_run(|run| run.columns.source(f64_to_usize(chosen)))
 }
 
 pub(super) fn input_choice(
@@ -114,9 +115,9 @@ pub(super) fn input_choice(
         key: key.to_owned(),
         label: options.text("label")?.unwrap_or_else(|| title_of(key)),
         kind: InputType::Choice,
-        default: index as f64,
+        default: count_f64(index),
         min: 0.0,
-        max: (names.len() - 1) as f64,
+        max: count_f64(names.len() - 1),
         step: 1.0,
         options: names.clone(),
         section: input_section(&options)?,
@@ -124,7 +125,10 @@ pub(super) fn input_choice(
         group: options.text("group")?,
         tooltip: options.text("tooltip")?,
     })?;
-    Ok(names[chosen as usize].clone())
+    names
+        .get(f64_to_usize(chosen))
+        .cloned()
+        .ok_or_else(|| "input: the chosen option does not exist".into())
 }
 
 /// The longest text an input may hold.
@@ -141,8 +145,14 @@ pub(super) fn is_session(text: &str) -> bool {
     let clock = |part: &str| {
         part.len() == 4
             && part.bytes().all(|b| b.is_ascii_digit())
-            && part[..2].parse::<u32>().is_ok_and(|h| h < 24)
-            && part[2..].parse::<u32>().is_ok_and(|m| m < 60)
+            && part
+                .get(..2)
+                .and_then(|h| h.parse::<u32>().ok())
+                .is_some_and(|h| h < 24)
+            && part
+                .get(2..)
+                .and_then(|m| m.parse::<u32>().ok())
+                .is_some_and(|m| m < 60)
     };
     clock(from) && clock(to)
 }
@@ -239,5 +249,5 @@ pub(super) fn input_color(key: &str, default: &str, opts: Map) -> Fallible<Strin
         group: options.text("group")?,
         tooltip: options.text("tooltip")?,
     })?;
-    Ok(color_text(chosen as u32))
+    Ok(color_text(f64_to_u32(chosen)))
 }

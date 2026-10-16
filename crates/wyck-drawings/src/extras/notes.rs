@@ -2,14 +2,17 @@
 
 use super::{ICONS, add, dist, polyline, sample, scale, sub};
 
-use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, board_size, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, board_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use wyck_core::math::count_f32;
 
 pub(super) fn arrow_marker(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (tail, tip) = (pts[0], pts[1]);
+    let Some([tail, tip]) = lead(pts) else {
+        return;
+    };
     let run = dist(tail, tip);
     if run < 2.0 {
         return;
@@ -71,7 +74,7 @@ pub(super) fn board(drawing: &Drawing, tl: P, rows: Vec<String>) -> Prim {
     Prim::Board {
         tl,
         rows,
-        fg: style.text_color.unwrap_or(0xffffff),
+        fg: style.text_color.unwrap_or(0xff_ffff),
         bg: (style.color, 0.92),
         size: style.text_size,
         bold: style.bold,
@@ -91,7 +94,9 @@ pub(super) fn dot(at: P, radius: f32, color: u32) -> Prim {
 
 pub(super) fn note(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let rows = rows_of(drawing, "Note");
     let (_, height) = board_size(&rows, style.text_size);
     let corner = (at.0 + 10.0, at.1 - 10.0);
@@ -102,8 +107,10 @@ pub(super) fn note(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn price_note(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (target, place) = (pts[0], pts[1]);
-    let mut rows = vec![proj.format_price(drawing.points[0].p)];
+    let (Some([target, place]), Some(first)) = (lead(pts), drawing.points.first()) else {
+        return;
+    };
+    let mut rows = vec![proj.format_price(first.p)];
     rows.extend(
         drawing
             .text
@@ -127,7 +134,9 @@ pub(super) fn price_note(drawing: &Drawing, pts: &[P], proj: &dyn Projection, ou
 
 pub(super) fn callout(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (target, place) = (pts[0], pts[1]);
+    let Some([target, place]) = lead(pts) else {
+        return;
+    };
     let rows = rows_of(drawing, "Callout");
     let (w, h) = board_size(&rows, style.text_size);
     let tl = (place.0 - w / 2.0, place.1 - h / 2.0);
@@ -145,7 +154,9 @@ pub(super) fn callout(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn comment(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let rows = rows_of(drawing, "Comment");
     let (_, height) = board_size(&rows, style.text_size);
     let bottom = at.1 - 10.0;
@@ -158,7 +169,9 @@ pub(super) fn comment(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn pin(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let head = (at.0, at.1 - 24.0);
     out.push(seg(head, at, style.color, 1.5, 1.5, Dash::Solid));
     out.push(dot(at, 2.5, style.color));
@@ -167,7 +180,7 @@ pub(super) fn pin(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
         rx: 8.0,
         ry: 8.0,
         fill: Some((style.color, 1.0)),
-        stroke: Some((0xffffff, 1.0)),
+        stroke: Some((0xff_ffff, 1.0)),
     });
     let rows: Vec<String> = drawing
         .text
@@ -183,7 +196,9 @@ pub(super) fn pin(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn signpost(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let top = (at.0, at.1 - 50.0);
     let rows = rows_of(drawing, "Signpost");
     let (_, height) = board_size(&rows, style.text_size);
@@ -194,7 +209,9 @@ pub(super) fn signpost(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn flag_mark(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let k = style.scale;
     let top = (at.0, at.1 - 34.0 * k);
     out.push(seg(
@@ -247,18 +264,20 @@ pub(super) fn table(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
         .map(|c| {
             let chars = cells
                 .iter()
-                .map(|r| r[c].chars().count())
+                .map(|r| r.get(c).map_or(0, |cell| cell.chars().count()))
                 .max()
                 .unwrap_or(0);
-            chars as f32 * size * 0.58 + 18.0
+            count_f32(chars) * size * 0.58 + 18.0
         })
         .collect();
-    let (width, height) = (widths.iter().sum::<f32>(), row_height * rows as f32);
-    let tl = pts[0];
+    let (width, height) = (widths.iter().sum::<f32>(), row_height * count_f32(rows));
+    let Some(&tl) = pts.first() else {
+        return;
+    };
     out.push(Prim::Rect {
         a: tl,
         b: (tl.0 + width, tl.1 + height),
-        fill: Some((0x131722, 0.92)),
+        fill: Some((0x13_1722, 0.92)),
         stroke: Some((style.color, 1.0)),
     });
     out.push(Prim::Rect {
@@ -282,7 +301,7 @@ pub(super) fn table(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
         x += w;
     }
     for r in 1..rows {
-        let y = tl.1 + row_height * r as f32;
+        let y = tl.1 + row_height * count_f32(r);
         out.push(seg(
             (tl.0, y),
             (tl.0 + width, y),
@@ -292,16 +311,16 @@ pub(super) fn table(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             Dash::Solid,
         ));
     }
-    let color = style.text_color.unwrap_or(0xffffff);
+    let color = style.text_color.unwrap_or(0xff_ffff);
     let mut x = tl.0;
     for (c, w) in widths.iter().enumerate() {
         for (r, row) in cells.iter().enumerate() {
-            if row[c].is_empty() {
+            let Some(cell) = row.get(c).filter(|cell| !cell.is_empty()) else {
                 continue;
-            }
+            };
             out.push(Prim::Label {
-                at: (x + 9.0, tl.1 + row_height * (r as f32 + 0.5)),
-                text: row[c].clone(),
+                at: (x + 9.0, tl.1 + row_height * (count_f32(r) + 0.5)),
+                text: cell.clone(),
                 color,
                 background: None,
                 anchor: Anchor::Left,
@@ -324,7 +343,9 @@ pub fn icon_key(text: &str) -> &'static str {
 
 pub(super) fn icon(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let at = pts[0];
+    let Some(&at) = pts.first() else {
+        return;
+    };
     let half = (style.text_size * 0.9 * style.scale).max(8.0);
     let point = |x: f32, y: f32| (at.0 + x * half, at.1 + y * half);
     let filled = |points: Vec<P>| Prim::Polygon {
@@ -399,7 +420,7 @@ pub(super) fn icon(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             // A five pointed star: the tips on a circle, the notches between them on a smaller one.
             let star = (0..10)
                 .map(|i| {
-                    let angle = -FRAC_PI_2 + i as f32 * PI / 5.0;
+                    let angle = -FRAC_PI_2 + count_f32(i) * PI / 5.0;
                     let radius = if i % 2 == 0 { 1.0 } else { 0.42 };
                     point(radius * angle.cos(), radius * angle.sin())
                 })

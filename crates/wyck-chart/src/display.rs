@@ -5,6 +5,7 @@
 //! It is computed once per change of the prices or of the settings, not once per frame: a frame
 //! only reads it. The chart owns the prices; [`Display`] owns what is derived from them.
 
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_market::{Bar, Tick};
 
 use super::data::Series;
@@ -76,10 +77,11 @@ fn tick_bar(tick: &Tick) -> Bar {
 pub(crate) fn heikin_ashi(bars: &[Bar]) -> Vec<Bar> {
     let mut out: Vec<Bar> = Vec::with_capacity(bars.len());
     for bar in bars {
-        let close = ((bar.open + bar.high + bar.low + bar.close) as f64 / 4.0).round() as i64;
-        let open = out
-            .last()
-            .map_or((bar.open + bar.close) / 2, |p| (p.open + p.close) / 2);
+        let close =
+            f64_to_i64((i64_to_f64(bar.open + bar.high + bar.low + bar.close) / 4.0).round());
+        let open = out.last().map_or(i64::midpoint(bar.open, bar.close), |p| {
+            i64::midpoint(p.open, p.close)
+        });
         out.push(Bar {
             open,
             close,
@@ -184,11 +186,11 @@ pub fn study_input(series: &Series, zone: Zone) -> StudyInput {
     };
     for bar in bars.iter() {
         input.time.push(bar.time_ms);
-        input.open.push(bar.open as f64);
-        input.high.push(bar.high as f64);
-        input.low.push(bar.low as f64);
-        input.close.push(bar.close as f64);
-        input.volume.push(bar.volume as f64);
+        input.open.push(i64_to_f64(bar.open));
+        input.high.push(i64_to_f64(bar.high));
+        input.low.push(i64_to_f64(bar.low));
+        input.close.push(i64_to_f64(bar.close));
+        input.volume.push(i64_to_f64(bar.volume));
         input.day.push(zone.day(bar.time_ms));
     }
     input
@@ -216,15 +218,17 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::f64_to_i64;
+    use wyck_core::math::{count_f64, count_i64, i64_to_f64};
     use wyck_indicators::config::StudyConfig;
 
     fn bars(n: usize) -> Series {
         Series::Bars(
             (0..n)
                 .map(|i| {
-                    let base = 100_000 + ((i as f64 * 0.3).sin() * 400.0) as i64;
+                    let base = 100_000 + f64_to_i64((count_f64(i) * 0.3).sin() * 400.0);
                     Bar {
-                        time_ms: i as i64 * 60_000,
+                        time_ms: count_i64(i) * 60_000,
                         open: base,
                         high: base + 50,
                         low: base - 50,
@@ -257,7 +261,7 @@ mod tests {
             (0..400)
                 .map(|i| Tick {
                     time_ms: i * 1_000,
-                    price: 100_000 + ((i as f64 * 0.2).sin() * 300.0) as i64,
+                    price: 100_000 + f64_to_i64((i64_to_f64(i) * 0.2).sin() * 300.0),
                 })
                 .collect(),
         );

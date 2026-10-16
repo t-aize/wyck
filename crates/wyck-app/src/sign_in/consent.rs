@@ -1,6 +1,7 @@
 //! The network steps of a sign-in: the consent page, the redirect, the code exchange and the
 //! list of accounts.
 
+use crate::lost::lost;
 use std::time::Duration;
 
 use gpui::AsyncApp;
@@ -25,13 +26,16 @@ fn current(this: &WeakEntity<SignIn>, cx: &mut AsyncApp, attempt: u64) -> bool {
 
 /// Shows a failure, if the attempt is still the current one.
 fn fail(this: &WeakEntity<SignIn>, cx: &mut AsyncApp, attempt: u64, failure: Failure) {
-    let _ = this.update(cx, |this, cx| {
-        if this.attempt == attempt {
-            this.state.fail(failure);
-            this.abort = None;
-            cx.notify();
-        }
-    });
+    lost(
+        "sign_in/consent: fail",
+        this.update(cx, |this, cx| {
+            if this.attempt == attempt {
+                this.state.fail(failure);
+                this.abort = None;
+                cx.notify();
+            }
+        }),
+    );
 }
 
 const STOPPED: &str = "the background runtime stopped";
@@ -94,11 +98,14 @@ pub(super) async fn consent(
 
     let waiting = runtime::spawn(async move { listener.wait(&oauth_state, CONSENT_TIMEOUT).await });
     let abort = waiting.abort_handle();
-    let _ = this.update(cx, |this, _| {
-        if this.attempt == attempt {
-            this.abort = Some(abort);
-        }
-    });
+    lost(
+        "sign_in/consent: consent",
+        this.update(cx, |this, _| {
+            if this.attempt == attempt {
+                this.abort = Some(abort);
+            }
+        }),
+    );
     let code = match waiting.await {
         Ok(Ok(code)) => code,
         Ok(Err(error)) => return fail(&this, cx, attempt, Failure::from_consent(&error)),
@@ -149,24 +156,30 @@ pub(super) async fn consent(
             is_live: account.is_live.unwrap_or(false),
         })
         .collect();
-    let _ = this.update(cx, |this, cx| {
-        if this.attempt != attempt {
-            return;
-        }
-        this.abort = None;
-        let only = (accounts.len() == 1).then(|| accounts[0].clone());
-        this.pending = Some(Pending {
-            credentials,
-            environment,
-            remember,
-            client,
-            tokens,
-            accounts,
-        });
-        this.state.accounts_listed(choices);
-        match only {
-            Some(account) => this.authorize(account, cx),
-            None => cx.notify(),
-        }
-    });
+    lost(
+        "sign_in/consent: consent",
+        this.update(cx, |this, cx| {
+            if this.attempt != attempt {
+                return;
+            }
+            this.abort = None;
+            let only = match accounts.as_slice() {
+                [only] => Some(only.clone()),
+                _ => None,
+            };
+            this.pending = Some(Pending {
+                credentials,
+                environment,
+                remember,
+                client,
+                tokens,
+                accounts,
+            });
+            this.state.accounts_listed(choices);
+            match only {
+                Some(account) => this.authorize(account, cx),
+                None => cx.notify(),
+            }
+        }),
+    );
 }

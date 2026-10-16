@@ -11,6 +11,7 @@
 //! copies nothing; writing to one that is shared copies it first.
 
 use std::sync::Arc;
+use wyck_core::math::{count_i64, i64_to_f64};
 
 use rhai::{Engine, EvalAltResult};
 
@@ -98,9 +99,9 @@ impl Series {
         let n = self.len();
         let mut out = vec![f64::NAN; n];
         for (i, slot) in out.iter_mut().enumerate() {
-            let from = i as i64 - bars;
-            if (0..n as i64).contains(&from) {
-                *slot = self.0[from as usize];
+            let from = count_i64(i) - bars;
+            if let Some(&value) = usize::try_from(from).ok().and_then(|at| self.0.get(at)) {
+                *slot = value;
             }
         }
         Self::new(out)
@@ -124,6 +125,10 @@ pub(crate) fn is_true(value: f64) -> bool {
 }
 
 /// Registers the type, its arithmetic, its comparisons and the reading of its bars.
+#[expect(
+    clippy::float_cmp,
+    reason = "the `==` and `!=` operators of the script language compare series values for exact equality, as every language does"
+)]
 pub(crate) fn register(engine: &mut Engine) {
     engine.register_type_with_name::<Series>("Series");
 
@@ -140,10 +145,10 @@ pub(crate) fn register(engine: &mut Engine) {
                 Ok::<_, Box<EvalAltResult>>(b.map(|x| f(a, x)))
             });
             engine.register_fn($name, move |a: Series, b: i64| {
-                Ok::<_, Box<EvalAltResult>>(a.map(|x| f(x, b as f64)))
+                Ok::<_, Box<EvalAltResult>>(a.map(|x| f(x, i64_to_f64(b))))
             });
             engine.register_fn($name, move |a: i64, b: Series| {
-                Ok::<_, Box<EvalAltResult>>(b.map(|x| f(a as f64, x)))
+                Ok::<_, Box<EvalAltResult>>(b.map(|x| f(i64_to_f64(a), x)))
             });
         }};
     }
@@ -175,7 +180,7 @@ pub(crate) fn register(engine: &mut Engine) {
         Ok(s.shifted(bars))
     });
 
-    engine.register_fn("len", |s: &mut Series| s.len() as i64);
+    engine.register_fn("len", |s: &mut Series| count_i64(s.len()));
     engine.register_fn("at", |s: &mut Series, index: i64| s.at(index));
     engine.register_fn("last", |s: &mut Series| s.last());
     engine.register_fn("shift", |s: Series, bars: i64| s.shifted(bars));
@@ -203,15 +208,18 @@ pub(crate) fn register(engine: &mut Engine) {
                 format!("a series of {len} bars is too long (the limit is {MAX_LEN})").into(),
             );
         }
-        Ok(Series::constant(len, value as f64))
+        Ok(Series::constant(len, i64_to_f64(value)))
     });
     engine.register_fn(
         "set",
         |s: &mut Series, index: i64, value: f64| -> Fallible<()> {
             let len = s.len();
-            match usize::try_from(index).ok().filter(|i| *i < len) {
-                Some(i) => {
-                    s.values_mut()[i] = value;
+            match usize::try_from(index)
+                .ok()
+                .and_then(|i| s.values_mut().get_mut(i))
+            {
+                Some(slot) => {
+                    *slot = value;
                     Ok(())
                 }
                 None => {
@@ -224,9 +232,12 @@ pub(crate) fn register(engine: &mut Engine) {
         "set",
         |s: &mut Series, index: i64, value: i64| -> Fallible<()> {
             let len = s.len();
-            match usize::try_from(index).ok().filter(|i| *i < len) {
-                Some(i) => {
-                    s.values_mut()[i] = value as f64;
+            match usize::try_from(index)
+                .ok()
+                .and_then(|i| s.values_mut().get_mut(i))
+            {
+                Some(slot) => {
+                    *slot = i64_to_f64(value);
                     Ok(())
                 }
                 None => {

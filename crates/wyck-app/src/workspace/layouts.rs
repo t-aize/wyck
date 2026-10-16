@@ -66,7 +66,7 @@ fn main_side(n: u32, side: Side) -> Layout {
     let rest = n - 1;
     match side {
         Side::Left | Side::Right => {
-            let big_x = if matches!(side, Side::Left) { 0 } else { 1 };
+            let big_x = u32::from(!matches!(side, Side::Left));
             let mut cells = vec![Cell {
                 x: big_x,
                 y: 0,
@@ -86,7 +86,7 @@ fn main_side(n: u32, side: Side) -> Layout {
             }
         }
         Side::Top | Side::Bottom => {
-            let big_y = if matches!(side, Side::Top) { 0 } else { 1 };
+            let big_y = u32::from(!matches!(side, Side::Top));
             let mut cells = vec![Cell {
                 x: 0,
                 y: big_y,
@@ -116,14 +116,14 @@ fn rows_of(counts: &[u32]) -> Layout {
         let w = cols / n;
         cells.extend((0..n).map(|i| Cell {
             x: i * w,
-            y: y as u32,
+            y: u32::try_from(y).unwrap_or(u32::MAX),
             w,
             h: 1,
         }));
     }
     Layout {
         cols,
-        rows: counts.len() as u32,
+        rows: u32::try_from(counts.len()).unwrap_or(u32::MAX),
         cells,
     }
 }
@@ -235,7 +235,13 @@ pub fn layout(key: LayoutKey) -> &'static Layout {
         .iter()
         .find(|(count, _)| *count == key.count)
         .and_then(|(_, variants)| variants.get(key.variant))
-        .unwrap_or_else(|| &catalog()[0].1[0])
+        .unwrap_or_else(single)
+}
+
+/// The layout of one chart, the same as the first of the catalog.
+fn single() -> &'static Layout {
+    static SINGLE: OnceLock<Layout> = OnceLock::new();
+    SINGLE.get_or_init(|| grid(1, 1))
 }
 
 #[cfg(test)]

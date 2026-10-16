@@ -115,7 +115,7 @@ mod tests {
         texts.insert("other".to_owned(), " usdjpy ".to_owned());
         assert_eq!(script.symbols_wanted(&texts), ["USDJPY"]);
         texts.insert("other".to_owned(), String::new());
-        assert!(script.symbols_wanted(&texts).is_empty());
+        assert_eq!(script.symbols_wanted(&texts), [] as [String; 0]);
     }
 
     #[test]

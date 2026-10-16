@@ -31,7 +31,7 @@ impl PriceKind {
         match self {
             Self::Bid => bid,
             Self::Ask => ask,
-            Self::Mid => bid.zip(ask).map(|(b, a)| (b + a) / 2.0),
+            Self::Mid => bid.zip(ask).map(|(b, a)| f64::midpoint(b, a)),
         }
     }
 }

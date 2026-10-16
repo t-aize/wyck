@@ -213,6 +213,10 @@ pub const MAX_STUDIES: usize = 64;
 pub const DEFAULT_STUDIES_LIMIT: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct ChartSettings {
     #[serde(default)]
     pub kind: ChartKind,
@@ -394,6 +398,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp_const,
+        reason = "a weight that was out of range is repaired to exactly the default, a constant returned as is"
+    )]
     fn settings_round_trip_and_repair() {
         let mut settings = ChartSettings {
             kind: ChartKind::Renko,
@@ -412,7 +420,7 @@ mod tests {
                 .unwrap();
         let broken = broken.normalized();
         assert_eq!(broken.kind, ChartKind::Candles);
-        assert!(broken.studies.is_empty());
+        assert_eq!(broken.studies, [] as [StudyConfig; 0]);
         assert_eq!(broken.main_weight, MAIN_WEIGHT);
         assert_eq!(
             toml::from_str::<ChartSettings>("").unwrap(),
@@ -476,7 +484,7 @@ mod tests {
             watermark: true,
             ..ChartSettings::default()
         };
-        settings.colors.up = Some(0x00ff00);
+        settings.colors.up = Some(0x00_ff00);
         settings.price_lines.previous_close = true;
         settings.studies.push(StudyConfig::new(StudyKind::Rsi));
         let text = toml::to_string_pretty(&settings).unwrap();

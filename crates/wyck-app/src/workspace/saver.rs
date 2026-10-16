@@ -70,11 +70,13 @@ impl<T: Serialize + Send + 'static> Saver<T> {
             .lock()
             .unwrap_or_else(PoisonError::into_inner) = Some(value);
         let generation = self.inner.generation.fetch_add(1, Ordering::SeqCst) + 1;
-        let (inner, quiet) = (self.inner.clone(), self.quiet);
+        let (inner, quiet) = (Arc::clone(&self.inner), self.quiet);
         runtime::spawn(async move {
             tokio::time::sleep(quiet).await;
-            if inner.generation.load(Ordering::SeqCst) == generation {
-                let _ = tokio::task::spawn_blocking(move || inner.flush()).await;
+            if inner.generation.load(Ordering::SeqCst) == generation
+                && let Err(error) = tokio::task::spawn_blocking(move || inner.flush()).await
+            {
+                tracing::warn!(%error, "the write of the saved arrangement did not finish");
             }
         });
     }
@@ -122,6 +124,10 @@ mod tests {
         // The writer thread can be slow to run on a loaded machine: wait for it, up to a limit.
         let limit = std::time::Instant::now() + Duration::from_secs(10);
         while store.load::<Doc>("doc").unwrap().is_none() && std::time::Instant::now() < limit {
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "test: polls from a plain thread until the writer of the saver has run"
+            )]
             std::thread::sleep(Duration::from_millis(20));
         }
         assert_eq!(store.load::<Doc>("doc").unwrap(), Some(Doc { n: 5 }));

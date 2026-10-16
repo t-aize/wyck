@@ -13,18 +13,19 @@ pub(crate) mod notes;
 pub(crate) mod ranges;
 
 use super::figures;
-use super::geometry::{Anchor, P, Prim, Projection, duration_text};
+use super::geometry::{Anchor, P, Prim, Projection, duration_text, lead};
 use super::look::MeasureLook;
 use super::model::style::Style;
 use super::model::tool::Tool;
 use super::model::{Drawing, Point};
 use std::f32::consts::{PI, TAU};
+use wyck_core::math::{count_f32, f64_to_i64};
 
 /// The colors of a bar that closed above and below its open, as the position tools have them.
-const UP: u32 = 0x00d492;
-const DOWN: u32 = 0xff6467;
+const UP: u32 = 0x00_d492;
+const DOWN: u32 = 0xff_6467;
 /// The color of the point of control of a volume profile.
-const POC: u32 = 0xffb900;
+const POC: u32 = 0xff_b900;
 /// Most bars a bars pattern or a ghost feed copies.
 const MAX_GHOST_BARS: usize = 400;
 /// The height of a row of a volume profile, in pixels, and the fewest and most rows.
@@ -64,8 +65,10 @@ pub(crate) fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &m
         Tool::FibArcs => fib::fib_arcs(drawing, pts, out),
         Tool::FibWedge => fib::fib_wedge(drawing, pts, out),
         Tool::GannSquareFixed => {
-            let corner = fixed_square_corner(pts[0], pts[1]);
-            figures::gann::gann_square(drawing, &[pts[0], corner], out);
+            if let Some([first, second]) = lead(pts) {
+                let corner = fixed_square_corner(first, second);
+                figures::gann::gann_square(drawing, &[first, corner], out);
+            }
         }
         Tool::CyclicLines => curves::cyclic_lines(drawing, pts, proj, out),
         Tool::TimeCycles => curves::time_cycles(drawing, pts, proj, out),
@@ -85,8 +88,11 @@ pub(crate) fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &m
         Tool::Curve => curves::curve(drawing, pts, out),
         Tool::DoubleCurve => curves::double_curve(drawing, pts, out),
         Tool::ArrowMarker => notes::arrow_marker(drawing, pts, out),
-        Tool::ArrowMarkUp => notes::arrow_mark(drawing, pts[0], true, out),
-        Tool::ArrowMarkDown => notes::arrow_mark(drawing, pts[0], false, out),
+        Tool::ArrowMarkUp | Tool::ArrowMarkDown => {
+            if let Some(&at) = pts.first() {
+                notes::arrow_mark(drawing, at, drawing.tool == Tool::ArrowMarkUp, out);
+            }
+        }
         Tool::Note => notes::note(drawing, pts, out),
         Tool::PriceNote => notes::price_note(drawing, pts, proj, out),
         Tool::Callout => notes::callout(drawing, pts, out),
@@ -113,7 +119,7 @@ fn scale(a: P, k: f32) -> P {
 }
 
 fn mid(a: P, b: P) -> P {
-    ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0)
+    (f32::midpoint(a.0, b.0), f32::midpoint(a.1, b.1))
 }
 
 fn length(a: P) -> f32 {
@@ -151,7 +157,7 @@ fn stat(style: &Style, at: P, text: String, color: u32, anchor: Anchor) -> Prim 
     Prim::Label {
         at,
         text,
-        color: style.text_color.unwrap_or(0xffffff),
+        color: style.text_color.unwrap_or(0xff_ffff),
         background: Some((color, 0.9)),
         anchor,
         size: style.text_size,
@@ -172,7 +178,7 @@ fn stat_rows(
     for (i, text) in rows.into_iter().filter(|r| !r.is_empty()).enumerate() {
         out.push(stat(
             style,
-            (at.0, at.1 + i as f32 * style.text_size * 1.8),
+            (at.0, at.1 + count_f32(i) * style.text_size * 1.8),
             text,
             color,
             anchor,
@@ -184,10 +190,10 @@ fn stat_rows(
 /// it asks for none.
 pub(super) fn move_text(proj: &dyn Projection, a: Point, b: Point, look: &MeasureLook) -> String {
     let change = b.p - a.p;
-    let percent = if a.p != 0.0 {
-        change / a.p * 100.0
-    } else {
+    let percent = if a.p == 0.0 {
         0.0
+    } else {
+        change / a.p * 100.0
     };
     let sign = if change >= 0.0 { "+" } else { "" };
     let price = format!("{sign}{}", proj.format_price(change));
@@ -204,7 +210,7 @@ pub(super) fn move_text(proj: &dyn Projection, a: Point, b: Point, look: &Measur
 /// asks for none.
 pub(super) fn span_text(proj: &dyn Projection, a: Point, b: Point, look: &MeasureLook) -> String {
     let bars = match (proj.index_of(a.t), proj.index_of(b.t)) {
-        (Some(i), Some(j)) => (j - i).abs().round() as i64,
+        (Some(i), Some(j)) => f64_to_i64((j - i).abs().round()),
         _ => 0,
     };
     let time = duration_text(b.t - a.t);
@@ -218,7 +224,9 @@ pub(super) fn span_text(proj: &dyn Projection, a: Point, b: Point, look: &Measur
 
 /// A line of points `at(t)` for `t` from 0 to 1, in `steps` steps.
 fn sample(steps: usize, at: impl Fn(f32) -> P) -> Vec<P> {
-    (0..=steps).map(|i| at(i as f32 / steps as f32)).collect()
+    (0..=steps)
+        .map(|i| at(count_f32(i) / count_f32(steps)))
+        .collect()
 }
 
 fn polyline(points: Vec<P>, color: u32, width: f32, alpha: f32) -> Prim {
@@ -246,11 +254,17 @@ mod tests {
     use crate::geometry::{Prim, prims as shapes_of};
 
     use super::*;
+    use wyck_core::math::{count_f64, count_i64};
 
     /// `count` points spread over the plot, a few minutes and a few dozen units apart.
     fn spread(count: usize) -> Vec<(i64, f64)> {
         (0..count)
-            .map(|i| (600 + 240 * i as i64, 120.0 + 35.0 * ((i * 3 % 5) as f64)))
+            .map(|i| {
+                (
+                    600 + 240 * count_i64(i),
+                    120.0 + 35.0 * count_f64(i * 3 % 5),
+                )
+            })
             .collect()
     }
 
@@ -451,7 +465,7 @@ mod tests {
                 .collect()
         };
         let solid = alphas(&d);
-        assert!(!solid.is_empty());
+        assert_ne!(solid, [] as [f32; 0]);
         d.style.opacity = 0.5;
         let faded = alphas(&d);
         assert_eq!(solid.len(), faded.len());

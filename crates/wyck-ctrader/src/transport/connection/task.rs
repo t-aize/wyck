@@ -74,14 +74,11 @@ pub(super) async fn run<S>(
                         break reason;
                     }
                 }
-                Some(Ok(Message::Binary(bytes))) => match std::str::from_utf8(&bytes) {
-                    Ok(text) => {
-                        if let Some(reason) = handle_text(&shared, text) {
-                            break reason;
-                        }
+                Some(Ok(Message::Binary(bytes))) => if let Ok(text) = std::str::from_utf8(&bytes) {
+                    if let Some(reason) = handle_text(&shared, text) {
+                        break reason;
                     }
-                    Err(_) => warn!("a binary frame that is not text was ignored"),
-                },
+                } else { warn!("a binary frame that is not text was ignored") },
                 // The library answers pings by itself; pongs and raw frames need nothing.
                 Some(Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_))) => {}
                 Some(Ok(Message::Close(_))) | None => break DisconnectReason::ClosedByServer,
@@ -89,10 +86,7 @@ pub(super) async fn run<S>(
                 }
             },
             _ = beat.tick() => {
-                let text = match Envelope::heartbeat().to_text() {
-                    Ok(text) => text,
-                    Err(_) => continue,
-                };
+                let Ok(text) = Envelope::heartbeat().to_text() else { continue };
                 let sent = tokio::select! {
                     _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
                     sent = tokio::time::timeout(
@@ -114,7 +108,11 @@ pub(super) async fn run<S>(
         }
     };
     if matches!(reason, DisconnectReason::ClosedByClient) {
-        let _ = tokio::time::timeout(Duration::from_secs(1), sink.send(Message::Close(None))).await;
+        match tokio::time::timeout(Duration::from_secs(1), sink.send(Message::Close(None))).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => debug!(%error, "the close message could not be sent"),
+            Err(_) => debug!("the close message was not sent in time"),
+        }
     }
     debug!(?reason, "the Open API connection ended");
     shared.finish(reason);

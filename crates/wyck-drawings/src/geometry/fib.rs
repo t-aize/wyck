@@ -25,6 +25,9 @@ pub(super) fn fib_prims(
     if style.extend_right {
         right = rect.r;
     }
+    let Some(first_point) = drawing.points.first() else {
+        return;
+    };
     let mut previous: Option<(f32, u32)> = None;
     for level in visible_levels(drawing) {
         let ratio = if drawing.reverse {
@@ -34,7 +37,7 @@ pub(super) fn fib_prims(
         };
         let price = price_at(ratio);
         let Some(at) = proj.to_screen(Point {
-            t: drawing.points[0].t,
+            t: first_point.t,
             p: price,
         }) else {
             continue;
@@ -81,8 +84,8 @@ pub(super) fn fib_prims(
         previous = Some((y, level.color));
     }
     // The line that joins the points the levels come from.
-    for pair in pts.windows(2) {
-        out.push(seg(pair[0], pair[1], style.color, 0.6, 1.0, Dash::Dashed));
+    for (&from, &to) in pts.iter().zip(pts.iter().skip(1)) {
+        out.push(seg(from, to, style.color, 0.6, 1.0, Dash::Dashed));
     }
 }
 

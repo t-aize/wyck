@@ -1,6 +1,7 @@
 //! One indicator on a chart as the user set it, which is also what is saved.
 
 use std::collections::BTreeMap;
+use wyck_core::math::{f64_to_u32, f64_to_usize};
 
 use serde::{Deserialize, Serialize};
 
@@ -109,7 +110,7 @@ impl StudyConfig {
             {
                 (self.plot_style("upper").color, None, 0.08)
             }
-            StudyKind::Ichimoku if index == 0 => (0x43a047, Some(0xf44336), 0.12),
+            StudyKind::Ichimoku if index == 0 => (0x43_a047, Some(0xf4_4336), 0.12),
             StudyKind::Vwap if index < 2 => (
                 self.plot_style(if index == 0 { "upper_1" } else { "upper_2" })
                     .color,
@@ -327,8 +328,8 @@ impl StudyConfig {
                 _ => ValueFormat::Plain(precision),
             };
         }
-        if self.kind == StudyKind::Atr && self.input("unit") == 1.0 {
-            ValueFormat::Percent(self.input("percent_decimals").clamp(0.0, 6.0) as u32)
+        if self.kind == StudyKind::Atr && self.input("unit").total_cmp(&1.0).is_eq() {
+            ValueFormat::Percent(f64_to_u32(self.input("percent_decimals").clamp(0.0, 6.0)))
         } else {
             self.spec().format
         }
@@ -363,7 +364,7 @@ impl StudyConfig {
     }
 
     pub(super) fn length(&self, key: &str) -> usize {
-        self.input(key).max(1.0) as usize
+        f64_to_usize(self.input(key).max(1.0))
     }
 
     pub fn plot_style(&self, key: &str) -> PlotStyle {
@@ -396,12 +397,13 @@ impl StudyConfig {
         if self.kind == StudyKind::Atr {
             let mut title = format!("ATR {}", self.length("length"));
             if self.input("smoothing") != 0.0 {
-                title.push_str(&format!(
-                    " {}",
-                    ATR_SMOOTHING[(self.input("smoothing") as usize).min(ATR_SMOOTHING.len() - 1)]
-                ));
+                let chosen = f64_to_usize(self.input("smoothing")).min(ATR_SMOOTHING.len() - 1);
+                title = format!(
+                    "{title} {}",
+                    ATR_SMOOTHING.get(chosen).copied().unwrap_or_default()
+                );
             }
-            if self.input("unit") == 1.0 {
+            if self.input("unit").total_cmp(&1.0).is_eq() {
                 title.push_str(" %");
             }
             return title;
@@ -420,7 +422,14 @@ impl StudyConfig {
                 InputKind::Int => parts.push(format!("{value:.0}")),
                 InputKind::Float => parts.push(wyck_core::format::trim(value, 3)),
                 InputKind::Source => {
-                    parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
+                    let chosen = f64_to_usize(value).min(SOURCES.len() - 1);
+                    parts.push(
+                        SOURCES
+                            .get(chosen)
+                            .copied()
+                            .unwrap_or_default()
+                            .to_lowercase(),
+                    );
                 }
                 InputKind::Symbol | InputKind::Timeframe => {
                     let text = self.text(input.key);
@@ -455,13 +464,13 @@ mod tests {
 
     #[test]
     fn a_saved_indicator_reads_back_and_a_future_one_is_recognized() {
-        let mut config = StudyConfig::new(StudyKind::Macd);
-        config.inputs.insert("fast".into(), 8.0);
-        config.plots.get_mut("macd").unwrap().color = 0x123456;
         #[derive(Serialize, Deserialize)]
         struct Holder {
             studies: Vec<StudyConfig>,
         }
+        let mut config = StudyConfig::new(StudyKind::Macd);
+        config.inputs.insert("fast".into(), 8.0);
+        config.plots.get_mut("macd").unwrap().color = 0x12_3456;
         let text = toml::to_string(&Holder {
             studies: vec![config.clone()],
         })
@@ -478,7 +487,7 @@ mod tests {
     fn old_and_new_style_fields_survive_storage() {
         let old: StudyConfig = toml::from_str("kind = 'macd'\n[plots.macd]\ncolor = 1193046\nwidth = 2.0\nvisible = true\nopacity = 1.0\ndash = 'solid'\n").unwrap();
         let old = old.normalized();
-        assert_eq!(old.plot_style("macd").color, 0x123456);
+        assert_eq!(old.plot_style("macd").color, 0x12_3456);
         assert!(old.axis_labels);
         assert!(old.legend_values);
         assert!(old.fills.is_empty());
@@ -492,7 +501,7 @@ mod tests {
         current.fills.insert(
             1,
             FillStyle {
-                color: 0x123456,
+                color: 0x12_3456,
                 other: None,
                 opacity: 0.2,
                 visible: false,
@@ -541,7 +550,7 @@ mod tests {
         assert!(out.plots[1].values[1].is_nan());
         assert_eq!(&out.plots[1].values[2..], &[4.5, 5.25]);
 
-        for (method, expected) in [(1.0, 6.0), (2.0, 5.777777777777778), (3.0, 6.0)] {
+        for (method, expected) in [(1.0, 6.0), (2.0, 5.777_777_777_777_778), (3.0, 6.0)] {
             config.inputs.insert("smoothing".into(), method);
             let out = compute(&config, &data);
             assert!((out.plots[0].values[3] - expected).abs() < 1e-10);

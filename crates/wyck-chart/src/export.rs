@@ -43,6 +43,7 @@ mod tests {
     use crate::settings::{ChartKind, ChartSettings};
     use crate::transform::settings::BoxSize;
     use crate::zone::Zone;
+    use wyck_core::math::count_i64;
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
     use wyck_market::{Bar, Tick};
@@ -55,14 +56,14 @@ mod tests {
     fn bars(n: usize) -> Vec<Bar> {
         (0..n)
             .map(|i| {
-                let base = 100_000 + (i as i64 % 40) * 10;
+                let base = 100_000 + (count_i64(i) % 40) * 10;
                 Bar {
-                    time_ms: MONDAY + i as i64 * 5 * MIN,
+                    time_ms: MONDAY + count_i64(i) * 5 * MIN,
                     open: base,
                     high: base + 30,
                     low: base - 20,
                     close: base + 10,
-                    volume: 1 + i as i64 % 7,
+                    volume: 1 + count_i64(i) % 7,
                 }
             })
             .collect()
@@ -597,7 +598,7 @@ mod tests {
         let text = out(&f, &options(|_| {}));
         assert_eq!(lines(&text), vec!["Time,Open,High,Low,Close,Volume"]);
         let sql = out(&f, &options(|o| o.format = Format::Sql));
-        assert!(sql.is_empty());
+        assert_eq!(sql, "");
     }
 
     #[test]
@@ -742,7 +743,7 @@ mod tests {
         });
         let t = table(&source, &o, None);
         assert_eq!(t.rows.len(), f.display.tpo.len());
-        assert!(!t.rows.is_empty());
+        assert_ne!(t.rows, [] as [Vec<Cell>; 0]);
         for row in &t.rows {
             assert!(row.iter().all(|c| *c != Cell::Empty), "{row:?}");
             let (Cell::Price(poc), Cell::Price(vah), Cell::Price(val)) =

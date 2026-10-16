@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn expected_margin_is_read() {
         let margin: ExpectedMarginRes = serde_json::from_value(json!({
-            "margin": [{"volume": 100000, "buyMargin": 2000, "sellMargin": 2000}],
+            "margin": [{"volume": 100_000, "buyMargin": 2000, "sellMargin": 2000}],
             "moneyDigits": 2
         }))
         .unwrap();

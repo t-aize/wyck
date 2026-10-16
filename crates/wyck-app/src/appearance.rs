@@ -228,14 +228,14 @@ mod tests {
     fn the_chart_overrides_sit_on_top_of_the_palette() {
         let mut a = Appearance::default();
         assert_eq!(a.resolve(), Colors::WYCK_DARK);
-        a.candle_up = Some(0x00ff00);
-        a.candle_down = Some(0x0000ff);
-        a.chart_line = Some(0x123456);
-        a.chart_background = Some(0x101010);
+        a.candle_up = Some(0x00_ff00);
+        a.candle_down = Some(0x00_00ff);
+        a.chart_line = Some(0x12_3456);
+        a.chart_background = Some(0x10_1010);
         let c = a.resolve();
         assert_eq!(
             (c.up, c.down, c.line, c.chart_bg),
-            (0x00ff00, 0x0000ff, 0x123456, 0x101010)
+            (0x00_ff00, 0x00_00ff, 0x12_3456, 0x10_1010)
         );
         // The rest is the palette's.
         assert_eq!((c.bg, c.fg), (Colors::WYCK_DARK.bg, Colors::WYCK_DARK.fg));
@@ -272,8 +272,8 @@ mod tests {
     #[test]
     fn a_look_survives_the_saved_file() {
         let a = Appearance {
-            candle_up: Some(0x112233),
-            chart_background: Some(0x000000),
+            candle_up: Some(0x11_2233),
+            chart_background: Some(0x00_0000),
             font: "Segoe UI".to_owned(),
             animations: false,
             ui_scale: 130,

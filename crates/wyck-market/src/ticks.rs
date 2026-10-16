@@ -125,12 +125,12 @@ pub fn merge_sides(bids: &[Tick], asks: &[Tick]) -> Vec<Quote> {
             (None, None) => break,
         };
         // All ticks of that millisecond count; the last of each side wins.
-        while bids.get(b).is_some_and(|t| t.time_ms == time) {
-            last_bid = Some(bids[b].price);
+        while let Some(tick) = bids.get(b).filter(|t| t.time_ms == time) {
+            last_bid = Some(tick.price);
             b += 1;
         }
-        while asks.get(a).is_some_and(|t| t.time_ms == time) {
-            last_ask = Some(asks[a].price);
+        while let Some(tick) = asks.get(a).filter(|t| t.time_ms == time) {
+            last_ask = Some(tick.price);
             a += 1;
         }
         quotes.push(Quote {
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn the_one_tick_case_and_the_empty_case() {
-        assert!(decode_ticks(&[]).is_empty());
+        assert_eq!(decode_ticks(&[]), [] as [Tick; 0]);
         let one = decode_ticks(&[WireTick {
             timestamp: 77,
             tick: 5,
@@ -334,6 +334,6 @@ mod tests {
 
     #[test]
     fn nothing_in_nothing_out() {
-        assert!(merge_sides(&[], &[]).is_empty());
+        assert_eq!(merge_sides(&[], &[]), [] as [Quote; 0]);
     }
 }

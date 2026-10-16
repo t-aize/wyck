@@ -2,6 +2,7 @@
 
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 use serde_json::{Map as JsonMap, Number, Value};
+use wyck_core::math::i64_to_f64;
 
 use super::api::indicators::parse_color;
 use super::run::decl::MAX_SCRIPT_DRAWINGS;
@@ -41,7 +42,7 @@ fn number(value: &Dynamic) -> Option<f64> {
     value
         .as_float()
         .ok()
-        .or_else(|| value.as_int().ok().map(|n| n as f64))
+        .or_else(|| value.as_int().ok().map(i64_to_f64))
         .filter(|n| n.is_finite())
 }
 
@@ -67,13 +68,13 @@ fn parse_point(value: Dynamic) -> Fallible<Point> {
     let map = value
         .try_cast::<Map>()
         .ok_or("draw: each point must be a map from bar_point or time_point")?;
-    if map.len() != 2 || !map.contains_key("time") || !map.contains_key("price") {
+    let (Some(time), Some(price), 2) = (map.get("time"), map.get("price"), map.len()) else {
         return Err("draw: a point must contain only time and price".into());
-    }
-    let time = map["time"]
+    };
+    let time = time
         .as_int()
         .map_err(|_| "draw: point time must be Unix milliseconds as an integer")?;
-    let price = number(&map["price"]).ok_or("draw: point price must be a finite number")?;
+    let price = number(price).ok_or("draw: point price must be a finite number")?;
     Ok(Point { t: time, p: price })
 }
 
@@ -190,7 +191,9 @@ fn style_schema() -> Value {
         ("label_side", serde_json::to_value(style.label_side)),
         ("scale", serde_json::to_value(style.scale)),
     ] {
-        schema[key] = value.unwrap_or(Value::Null);
+        if let Some(fields) = schema.as_object_mut() {
+            fields.insert(key.to_owned(), value.unwrap_or(Value::Null));
+        }
     }
     schema
 }
@@ -214,7 +217,11 @@ fn draw(key: &str, tool: &str, points: Array, options: Map) -> Fallible<()> {
         .collect::<Fallible<_>>()?;
     let mut drawing = Drawing::new(0, tool, points);
     let mut json = serde_json::to_value(&drawing).map_err(|e| e.to_string())?;
-    let mut style = json["style"].as_object().cloned().unwrap_or_default();
+    let mut style = json
+        .get("style")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     let mut remaining = MAX_OPTION_NODES;
     for (key, value) in options {
         let key = key.as_str();
@@ -237,17 +244,28 @@ fn draw(key: &str, tool: &str, points: Array, options: Map) -> Fallible<()> {
             key,
             "text" | "name" | "levels" | "timeframes" | "reverse" | "degree"
         ) {
-            json[key] = json_value(value, 0, &mut remaining)?;
+            let value = json_value(value, 0, &mut remaining)?;
+            if let Some(fields) = json.as_object_mut() {
+                fields.insert(key.to_owned(), value);
+            }
         } else {
             return Err(format!("draw: unknown option \"{key}\"").into());
         }
     }
-    json["style"] = Value::Object(style);
-    validate_fields(&json["style"], &style_schema(), "style")?;
-    if let Some(levels) = json["levels"].as_array() {
+    if let Some(fields) = json.as_object_mut() {
+        fields.insert("style".to_owned(), Value::Object(style));
+    }
+    validate_fields(
+        json.get("style").unwrap_or(&Value::Null),
+        &style_schema(),
+        "style",
+    )?;
+    if let Some(levels) = json.get("levels").and_then(Value::as_array) {
         let mut schema = serde_json::to_value(Level::default()).unwrap_or_default();
-        schema["width"] = Value::Null;
-        schema["dash"] = Value::Null;
+        if let Some(fields) = schema.as_object_mut() {
+            fields.insert("width".to_owned(), Value::Null);
+            fields.insert("dash".to_owned(), Value::Null);
+        }
         for level in levels {
             validate_fields(level, &schema, "levels")?;
         }
@@ -299,6 +317,7 @@ mod tests {
     use crate::compute::StudyInput;
     use crate::custom::run::Script;
     use crate::custom::run::decl::Limits;
+    use wyck_core::math::count_i64;
 
     fn bars() -> StudyInput {
         StudyInput {
@@ -329,15 +348,14 @@ mod tests {
                 .map(|j| {
                     format!(
                         "time_point({}, {})",
-                        1_700_000_000_000_i64 + j as i64 * 60_000,
+                        1_700_000_000_000_i64 + count_i64(j) * 60_000,
                         100 + j
                     )
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
-            source.push_str(&format!(
-                "draw(\"d{i}\", \"{name}\", [{points}], #{{ color: \"red\" }});\n"
-            ));
+            source =
+                format!("{source}draw(\"d{i}\", \"{name}\", [{points}], #{{ color: \"red\" }});\n");
         }
         source.push('}');
         let output = compute(&source).unwrap();
@@ -345,20 +363,20 @@ mod tests {
         for (drawing, tool) in output.drawings.iter().zip(Tool::ALL) {
             assert_eq!(drawing.drawing.tool, tool);
             assert!(drawing.drawing.is_valid());
-            assert_eq!(drawing.drawing.style.color, 0xef5350);
+            assert_eq!(drawing.drawing.style.color, 0xef_5350);
         }
     }
 
     #[test]
     fn a_drawing_only_script_is_valid_and_keeps_its_style() {
-        let source = r##"indicator(#{ name: "Draw only" });
+        let source = r#"indicator(#{ name: "Draw only" });
             if n > 0 {
                 draw("trade", "long_position", [
                     bar_point(0, 100), bar_point(0, 99),
                     bar_point(1, 102), bar_point(1, 100)
                 ], #{ style: #{ position: #{ show_pips: true,
                     target_color: "green" } }, text: "Setup" });
-            }"##;
+            }"#;
         let script = Script::compile(source).unwrap();
         assert!(
             script
@@ -370,7 +388,7 @@ mod tests {
         assert_eq!(output.drawings.len(), 1);
         let drawing = &output.drawings[0].drawing;
         assert!(drawing.style.position.show_pips);
-        assert_eq!(drawing.style.position.target_color, 0x26a69a);
+        assert_eq!(drawing.style.position.target_color, 0x26_a69a);
         assert_eq!(drawing.text, "Setup");
     }
 
