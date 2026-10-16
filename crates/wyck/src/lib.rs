@@ -57,6 +57,10 @@ pub fn run() {
                 Some(paths) => {
                     // A reset or an import the user asked for waits for this moment, before
                     // anything reads the documents it replaces.
+                    #[expect(
+                        clippy::disallowed_methods,
+                        reason = "wall-clock read, to be routed through an injectable clock"
+                    )]
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
                     match wyck_storage::backup::staged::apply_pending(paths, &stamp) {
                         Ok(applied) if applied != Default::default() => {
@@ -155,6 +159,10 @@ fn keep_a_daily_copy(paths: &'static wyck_storage::AppPaths, cx: &mut App) {
     let scripts = wyck_storage::scripts::ScriptStore::new(scripts::dir(cx));
     cx.background_executor()
         .spawn(async move {
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "wall-clock read, to be routed through an injectable clock"
+            )]
             let created = chrono::Local::now().to_rfc3339();
             let policy = wyck_storage::backup::store::AutoPolicy::default();
             match paths.backups().auto_snapshot(

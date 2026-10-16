@@ -304,6 +304,10 @@ impl SettingsHub {
         // What waits to be saved goes to the disk first, so the backup is what is on screen.
         self.multi.read(cx).flush_documents(cx);
         appearance::save_now(cx);
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
         let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
         let name = format!("wyck-backup-{stamp}.toml");
         let start = wyck_app::storage::AppPaths::documents_dir();
@@ -313,6 +317,10 @@ impl SettingsHub {
             let Ok(Ok(Some(path))) = picked.await else {
                 return;
             };
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "wall-clock read, to be routed through an injectable clock"
+            )]
             let created = chrono::Local::now().to_rfc3339();
             let scripts = ScriptStore::new(scripts_dir);
             let result =
@@ -404,6 +412,10 @@ impl SettingsHub {
         self.multi.read(cx).flush_documents(cx);
         appearance::save_now(cx);
         let scripts = ScriptStore::new(indicators::dir(cx));
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
         let created = chrono::Local::now().to_rfc3339();
         let store: BackupStore = paths.backups();
         let result = backup::Backup::collect(paths, Some(&scripts), VERSION, &created)
