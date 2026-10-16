@@ -37,6 +37,10 @@ pub struct LightSymbol {
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `symbolId` field of the wire message"
+    )]
     pub symbol_id: i64,
     /// Decimals the symbol is quoted with.
     #[serde(deserialize_with = "flex::int")]
@@ -76,6 +80,10 @@ pub struct Symbol {
 #[serde(rename_all = "camelCase")]
 pub struct Asset {
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `assetId` field of the wire message"
+    )]
     pub asset_id: i64,
     /// The short name (`EUR`).
     pub name: String,

@@ -35,6 +35,10 @@ pub struct Holiday {
     pub name: Option<String>,
     /// Days since 1970-01-01.
     #[serde(deserialize_with = "flex::int")]
+    #[expect(
+        clippy::struct_field_names,
+        reason = "mirrors the `holidayDate` field of the wire message"
+    )]
     pub holiday_date: i64,
     /// Whether it comes back every year on the same day.
     #[serde(default)]

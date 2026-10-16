@@ -5,19 +5,21 @@
 //! on the wire. Keep the integer for exact work and comparisons; the `f64` from [`to_price`] is for
 //! display and arithmetic that can tolerate floating point error.
 
+use wyck_core::math::{f64_to_i64, i64_to_f64};
+
 /// The factor between the server's integer prices and real prices.
 pub const PRICE_SCALE: i64 = 100_000;
 
 /// The raw price `raw` as a real price.
 #[must_use]
 pub fn to_price(raw: i64) -> f64 {
-    raw as f64 / PRICE_SCALE as f64
+    i64_to_f64(raw) / i64_to_f64(PRICE_SCALE)
 }
 
 /// A real price as the server's integer, rounded to the nearest unit.
 #[must_use]
 pub fn from_price(price: f64) -> i64 {
-    (price * PRICE_SCALE as f64).round() as i64
+    f64_to_i64((price * i64_to_f64(PRICE_SCALE)).round())
 }
 
 /// A raw price as text with `digits` decimals, as the symbol quotes it (`114880` with 5 digits is
@@ -62,12 +64,11 @@ pub fn format_price(raw: i64, digits: u32) -> String {
 /// one for a currency pair.
 #[must_use]
 pub fn pip_size(pip_position: i64) -> f64 {
-    let position = if (0..=12).contains(&pip_position) {
-        pip_position
-    } else {
-        4
-    };
-    10f64.powi(-(position as i32))
+    let position = i32::try_from(pip_position)
+        .ok()
+        .filter(|position| (0..=12).contains(position))
+        .unwrap_or(4);
+    10f64.powi(-position)
 }
 
 #[cfg(test)]
