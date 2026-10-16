@@ -7,6 +7,7 @@ use crate::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;
+use wyck_core::math::{count_f64, i64_to_f64};
 use wyck_drawings::model::style::Dash;
 
 /// How much a run may do before it is stopped.
@@ -244,13 +245,13 @@ impl Columns {
             low: Series::new(input.low.clone()),
             close: Series::new(input.close.clone()),
             volume: Series::new(input.volume.clone()),
-            time: Series::new(input.time.iter().map(|t| *t as f64).collect()),
+            time: Series::new(input.time.iter().map(|t| i64_to_f64(*t)).collect()),
             raw_time: Arc::new(input.time.clone()),
             hl2: Series::new(input.source(4.0)),
             hlc3: Series::new(input.source(5.0)),
             ohlc4: Series::new(input.source(6.0)),
             hlcc4: Series::new(input.source(7.0)),
-            bar_index: Series::new((0..n).map(|i| i as f64).collect()),
+            bar_index: Series::new((0..n).map(count_f64).collect()),
             day: Arc::new(input.day.clone()),
         }
     }
@@ -306,10 +307,10 @@ mod tests {
 
     fn bars(n: usize) -> StudyInput {
         let close: Vec<f64> = (0..n)
-            .map(|i| 100.0 + (i as f64 * 0.7).sin() * 5.0)
+            .map(|i| 100.0 + (count_f64(i) * 0.7).sin() * 5.0)
             .collect();
         StudyInput {
-            time: (0..n as i64).map(|i| i * 60_000).collect(),
+            time: (0..count_i64(n)).map(|i| i * 60_000).collect(),
             open: close.iter().map(|c| c - 0.5).collect(),
             high: close.iter().map(|c| c + 1.0).collect(),
             low: close.iter().map(|c| c - 1.0).collect(),
@@ -355,7 +356,7 @@ mod tests {
             ("length", 20.0)
         );
         assert_eq!(d.plots.len(), 2);
-        assert_eq!(d.plots[1].color, 0xff9800);
+        assert_eq!(d.plots[1].color, 0xff_9800);
     }
 
     #[test]

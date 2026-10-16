@@ -7,21 +7,21 @@ use super::run::decl::Limits;
 use super::run::{Computed, Script};
 use crate::compute::StudyInput;
 use crate::spec::{InputKind, PlotKind};
-use wyck_core::math;
+use wyck_core::math::{self, count_f64, count_i64};
 
 fn bars(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)
-        .map(|i| 100.0 + (i as f64 * 0.31).sin() * 6.0 + i as f64 * 0.05)
+        .map(|i| 100.0 + (count_f64(i) * 0.31).sin() * 6.0 + count_f64(i) * 0.05)
         .collect();
     StudyInput {
-        time: (0..n as i64)
+        time: (0..count_i64(n))
             .map(|i| 1_700_000_000_000 + i * 60_000)
             .collect(),
         open: close.iter().map(|c| c - 0.4).collect(),
         high: close.iter().map(|c| c + 1.1).collect(),
         low: close.iter().map(|c| c - 0.9).collect(),
-        volume: (0..n).map(|i| 10.0 + (i % 7) as f64).collect(),
-        day: (0..n).map(|i| (i / 40) as i64).collect(),
+        volume: (0..n).map(|i| 10.0 + count_f64(i % 7)).collect(),
+        day: (0..n).map(|i| count_i64(i / 40)).collect(),
         close,
     }
 }
@@ -195,6 +195,10 @@ fn indexing_reads_the_bars_before_and_the_first_ones_have_no_value() {
 }
 
 #[test]
+#[expect(
+    clippy::float_cmp,
+    reason = "a script condition is exactly the 1 or the 0 the comparison returns"
+)]
 fn conditions_are_ones_and_zeros_and_combine() {
     let done = run(
         "let up = close > open;\n\
@@ -270,7 +274,7 @@ fn inputs_of_every_kind_are_declared_and_read() {
         .declaration
         .inputs
         .iter()
-        .map(|i| i.input_kind())
+        .map(super::run::decl::InputDecl::input_kind)
         .collect();
     assert!(matches!(kinds[0], InputKind::Int));
     assert!(matches!(kinds[1], InputKind::Float));
@@ -400,7 +404,10 @@ fn a_constant_can_be_plotted_and_a_script_may_not_declare_too_much() {
     let done = run("plot(\"zero\", 0); plot(\"one\", 1.5);", 4);
     assert_eq!(plot(&done, "zero"), [0.0; 4]);
     assert_eq!(plot(&done, "one"), [1.5; 4]);
-    let many: String = (0..17).map(|i| format!("plot(\"p{i}\", close);")).collect();
+    let many: String = (0..17)
+        .map(|i| format!("plot(\"p{i}\", close);"))
+        .collect::<Vec<_>>()
+        .concat();
     assert!(problems(&many)[0].contains("at most"));
 }
 
@@ -429,7 +436,7 @@ fn text_inputs_are_declared_read_and_checked() {
         .declaration
         .inputs
         .iter()
-        .map(|i| i.input_kind())
+        .map(super::run::decl::InputDecl::input_kind)
         .collect();
     assert!(matches!(
         kinds[..],

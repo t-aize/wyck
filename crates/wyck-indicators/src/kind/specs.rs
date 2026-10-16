@@ -10,6 +10,17 @@ use crate::spec::{
 };
 use wyck_drawings::model::style::Dash;
 
+/// The spec of a kind that is not known, or that a script stands for: no input, no line.
+pub(crate) const UNKNOWN: Spec = Spec {
+    label: "Unknown",
+    short: "?",
+    placement: Placement::Overlay,
+    format: ValueFormat::Plain(2),
+    inputs: &[],
+    plots: &[],
+    range: None,
+};
+
 pub(super) fn spec_of(kind: StudyKind) -> Spec {
     use Placement::{Overlay, Pane};
     match kind {
@@ -220,10 +231,10 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
                     ],
                     plots: &[
                         line("conversion", "Conversion line", BLUE, 1.0),
-                        line("base", "Base line", 0xb71c1c, 1.0),
-                        line("lagging", "Lagging span", 0x43a047, 1.0),
-                        line("span_a", "Leading span A", 0xa5d6a7, 1.0),
-                        line("span_b", "Leading span B", 0xef9a9a, 1.0),
+                        line("base", "Base line", 0xb7_1c1c, 1.0),
+                        line("lagging", "Lagging span", 0x43_a047, 1.0),
+                        line("span_a", "Leading span A", 0xa5_d6a7, 1.0),
+                        line("span_b", "Leading span B", 0xef_9a9a, 1.0),
                     ],
                     range: None,
                 }
@@ -317,7 +328,7 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
                     plots: &[
                         line("up", "Up volume", UP, 1.0),
                         line("down", "Down volume", DOWN, 1.0),
-                        line("poc", "Point of control", 0xffeb3b, 1.0),
+                        line("poc", "Point of control", 0xff_eb3b, 1.0),
                     ],
                     range: None,
                 }
@@ -463,7 +474,7 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
                         },
                     ],
                     plots: &[
-                        line("atr", "ATR", 0xb71c1c, 1.5),
+                        line("atr", "ATR", 0xb7_1c1c, 1.5),
                         hidden_line("signal", "Signal average", ORANGE),
                         hidden_line("tr", "True range", GRAY),
                     ],
@@ -543,7 +554,7 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
                         int("smoothing", "ADX smoothing", 14.0, 1.0, 500.0),
                     ],
                     plots: &[
-                        line("adx", "ADX", 0xff5252, 1.5),
+                        line("adx", "ADX", 0xff_5252, 1.5),
                         line("plus", "+DI", BLUE, 1.0),
                         line("minus", "-DI", ORANGE, 1.0),
                     ],
@@ -551,19 +562,7 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
                 }
             }
         }
-        StudyKind::Unknown | StudyKind::Custom => {
-            const {
-                Spec {
-                    label: "Unknown",
-                    short: "?",
-                    placement: Overlay,
-                    format: ValueFormat::Plain(2),
-                    inputs: &[],
-                    plots: &[],
-                    range: None,
-                }
-            }
-        }
+        StudyKind::Unknown | StudyKind::Custom => UNKNOWN,
         other => extended::specs::spec_for(other),
     }
 }

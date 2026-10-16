@@ -51,7 +51,7 @@ pub struct LevelStyle {
 }
 
 fn default_level_color() -> u32 {
-    0x787b86
+    0x78_7b86
 }
 fn default_level_width() -> f32 {
     1.0

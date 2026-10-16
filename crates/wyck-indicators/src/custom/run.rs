@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 use wyck_core::intern;
+use wyck_core::math::count_i64;
 
 /// Which of the two runs this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,7 +158,8 @@ impl Installed {
     /// this call, so that would be a bug).
     fn finish(self) -> Option<Run> {
         let run = RUN.with(|cell| cell.borrow_mut().take());
-        std::mem::forget(self);
+        // The run is out: the destructor, which clears the slot, must not run.
+        let _kept = std::mem::ManuallyDrop::new(self);
         run
     }
 }
@@ -184,13 +186,14 @@ pub fn engine() -> &'static Engine {
         engine.set_optimization_level(rhai::OptimizationLevel::Simple);
         engine.disable_symbol("eval");
         engine.on_print(|text| {
-            let _ = with_run(|run| run.say(text.to_owned()));
+            // A `print` outside a running script has no log to go to: nothing to do.
+            with_run(|run| run.say(text.to_owned())).unwrap_or_default();
         });
         engine.on_debug(|text, _source, position| {
             let line = position
                 .line()
                 .map_or(String::new(), |l| format!("[line {l}] "));
-            let _ = with_run(|run| run.say(format!("{line}{text}")));
+            with_run(|run| run.say(format!("{line}{text}"))).unwrap_or_default();
         });
         // The budget: every operation asks whether the run must stop.
         engine.on_progress(|operations| {
@@ -250,7 +253,7 @@ fn globals(columns: &decl::Columns, constant: bool) -> Scope<'static> {
     put("ohlc4", Dynamic::from(columns.ohlc4.clone()));
     put("hlcc4", Dynamic::from(columns.hlcc4.clone()));
     put("bar_index", Dynamic::from(columns.bar_index.clone()));
-    put("n", Dynamic::from(columns.len as i64));
+    put("n", Dynamic::from(count_i64(columns.len)));
     put("na", Dynamic::from(f64::NAN));
     scope
 }
@@ -322,8 +325,14 @@ impl Script {
         }
         let mut warnings = Vec::new();
         let has_draw_call = source.match_indices("draw").any(|(at, _)| {
-            source[at + 4..].trim_start().starts_with('(')
-                && source[..at]
+            source
+                .get(at + 4..)
+                .unwrap_or_default()
+                .trim_start()
+                .starts_with('(')
+                && source
+                    .get(..at)
+                    .unwrap_or_default()
                     .chars()
                     .next_back()
                     .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_')
@@ -362,7 +371,7 @@ impl Script {
                 texts
                     .get(&input.key)
                     .map(|text| text.trim())
-                    .filter(|text| text.chars().count() <= super::api::inputs::MAX_TEXT)
+                    .filter(|text| text.chars().count() <= api::inputs::MAX_TEXT)
                     .unwrap_or(&input.text)
             })
             .map(other::key_of)
@@ -496,7 +505,10 @@ fn message_of(error: &EvalAltResult) -> (String, Position) {
         other => {
             let text = other.to_string();
             let cut = text.rfind(" (line ").unwrap_or(text.len());
-            (text[..cut].to_owned(), other.position())
+            (
+                text.get(..cut).unwrap_or_default().to_owned(),
+                other.position(),
+            )
         }
     }
 }

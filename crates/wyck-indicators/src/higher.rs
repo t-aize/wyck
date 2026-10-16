@@ -8,6 +8,7 @@
 use wyck_market::Timeframe;
 
 use super::compute::StudyInput;
+use wyck_core::math::Series;
 
 /// The chart's bars grouped into the bars of a higher timeframe.
 #[derive(Debug, Clone, PartialEq)]
@@ -56,7 +57,10 @@ fn step(input: &StudyInput) -> Option<i64> {
     input
         .time
         .windows(2)
-        .map(|pair| pair[1] - pair[0])
+        .filter_map(|pair| match pair {
+            &[first, second] => Some(second - first),
+            _ => None,
+        })
         .filter(|gap| *gap > 0)
         .min()
 }
@@ -91,30 +95,64 @@ pub fn higher(input: &StudyInput, target: Timeframe) -> Option<Higher> {
     };
     let mut last_key = None;
     for i in 0..input.len() {
-        let group = key(target, input.time[i]);
+        // Every column holds one value per bar; a bar missing from one of them ends the grouping.
+        let (
+            Some(&time),
+            Some(&opening),
+            Some(&high),
+            Some(&low),
+            Some(&close),
+            Some(&volume),
+            Some(&day),
+        ) = (
+            input.time.get(i),
+            input.open.get(i),
+            input.high.get(i),
+            input.low.get(i),
+            input.close.get(i),
+            input.volume.get(i),
+            input.day.get(i),
+        )
+        else {
+            break;
+        };
+        let group = key(target, time);
         if last_key == Some(group) {
-            let at = grouped.close.len() - 1;
-            grouped.high[at] = grouped.high[at].max(input.high[i]);
-            grouped.low[at] = grouped.low[at].min(input.low[i]);
-            grouped.close[at] = input.close[i];
-            grouped.volume[at] += input.volume[i];
+            if let (Some(top), Some(bottom), Some(last), Some(total)) = (
+                grouped.high.last_mut(),
+                grouped.low.last_mut(),
+                grouped.close.last_mut(),
+                grouped.volume.last_mut(),
+            ) {
+                *top = top.max(high);
+                *bottom = bottom.min(low);
+                *last = close;
+                *total += volume;
+            }
         } else {
             last_key = Some(group);
-            grouped.time.push(open(target, input.time[i]));
-            grouped.open.push(input.open[i]);
-            grouped.high.push(input.high[i]);
-            grouped.low.push(input.low[i]);
-            grouped.close.push(input.close[i]);
-            grouped.volume.push(input.volume[i]);
-            grouped.day.push(input.day[i]);
+            grouped.time.push(open(target, time));
+            grouped.open.push(opening);
+            grouped.high.push(high);
+            grouped.low.push(low);
+            grouped.close.push(close);
+            grouped.volume.push(volume);
+            grouped.day.push(day);
         }
-        let at = grouped.close.len() - 1;
-        of.push(at);
-        forming.open.push(grouped.open[at]);
-        forming.high.push(grouped.high[at]);
-        forming.low.push(grouped.low[at]);
-        forming.close.push(grouped.close[at]);
-        forming.volume.push(grouped.volume[at]);
+        of.push(grouped.close.len() - 1);
+        if let (Some(&o), Some(&h), Some(&l), Some(&c), Some(&v)) = (
+            grouped.open.last(),
+            grouped.high.last(),
+            grouped.low.last(),
+            grouped.close.last(),
+            grouped.volume.last(),
+        ) {
+            forming.open.push(o);
+            forming.high.push(h);
+            forming.low.push(l);
+            forming.close.push(c);
+            forming.volume.push(v);
+        }
     }
     Some(Higher {
         input: grouped,
@@ -133,9 +171,10 @@ pub(crate) fn carry_back(values: &[f64], of: &[usize], confirmed: bool) -> Vec<f
     of.iter()
         .map(|&at| {
             if confirmed {
-                at.checked_sub(1).map_or(f64::NAN, |before| values[before])
+                at.checked_sub(1)
+                    .map_or(f64::NAN, |before| values.at(before))
             } else {
-                values[at]
+                values.at(at)
             }
         })
         .collect()
@@ -144,15 +183,16 @@ pub(crate) fn carry_back(values: &[f64], of: &[usize], confirmed: bool) -> Vec<f
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::{count_f64, count_i64};
 
     /// Minute bars from midnight UTC, `n` of them, closing at their position.
     fn minutes(n: usize) -> StudyInput {
         StudyInput {
-            time: (0..n as i64).map(|i| i * 60_000).collect(),
-            open: (0..n).map(|i| i as f64).collect(),
-            high: (0..n).map(|i| i as f64 + 0.5).collect(),
-            low: (0..n).map(|i| i as f64 - 0.5).collect(),
-            close: (0..n).map(|i| i as f64 + 0.25).collect(),
+            time: (0..count_i64(n)).map(|i| i * 60_000).collect(),
+            open: (0..n).map(count_f64).collect(),
+            high: (0..n).map(|i| count_f64(i) + 0.5).collect(),
+            low: (0..n).map(|i| count_f64(i) - 0.5).collect(),
+            close: (0..n).map(|i| count_f64(i) + 0.25).collect(),
             volume: vec![1.0; n],
             day: vec![0; n],
         }

@@ -5,6 +5,7 @@
 //! the bars of the chart: `Aligned` holds one number per bar of the chart.
 
 use std::collections::BTreeMap;
+use wyck_core::math::i64_to_f64;
 
 use super::series::Series;
 use crate::compute::StudyInput;
@@ -27,11 +28,11 @@ impl OtherBars {
     pub fn from_bars(bars: &[Bar]) -> Self {
         Self {
             time: bars.iter().map(|b| b.time_ms).collect(),
-            open: bars.iter().map(|b| b.open as f64).collect(),
-            high: bars.iter().map(|b| b.high as f64).collect(),
-            low: bars.iter().map(|b| b.low as f64).collect(),
-            close: bars.iter().map(|b| b.close as f64).collect(),
-            volume: bars.iter().map(|b| b.volume as f64).collect(),
+            open: bars.iter().map(|b| i64_to_f64(b.open)).collect(),
+            high: bars.iter().map(|b| i64_to_f64(b.high)).collect(),
+            low: bars.iter().map(|b| i64_to_f64(b.low)).collect(),
+            close: bars.iter().map(|b| i64_to_f64(b.close)).collect(),
+            volume: bars.iter().map(|b| i64_to_f64(b.volume)).collect(),
         }
     }
 
@@ -79,13 +80,13 @@ impl Aligned {
     /// there (a market that was closed), the bar is flat at the last close it had and has no
     /// volume; before its first bar the values are `NaN`.
     pub(crate) fn on(times: &[i64], other: &OtherBars) -> Self {
-        let n = times.len();
+        let count = times.len();
         let (mut open, mut high, mut low, mut close, mut volume) = (
-            Vec::with_capacity(n),
-            Vec::with_capacity(n),
-            Vec::with_capacity(n),
-            Vec::with_capacity(n),
-            Vec::with_capacity(n),
+            Vec::with_capacity(count),
+            Vec::with_capacity(count),
+            Vec::with_capacity(count),
+            Vec::with_capacity(count),
+            Vec::with_capacity(count),
         );
         let have = other
             .time
@@ -98,24 +99,33 @@ impl Aligned {
         // The first bar of `other` that opens after the chart bar being looked at.
         let mut next = 0;
         for &t in times {
-            while next < have && other.time[next] <= t {
+            while next < have && other.time.get(next).is_some_and(|time| *time <= t) {
                 next += 1;
             }
-            match next.checked_sub(1) {
+            let bar = next.checked_sub(1).and_then(|j| {
+                Some((
+                    *other.time.get(j)?,
+                    *other.open.get(j)?,
+                    *other.high.get(j)?,
+                    *other.low.get(j)?,
+                    *other.close.get(j)?,
+                    *other.volume.get(j)?,
+                ))
+            });
+            match bar {
                 None => {
                     for column in [&mut open, &mut high, &mut low, &mut close, &mut volume] {
                         column.push(f64::NAN);
                     }
                 }
-                Some(j) if other.time[j] == t => {
-                    open.push(other.open[j]);
-                    high.push(other.high[j]);
-                    low.push(other.low[j]);
-                    close.push(other.close[j]);
-                    volume.push(other.volume[j]);
+                Some((time, opened, highest, lowest, closed, traded)) if time == t => {
+                    open.push(opened);
+                    high.push(highest);
+                    low.push(lowest);
+                    close.push(closed);
+                    volume.push(traded);
                 }
-                Some(j) => {
-                    let flat = other.close[j];
+                Some((_, _, _, _, flat, _)) => {
                     for column in [&mut open, &mut high, &mut low, &mut close] {
                         column.push(flat);
                     }

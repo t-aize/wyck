@@ -5,11 +5,11 @@ use crate::spec::{
     InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, ValueFormat, choice, float, int, line,
 };
 
-pub(super) const BLUE: u32 = 0x2962ff;
-pub(super) const ORANGE: u32 = 0xff9800;
-pub(super) const GREEN: u32 = 0x26a69a;
-pub(super) const RED: u32 = 0xef5350;
-pub(super) const PURPLE: u32 = 0x7e57c2;
+pub(super) const BLUE: u32 = 0x29_62ff;
+pub(super) const ORANGE: u32 = 0xff_9800;
+pub(super) const GREEN: u32 = 0x26_a69a;
+pub(super) const RED: u32 = 0xef_5350;
+pub(super) const PURPLE: u32 = 0x7e_57c2;
 
 pub(super) const fn styled_plot(
     key: &'static str,
@@ -322,7 +322,7 @@ pub(crate) const fn spec_for(kind: StudyKind) -> Spec {
             Plain(2),
             &[
                 int("length", "Length", 20.0, 2.0, 1000.0),
-                int("annual", "Periods per year", 252.0, 1.0, 100000.0)
+                int("annual", "Periods per year", 252.0, 1.0, 100_000.0)
             ],
             &[line("hv", "Annualized volatility", PURPLE, 1.5)],
             None
@@ -417,6 +417,7 @@ pub(crate) const fn spec_for(kind: StudyKind) -> Spec {
             &[line("emv", "Ease of movement", PURPLE, 1.5)],
             None
         ),
-        _ => panic!("not an extended indicator"),
+        // Not an extended indicator: the spec of a kind that is not known.
+        _ => crate::kind::specs::UNKNOWN,
     }
 }
