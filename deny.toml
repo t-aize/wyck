@@ -60,6 +60,12 @@ allow = [
   # libbz2-rs-sys, pulled by bzip2 <- compression-codecs <- async-compression. The license of the
   # bzip2 library: BSD-style, permissive.
   "bzip2-1.0.6",
+  # MPL-2.0 is a file-level copyleft: it only asks that changes to the MPL files themselves stay
+  # open, which does not reach our code as long as we use these crates unmodified. Allowed by the
+  # maintainer. Crates: symphonia and its sub-crates (rodio, the alert sounds), smartstring (rhai),
+  # option-ext (directories, dirs), dwrote (gpui fonts on Windows), cbindgen (gpui build on macOS).
+  # A strong copyleft (GPL, AGPL, LGPL) is still never added without a decision.
+  "MPL-2.0",
 ]
 
 [bans]
