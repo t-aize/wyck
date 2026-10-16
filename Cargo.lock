@@ -9822,7 +9822,6 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 name = "wyck"
 version = "0.2.1"
 dependencies = [
- "ab_glyph",
  "anyhow",
  "chrono",
  "gpui-kit",
@@ -9831,8 +9830,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 2.0.21",
- "tiny-skia 0.12.0",
  "toml 1.1.8+spec-1.1.0",
  "tracing",
  "winresource",
@@ -9846,6 +9843,7 @@ dependencies = [
  "wyck-platform",
  "wyck-storage",
  "wyck-trading",
+ "wyck-ui-chart",
  "wyck-ui-kit",
 ]
 
@@ -10013,6 +10011,26 @@ dependencies = [
  "tracing",
  "wyck-core",
  "wyck-market",
+]
+
+[[package]]
+name = "wyck-ui-chart"
+version = "0.2.1"
+dependencies = [
+ "ab_glyph",
+ "anyhow",
+ "gpui-pre",
+ "thiserror 2.0.21",
+ "tiny-skia 0.12.0",
+ "tracing",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-kit",
 ]
 
 [[package]]

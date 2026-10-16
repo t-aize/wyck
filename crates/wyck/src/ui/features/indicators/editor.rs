@@ -16,7 +16,6 @@ pub mod prompts;
 pub mod providers;
 pub mod tabs;
 
-use crate::ui::features::multichart::MultiChart;
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, MouseMoveEvent, Subscription, Task, Window,
@@ -30,6 +29,7 @@ use wyck_app::scripts as indicators;
 use wyck_app::workspace::Saver;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::{Problem, Severity};
+use wyck_ui_chart::multichart::MultiChart;
 use wyck_ui_kit::input::LanguageConfig;
 use wyck_ui_kit::input::{
     AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,

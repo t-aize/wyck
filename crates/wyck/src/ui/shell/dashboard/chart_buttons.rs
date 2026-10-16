@@ -5,7 +5,7 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div};
 
 use super::Dashboard;
-use crate::ui::features::chart::{Chart, kind_icon};
+use wyck_ui_chart::chart::{Chart, kind_icon};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::menu::{Menu, Placement};
 use wyck_ui_kit::prelude::Selectable;

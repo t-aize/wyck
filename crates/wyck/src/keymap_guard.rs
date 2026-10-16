@@ -29,9 +29,9 @@ const BY_HAND: &[&str] = &[
 ];
 
 pub(crate) fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
+    // A folder that moved must fail the test, not make it pass on nothing.
+    let entries =
+        fs::read_dir(dir).unwrap_or_else(|error| panic!("cannot read {}: {error}", dir.display()));
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
@@ -43,7 +43,7 @@ pub(crate) fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 /// The sources of the crates that hold screens, named from the `crates` folder.
-const SCREEN_CRATES: &[&str] = &["wyck/src", "wyck-ui-kit/src"];
+const SCREEN_CRATES: &[&str] = &["wyck/src", "wyck-ui-chart/src", "wyck-ui-kit/src"];
 
 fn sources() -> Vec<(String, String)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");

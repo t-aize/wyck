@@ -6,8 +6,6 @@ use super::{
 };
 
 use super::catalog::{Catalog, Entry};
-use crate::ui::features::chart::Chart;
-use crate::ui::features::multichart::{MultiChartEvent, SymbolRef};
 use gpui::{Context, SharedString};
 use std::sync::Arc;
 use wyck_app::broker::session::{SessionEvent, SessionState};
@@ -16,6 +14,8 @@ use wyck_app::market_data::live::{PEEK_OWNER, Wish};
 use wyck_app::system::runtime;
 use wyck_app::system::runtime::RecvError;
 use wyck_market::Spot;
+use wyck_ui_chart::chart::Chart;
+use wyck_ui_chart::multichart::{MultiChartEvent, SymbolRef};
 use wyck_ui_kit::toast;
 
 impl Dashboard {

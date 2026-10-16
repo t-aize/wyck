@@ -1,11 +1,11 @@
 //! Saving a script, adding it to the chart, and following the folder on disk.
 
 use super::{ConsoleTab, IndicatorEditor, show_diagnostics};
-use crate::ui::features::chart::Chart;
 use gpui::{Context, Entity, Window};
 use wyck_app::scripts as indicators;
 use wyck_app::scripts::folder::LibraryError;
 use wyck_indicators::custom::library::registry;
+use wyck_ui_chart::chart::Chart;
 
 impl IndicatorEditor {
     /// Writes the script of the tab to its file.

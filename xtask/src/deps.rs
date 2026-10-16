@@ -47,9 +47,27 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
     "tracing-subscriber",
 ];
 
+/// External crates a screen (a `wyck-ui-*` crate other than the kit) must not use: the network, the
+/// files, the sound and the system are reached through `wyck-app`, and only the kit names the
+/// component library.
+const NOT_IN_A_SCREEN: &[&str] = &[
+    "cargo-packager-updater",
+    "directories",
+    "gpui-kit",
+    "keyring",
+    "notify-rust",
+    "reqwest",
+    "rodio",
+    "tokio",
+    "tokio-tungstenite",
+    "tracing-appender",
+    "tracing-subscriber",
+];
+
 /// External crates that only some crates may use, because one crate owns the job: a second user
 /// would be a second way of doing the same thing.
 const OWNERS: &[(&str, &[&str])] = &[
+    ("ab_glyph", &["wyck-ui-chart"]),
     ("argon2", &["wyck-storage"]),
     ("cargo-packager-updater", &["wyck-app"]),
     ("chacha20poly1305", &["wyck-storage"]),
@@ -59,6 +77,7 @@ const OWNERS: &[(&str, &[&str])] = &[
     ("reqwest", &["wyck-ctrader"]),
     ("rhai", &["wyck-indicators"]),
     ("rodio", &["wyck-app"]),
+    ("tiny-skia", &["wyck-ui-chart"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
     ("tracing-appender", &["wyck-platform"]),
     ("tracing-subscriber", &["wyck-platform"]),
@@ -206,6 +225,21 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-ui-chart",
+        internal: &[
+            "wyck-app",
+            "wyck-chart",
+            "wyck-core",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-market",
+            "wyck-trading",
+            "wyck-ui-kit",
+        ],
+        forbidden: NOT_IN_A_SCREEN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck",
         internal: &[
             "wyck-app",
@@ -219,6 +253,7 @@ const LAYERS: &[Layer] = &[
             "wyck-platform",
             "wyck-storage",
             "wyck-trading",
+            "wyck-ui-chart",
             "wyck-ui-kit",
         ],
         forbidden: &[],

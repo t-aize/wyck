@@ -2,7 +2,6 @@
 
 use super::helpers::side_of;
 use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif};
-use crate::ui::features::chart::{ChartLine, LineId};
 use gpui::{App, Context, Entity};
 use std::time::Duration;
 use wyck_app::market_data::now_ms;
@@ -10,6 +9,7 @@ use wyck_app::system::runtime;
 use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
+use wyck_ui_chart::chart::{ChartLine, LineId};
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
 

@@ -165,7 +165,7 @@ impl SettingsHub {
                     false,
                     move |window, cx| {
                         modal::close(window, cx);
-                        crate::ui::features::chart::open_chart_settings(chart.clone(), window, cx);
+                        wyck_ui_chart::chart::open_chart_settings(chart.clone(), window, cx);
                     },
                 ),
             )],

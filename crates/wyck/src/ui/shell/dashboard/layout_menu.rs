@@ -5,10 +5,10 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 
 use super::{Dashboard, MenuKind};
-use crate::ui::features::multichart::icon::layout_icon;
-use crate::ui::features::multichart::layouts;
-use crate::ui::features::multichart::layouts::LayoutKey;
-use crate::ui::features::multichart::links::{Link, Links};
+use wyck_ui_chart::multichart::icon::layout_icon;
+use wyck_ui_chart::multichart::layouts;
+use wyck_ui_chart::multichart::layouts::LayoutKey;
+use wyck_ui_chart::multichart::links::{Link, Links};
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::{controls, menu, theme, tokens};
 

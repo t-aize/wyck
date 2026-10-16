@@ -9,7 +9,6 @@ use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window,
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 
-use crate::ui::features::multichart::MultiChart;
 use wyck_app::appearance;
 use wyck_app::appearance::candles::CANDLE_SETS;
 use wyck_app::prefs::indicators as prefs;
@@ -21,6 +20,7 @@ use wyck_app::updates;
 use wyck_app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use wyck_chart::MAX_STUDIES;
 use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
+use wyck_ui_chart::multichart::MultiChart;
 use wyck_ui_kit::{
     button, confirm, controls,
     font_picker::{FontChosen, FontPicker},

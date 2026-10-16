@@ -2,13 +2,13 @@
 
 use super::Pending;
 
-use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading::panel::Tab;
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::Context;
 use wyck_app::alerts;
 use wyck_app::market_data::now_ms;
 use wyck_market::PRICE_SCALE;
+use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::toast;
 
 impl Dashboard {
@@ -167,14 +167,14 @@ impl Dashboard {
     pub(in crate::ui::shell::dashboard) fn add_alert_on(
         &mut self,
         symbol: &SymbolRef,
-        seed: &crate::ui::features::chart::events::AlertSeed,
+        seed: &wyck_ui_chart::chart::events::AlertSeed,
         cx: &mut Context<Self>,
     ) {
         use wyck_app::alerts::{Alert, Condition, Source};
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
         match seed {
-            crate::ui::features::chart::events::AlertSeed::Indicator { study, timeframe } => {
+            wyck_ui_chart::chart::events::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe = timeframe.clone();
                 let spec = study.kind.spec();
                 if matches!(spec.format, wyck_indicators::spec::ValueFormat::Price) {
@@ -194,7 +194,7 @@ impl Dashboard {
                         .map_or(0.0, |(low, high)| low + (high - low) * 0.7);
                 }
             }
-            crate::ui::features::chart::events::AlertSeed::Drawing {
+            wyck_ui_chart::chart::events::AlertSeed::Drawing {
                 id,
                 zone,
                 timeframe,

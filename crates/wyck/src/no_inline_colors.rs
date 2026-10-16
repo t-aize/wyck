@@ -40,10 +40,8 @@ fn screens_read_their_colors_from_the_theme() {
     for dir in [
         "src/ui/features/trading",
         "src/ui/features/indicators",
-        "src/ui/shell/dashboard",
-        "src/ui/shell/connection",
-        "src/ui/shell/settings_hub",
-        "src/ui/features/multichart",
+        "src/ui/shell",
+        "../wyck-ui-chart/src/multichart",
         "../wyck-ui-kit/src",
     ] {
         rust_files(&root.join(dir), &mut files);

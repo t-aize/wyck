@@ -2,10 +2,10 @@
 
 use super::CUSTOM_TIMEFRAME_WIDTH;
 
-use crate::ui::features::chart;
 use crate::ui::shell::dashboard::{Dashboard, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
+use wyck_ui_chart::chart;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::{InputEvent, InputState};
 use wyck_ui_kit::{controls, icon, menu, theme, tokens};

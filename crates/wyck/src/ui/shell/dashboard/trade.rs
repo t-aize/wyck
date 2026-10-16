@@ -10,15 +10,15 @@ pub mod layout;
 pub mod price_alerts;
 
 use super::Dashboard;
-use crate::ui::features::chart::LineId;
-use crate::ui::features::chart::events::{ChartAction, PositionLink};
-use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::panel::PanelEvent;
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
 use gpui::prelude::*;
 use gpui::{Context, Window};
 use wyck_trading::math;
+use wyck_ui_chart::chart::LineId;
+use wyck_ui_chart::chart::events::{ChartAction, PositionLink};
+use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
     toast, tokens,
@@ -42,7 +42,7 @@ pub(super) enum Pending {
     /// Open the editor of a new alert.
     EditAlert(u64),
     /// Open the editor of the indicator scripts.
-    Editor(crate::ui::features::chart::events::EditorRequest),
+    Editor(wyck_ui_chart::chart::events::EditorRequest),
 }
 
 /// The least height of the account panel.
@@ -177,7 +177,7 @@ impl Dashboard {
                 );
             }
             Pending::Editor(request) => {
-                use crate::ui::features::chart::events::EditorRequest;
+                use wyck_ui_chart::chart::events::EditorRequest;
                 self.with_editor(window, cx, move |editor, window, cx| match request {
                     EditorRequest::Open => editor.focus_editor(window, cx),
                     EditorRequest::New => editor.ask_new(0, window, cx),

@@ -4,10 +4,10 @@ use super::helpers::format_offset;
 use super::{
     Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent, same_shape,
 };
-use crate::ui::features::chart::events::{PlanState, PositionPlan};
 use gpui::{App, Context, Entity, Window};
 use wyck_trading::math;
 use wyck_trading::math::{Offset, Pending};
+use wyck_ui_chart::chart::events::{PlanState, PositionPlan};
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
 

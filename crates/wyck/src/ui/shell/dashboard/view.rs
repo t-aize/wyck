@@ -8,11 +8,11 @@ use super::{
     ToggleKillSwitch, ToggleLogScale, ToggleMagnet, TogglePercentScale, ToggleTicket,
 };
 
-use crate::ui::features::chart;
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
 use wyck_chart::ScaleMode;
 use wyck_market::{PRICE_SCALE, format_price};
+use wyck_ui_chart::chart;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{button, icon, theme, tokens};
 
