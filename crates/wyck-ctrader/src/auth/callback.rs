@@ -28,7 +28,7 @@
 //! not ask for would put the user on someone else's account. RFC 6749 (4.1.2) makes the server echo
 //! the `state` it was given, so a real redirect always has it. If a server is found that does not,
 //! [`CallbackListener::allow_missing_state`] restores the old behaviour for that server, and
-//! [`AuthorizationCode::state_echoed`] tells whether the check was made.
+//! `AuthorizationCode::state_echoed` tells whether the check was made.
 
 use std::time::Duration;
 
@@ -116,7 +116,7 @@ impl CallbackListener {
     }
 
     /// Accepts a redirect that carries a code but no `state`, for a server that does not echo it.
-    /// The code is then flagged: [`AuthorizationCode::state_echoed`] is `false`. Off by default,
+    /// The code is then flagged: `AuthorizationCode::state_echoed` is `false`. Off by default,
     /// because anything on the machine can send a code to this port.
     #[must_use]
     pub fn allow_missing_state(mut self) -> Self {

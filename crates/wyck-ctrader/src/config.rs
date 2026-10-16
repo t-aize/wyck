@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use secrecy::SecretString;
+use wyck_trading::guard::Mode;
 
 /// The port of the JSON endpoint. TCP and WebSocket both work on it; this crate uses WebSocket.
 pub(crate) const JSON_PORT: u16 = 5036;
@@ -24,6 +25,15 @@ pub enum Environment {
 }
 
 impl Environment {
+    /// The kind of account this environment holds, as the order checks name it.
+    #[must_use]
+    pub fn mode(self) -> Mode {
+        match self {
+            Self::Demo => Mode::Demo,
+            Self::Live => Mode::Live,
+        }
+    }
+
     /// The host of the environment.
     #[must_use]
     pub(crate) fn host(self) -> &'static str {
@@ -74,13 +84,20 @@ pub struct ConnectionConfig {
     pub rate_limit_retries: u32,
     /// The longest wait before such a retry, whatever the server asks for.
     pub max_retry_wait: Duration,
+    /// The kind of account this connection is for. A new order is refused unless the checks that
+    /// cleared it were made for the same kind (see `TradingClient::new_order`). [`Self::new`] sets
+    /// it from the environment; an explicit address (a test server) is `Demo`.
+    pub mode: Mode,
 }
 
 impl ConnectionConfig {
     /// The settings for `environment`.
     #[must_use]
     pub fn new(environment: Environment) -> Self {
-        Self::with_url(environment.url())
+        Self {
+            mode: environment.mode(),
+            ..Self::with_url(environment.url())
+        }
     }
 
     /// The settings for an explicit address, for a test server or a proxy.
@@ -97,6 +114,7 @@ impl ConnectionConfig {
             historical_rate: 4,
             rate_limit_retries: 3,
             max_retry_wait: Duration::from_secs(30),
+            mode: Mode::Demo,
         }
     }
 
@@ -209,6 +227,17 @@ mod tests {
         ] {
             assert!(ConnectionConfig::with_url(bad).validate().is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_connection_knows_whether_it_is_for_real_money() {
+        assert_eq!(ConnectionConfig::new(Environment::Live).mode, Mode::Live);
+        assert_eq!(ConnectionConfig::new(Environment::Demo).mode, Mode::Demo);
+        // An explicit address (a test server, a proxy) never claims to be live.
+        assert_eq!(
+            ConnectionConfig::with_url("ws://127.0.0.1:1").mode,
+            Mode::Demo
+        );
     }
 
     #[test]

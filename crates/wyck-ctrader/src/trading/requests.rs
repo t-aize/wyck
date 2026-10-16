@@ -7,6 +7,9 @@
 
 use serde::Serialize;
 
+use wyck_core::math::{f64_to_i64, i64_to_f64};
+use wyck_market::PRICE_SCALE;
+use wyck_trading::guard::{Cleared, Fingerprint, Mode};
 use wyck_trading::{NewOrderType, TimeInForce, TradeSide};
 
 /// `ProtoOANewOrderReq`. Build with [`NewOrderReq::market`], [`NewOrderReq::limit`],
@@ -81,6 +84,35 @@ pub struct NewOrderReq {
 }
 
 impl NewOrderReq {
+    /// What makes this order the same as another one sent again, and what a clearance of the
+    /// safety checks is made for: the symbol, side, volume, kind and price.
+    #[must_use]
+    pub fn fingerprint(&self) -> Fingerprint {
+        Fingerprint {
+            symbol: self.symbol_id,
+            buy: self.trade_side == TradeSide::Buy.number(),
+            volume: self.volume,
+            kind: i64::from(self.order_type),
+            price: self
+                .limit_price
+                .or(self.stop_price)
+                .map_or(0, |p| f64_to_i64((p * i64_to_f64(PRICE_SCALE)).round())),
+        }
+    }
+
+    /// Refuses the order unless `cleared` was made for exactly this order and for an account of
+    /// `mode`.
+    pub(crate) fn ensure_cleared(&self, cleared: &Cleared, mode: Mode) -> crate::Result<()> {
+        if cleared.covers(self.fingerprint(), mode) {
+            Ok(())
+        } else {
+            Err(crate::Error::Config(
+                "the order was not cleared by the safety checks for this order and this kind of account"
+                    .to_owned(),
+            ))
+        }
+    }
+
     /// Checks values that would otherwise encode incorrectly or produce a known refusal.
     /// The server still decides whether the symbol, account and price are tradable.
     pub fn validate(&self) -> crate::Result<()> {
@@ -360,6 +392,45 @@ impl AmendPositionSlTpReq {
 mod tests {
     use super::*;
     use serde_json::json;
+    use wyck_trading::guard::{self, OrderFacts, RiskPrefs, Standing};
+
+    fn cleared_for(order: &NewOrderReq, mode: Mode) -> Cleared {
+        guard::clear(
+            &RiskPrefs::default(),
+            &Standing::default(),
+            &OrderFacts::default(),
+            order.fingerprint(),
+            mode,
+            &|m| m.to_string(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn an_order_goes_out_only_with_the_proof_made_for_it_and_for_this_kind_of_account() {
+        let order = NewOrderReq::limit(2, TradeSide::Buy, 500, 1.1);
+        let proof = cleared_for(&order, Mode::Demo);
+        assert!(order.ensure_cleared(&proof, Mode::Demo).is_ok());
+        // The proof of a demo account does not open a live connection.
+        assert!(order.ensure_cleared(&proof, Mode::Live).is_err());
+        // Nor does it cover another order: another volume, side, symbol or price.
+        for other in [
+            NewOrderReq::limit(2, TradeSide::Buy, 600, 1.1),
+            NewOrderReq::limit(2, TradeSide::Sell, 500, 1.1),
+            NewOrderReq::limit(3, TradeSide::Buy, 500, 1.1),
+            NewOrderReq::limit(2, TradeSide::Buy, 500, 1.2),
+            NewOrderReq::market(2, TradeSide::Buy, 500),
+        ] {
+            assert!(other.ensure_cleared(&proof, Mode::Demo).is_err());
+        }
+    }
+
+    #[test]
+    fn the_protection_does_not_change_which_order_it_is() {
+        let plain = NewOrderReq::limit(2, TradeSide::Buy, 500, 1.1);
+        let protected = plain.clone().with_protection(Some(1.0), Some(1.2));
+        assert_eq!(plain.fingerprint(), protected.fingerprint());
+    }
 
     #[test]
     fn a_time_in_force_is_sent_by_its_number_and_only_good_till_date_keeps_an_expiry() {

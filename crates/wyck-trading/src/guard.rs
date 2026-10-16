@@ -3,8 +3,10 @@
 //!
 //! The rules are plain data and pure functions, so they are tested without a window or a broker.
 //! The account service (`Account::place`) is the one funnel for new orders (the ticket, one-click,
-//! the chart and a reversal all end there), so the checks cannot be skipped by another way in. An
-//! order that only reduces what is open is never blocked: closing must always work.
+//! the chart and a reversal all end there), and the funnel is also enforced by a type: the
+//! connection sends a new order only with a [`Cleared`], which [`clear`] and [`clear_batch`] alone
+//! make, for the order and the kind of account ([`Mode`]) they were made for. An order that only
+//! reduces what is open is never blocked: closing must always work.
 //!
 //! Some limits are hard and refuse the order ([`Verdict::Block`]); the others only warn
 //! ([`Verdict::Warn`]) and can be sent anyway from the confirmation.
@@ -326,6 +328,137 @@ fn lots(value: f64) -> String {
     super::math::format_lots(value)
 }
 
+/// What kind of account an order goes to: simulated money or real money.
+///
+/// It is a type and not a flag so that a demo account and a live one cannot be taken for each
+/// other where an order is cleared and where it is sent: both sides carry a `Mode` and the order
+/// is refused when they differ.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Mode {
+    /// Simulated money.
+    Demo,
+    /// Real money.
+    Live,
+}
+
+impl Mode {
+    /// `Live` when `live`, else `Demo`.
+    #[must_use]
+    pub const fn from_live(live: bool) -> Self {
+        if live { Self::Live } else { Self::Demo }
+    }
+
+    /// Whether this is real money.
+    #[must_use]
+    pub const fn is_live(self) -> bool {
+        matches!(self, Self::Live)
+    }
+
+    /// The word for a screen or a log.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Demo => "demo",
+            Self::Live => "live",
+        }
+    }
+}
+
+/// Why an order was not cleared: the sentence for the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Blocked(pub String);
+
+impl std::fmt::Display for Blocked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Blocked {}
+
+/// Proof that an order went through [`check`] and was not refused, for an account of one [`Mode`].
+///
+/// It can only be made by [`clear`] and [`clear_batch`], and the client that sends orders asks for
+/// one (`TradingClient::new_order`), so an order cannot reach the broker without the checks having
+/// been made on it. It names the order it was made for ([`Fingerprint`]) and the mode of the
+/// account: another order, or another kind of account, is refused at the door.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cleared {
+    order: Fingerprint,
+    mode: Mode,
+}
+
+impl Cleared {
+    /// The order this was made for.
+    #[must_use]
+    pub fn order(&self) -> Fingerprint {
+        self.order
+    }
+
+    /// The kind of account it was made for.
+    #[must_use]
+    pub fn mode(&self) -> Mode {
+        self.mode
+    }
+
+    /// Whether this clears `order` for an account of `mode`.
+    #[must_use]
+    pub fn covers(&self, order: Fingerprint, mode: Mode) -> bool {
+        self.order == order && self.mode == mode
+    }
+}
+
+/// Checks an order like [`check`], and gives the proof that it passed. A warning does not stop an
+/// order (the confirmation of the ticket is where it is read); a refusal does.
+///
+/// # Errors
+///
+/// [`Blocked`] with the reason when [`check`] refuses the order.
+pub fn clear(
+    prefs: &RiskPrefs,
+    standing: &Standing,
+    facts: &OrderFacts,
+    order: Fingerprint,
+    mode: Mode,
+    money: &dyn Fn(f64) -> String,
+) -> Result<Cleared, Blocked> {
+    match check(prefs, standing, facts, money) {
+        Verdict::Block(reason) => Err(Blocked(reason)),
+        Verdict::Ok | Verdict::Warn(_) => Ok(Cleared { order, mode }),
+    }
+}
+
+/// Checks the orders of a plan together, as `facts` (the side that sends the most, with its
+/// volumes added up), and gives one proof for each of `orders`.
+///
+/// # Errors
+///
+/// [`Blocked`] with the reason when [`check`] refuses `facts`.
+pub fn clear_batch(
+    prefs: &RiskPrefs,
+    standing: &Standing,
+    facts: &OrderFacts,
+    orders: &[Fingerprint],
+    mode: Mode,
+    money: &dyn Fn(f64) -> String,
+) -> Result<Vec<Cleared>, Blocked> {
+    match check(prefs, standing, facts, money) {
+        Verdict::Block(reason) => Err(Blocked(reason)),
+        Verdict::Ok | Verdict::Warn(_) => Ok(orders
+            .iter()
+            .map(|&order| Cleared { order, mode })
+            .collect()),
+    }
+}
+
+/// An id of our own for an order, so that the order can be recognized on the account later,
+/// whatever happened to the answer: `wyck-<time>-<process>-<count>`, at most 50 characters (the
+/// broker's limit), unique for a process (the count) and across starts (the time).
+#[must_use]
+pub fn client_order_id(now_ms: i64, process: u32, count: u64) -> String {
+    format!("wyck-{now_ms:x}-{process:x}-{count:x}")
+}
+
 /// Whether two orders are the same one sent twice: the same symbol, side, volume, kind and price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Fingerprint {
@@ -560,5 +693,124 @@ mod tests {
         let prefs: RiskPrefs = toml::from_str("kill_switch = true").unwrap();
         assert!(prefs.kill_switch);
         assert_eq!(prefs.price_collar_pct, 10.0);
+    }
+
+    fn fingerprint(volume: i64) -> Fingerprint {
+        Fingerprint {
+            symbol: 1,
+            buy: true,
+            volume,
+            kind: 1,
+            price: 0,
+        }
+    }
+
+    #[test]
+    fn a_refused_order_gets_no_proof_and_a_passing_one_gets_a_proof_for_itself() {
+        let prefs = RiskPrefs {
+            max_lots_per_order: 1.0,
+            ..RiskPrefs::default()
+        };
+        let ok = OrderFacts {
+            lots: 1.0,
+            ..OrderFacts::default()
+        };
+        let too_big = OrderFacts {
+            lots: 2.0,
+            ..OrderFacts::default()
+        };
+        let cleared = clear(
+            &prefs,
+            &standing(),
+            &ok,
+            fingerprint(100),
+            Mode::Demo,
+            &money,
+        )
+        .expect("one lot is within the limit");
+        assert!(cleared.covers(fingerprint(100), Mode::Demo));
+        assert!(
+            !cleared.covers(fingerprint(200), Mode::Demo),
+            "another order"
+        );
+        assert!(
+            !cleared.covers(fingerprint(100), Mode::Live),
+            "another kind of account"
+        );
+        let blocked = clear(
+            &prefs,
+            &standing(),
+            &too_big,
+            fingerprint(200),
+            Mode::Demo,
+            &money,
+        );
+        assert!(blocked.is_err_and(|b| b.0.contains("limit per order")));
+    }
+
+    #[test]
+    fn a_warning_does_not_stop_the_proof() {
+        let prefs = RiskPrefs {
+            max_spread_pips: 1.0,
+            ..RiskPrefs::default()
+        };
+        let wide = OrderFacts {
+            lots: 1.0,
+            spread_pips: Some(3.0),
+            ..OrderFacts::default()
+        };
+        assert!(
+            clear(
+                &prefs,
+                &standing(),
+                &wide,
+                fingerprint(1),
+                Mode::Live,
+                &money
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn a_plan_is_cleared_together_and_the_kill_switch_stops_all_of_it() {
+        let orders = [fingerprint(1), fingerprint(2)];
+        let facts = OrderFacts {
+            lots: 1.0,
+            ..OrderFacts::default()
+        };
+        let proofs = clear_batch(
+            &RiskPrefs::default(),
+            &standing(),
+            &facts,
+            &orders,
+            Mode::Demo,
+            &money,
+        )
+        .unwrap();
+        assert_eq!(proofs.len(), 2);
+        assert!(proofs[1].covers(fingerprint(2), Mode::Demo));
+        let locked = RiskPrefs {
+            kill_switch: true,
+            ..RiskPrefs::default()
+        };
+        assert!(clear_batch(&locked, &standing(), &facts, &orders, Mode::Demo, &money).is_err());
+    }
+
+    #[test]
+    fn client_order_ids_are_unique_and_fit_the_brokers_limit() {
+        let first = client_order_id(1_800_000_000_000, 4_194_304, 0);
+        let second = client_order_id(1_800_000_000_000, 4_194_304, 1);
+        assert_ne!(first, second);
+        assert!(first.starts_with("wyck-"));
+        let widest = client_order_id(i64::MAX, u32::MAX, u64::MAX);
+        assert!(widest.chars().count() <= 50, "{widest}");
+    }
+
+    #[test]
+    fn a_mode_is_a_flag_that_cannot_be_mixed_up() {
+        assert_eq!(Mode::from_live(true), Mode::Live);
+        assert!(!Mode::from_live(false).is_live());
+        assert_eq!(Mode::Demo.label(), "demo");
     }
 }

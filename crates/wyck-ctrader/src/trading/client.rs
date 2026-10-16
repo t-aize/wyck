@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use crate::transport::connection::{Client, RateClass};
 use crate::transport::wire::payload;
 use wyck_trading::ExecutionEvent;
+use wyck_trading::guard::{Cleared, Mode};
 
 /// Trading bound to one account: places, amends and cancels orders, closes positions. See
 /// [`crate::AccountClient::trading`] and the [module docs](crate::trading) for the non-idempotency caveat.
@@ -12,12 +13,17 @@ use wyck_trading::ExecutionEvent;
 /// ```no_run
 /// # async fn demo(account: wyck_ctrader::AccountClient) -> wyck_ctrader::Result<()> {
 /// use wyck_trading::TradeSide;
+/// use wyck_trading::guard::{self, Mode};
 /// use wyck_ctrader::trading::NewOrderReq;
 ///
 /// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.
 /// let order = NewOrderReq::market(1, TradeSide::Buy, 100_000)
 ///     .with_protection(Some(1.0750), Some(1.0950));
-/// let execution = account.trading().new_order(order).await?;
+/// // The safety checks come first; `new_order` refuses an order they did not clear.
+/// # let (prefs, standing, facts) = (Default::default(), Default::default(), Default::default());
+/// let cleared = guard::clear(&prefs, &standing, &facts, order.fingerprint(), Mode::Demo, &|m| m.to_string())
+///     .expect("within the limits");
+/// let execution = account.trading().new_order(order, &cleared).await?;
 /// println!("{:?}", execution.kind());
 /// # Ok(()) }
 /// ```
@@ -25,14 +31,24 @@ use wyck_trading::ExecutionEvent;
 pub struct TradingClient {
     client: Client,
     account_id: i64,
+    /// The kind of account the connection is for; an order cleared for the other kind is refused.
+    mode: Mode,
 }
 
 impl TradingClient {
     pub(crate) fn new(client: Client, account_id: i64) -> Self {
-        Self { client, account_id }
+        let mode = client.mode();
+        Self {
+            client,
+            account_id,
+            mode,
+        }
     }
 
-    /// Places a new order. `request`'s `ctid_trader_account_id` is overwritten with this account.
+    /// Places a new order. `cleared` is the proof that the safety checks (`wyck_trading::guard::clear`)
+    /// passed for this very order and for this kind of account, demo or live: without it, or with
+    /// one made for another order or the other kind, nothing is sent. `request`'s
+    /// `ctid_trader_account_id` is overwritten with this account.
     /// See the [module docs](crate::trading) for the non-idempotency caveat: on a timeout, check
     /// `crate::account::AccountDataClient::open_positions_and_orders` or
     /// `crate::account::AccountDataClient::deals` before retrying.
@@ -49,7 +65,12 @@ impl TradingClient {
     /// `MAX_EXPOSURE_REACHED`, `SHORT_SELLING_NOT_ALLOWED`, and the usual account errors. A token of
     /// the `accounts` scope gets `ACCOUNT_NOT_AUTHORIZED` or a similar refusal: trading needs the
     /// `trading` [`crate::auth::Scope`].
-    pub async fn new_order(&self, mut request: NewOrderReq) -> Result<ExecutionEvent> {
+    pub async fn new_order(
+        &self,
+        mut request: NewOrderReq,
+        cleared: &Cleared,
+    ) -> Result<ExecutionEvent> {
+        request.ensure_cleared(cleared, self.mode)?;
         request.ctid_trader_account_id = self.account_id;
         request.validate()?;
         self.client

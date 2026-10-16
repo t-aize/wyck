@@ -15,6 +15,7 @@ use wyck_ctrader::trading::NewOrderReq;
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 use wyck_trading::TradeSide;
 use wyck_trading::contract::Contract;
+use wyck_trading::guard::{self, Mode, OrderFacts, RiskPrefs, Standing};
 
 fn var(name: &str) -> wyck_ctrader::Result<String> {
     // A `.env` file is optional: the variables may already be in the environment.
@@ -64,13 +65,22 @@ async fn main() -> wyck_ctrader::Result<()> {
     let volume = contract.min_volume;
 
     let trading = account.trading();
-    let opened = trading
-        .new_order(NewOrderReq::market(
-            symbol.symbol_id,
-            TradeSide::Buy,
-            volume,
-        ))
-        .await?;
+    // The safety checks come first: `new_order` refuses an order they did not clear.
+    let order = NewOrderReq::market(symbol.symbol_id, TradeSide::Buy, volume);
+    let facts = OrderFacts {
+        lots: contract.lots_of_volume(volume),
+        ..OrderFacts::default()
+    };
+    let cleared = guard::clear(
+        &RiskPrefs::default(),
+        &Standing::default(),
+        &facts,
+        order.fingerprint(),
+        Mode::Demo,
+        &|amount| format!("{amount:.2}"),
+    )
+    .map_err(|blocked| Error::Config(blocked.to_string()))?;
+    let opened = trading.new_order(order, &cleared).await?;
     let position = opened
         .position
         .ok_or_else(|| Error::Protocol("the server named no position".into()))?;

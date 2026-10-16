@@ -5,6 +5,14 @@
 //! token of the `trading` [`crate::auth::Scope`] (an `accounts` token is refused). Everything else
 //! in this crate only reads; this module is the one place that writes.
 //!
+//! # The checks come first
+//!
+//! [`TradingClient::new_order`] takes a [`wyck_trading::guard::Cleared`], the proof that the safety
+//! checks (`wyck_trading::guard::clear`) passed for this very order and for this kind of account,
+//! demo or live (`ConnectionConfig::mode`). Only `clear` and `clear_batch` make one, so no order
+//! reaches the broker without the checks having been made on it, and an order cleared for a demo
+//! account is refused on a live connection.
+//!
 //! # Non-idempotency
 //!
 //! [`TradingClient::new_order`] and its siblings are not guaranteed idempotent. If a request times
@@ -14,7 +22,8 @@
 //! position. Instead, check what the account actually holds first:
 //! `crate::account::AccountDataClient::open_positions_and_orders` (`ProtoOAReconcileReq`) for
 //! what is open now, or `crate::account::AccountDataClient::deals` for what was executed
-//! recently, using `label` or `client_order_id` to recognize the order you sent. This crate stays a
+//! recently, using `label` or `client_order_id` (`wyck_trading::guard::client_order_id` makes
+//! one, `wyck_trading::doubt::InDoubt` reads the answer) to recognize the order you sent. This crate stays a
 //! thin typed client, like Spotware's own SDKs (`OpenApiPy`, `OpenAPI.Net`): it does not add retry
 //! or idempotency machinery of its own on top of trading calls.
 //!

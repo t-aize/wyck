@@ -161,6 +161,7 @@ impl Account {
                         this.status = Status::Ready;
                         // The account was read again: whatever a silent call did is in it now.
                         this.uncertain = false;
+                        this.settle_in_doubt(cx);
                         for symbol in this.book.symbols() {
                             this.ensure_contract(symbol, cx);
                         }
@@ -298,6 +299,14 @@ impl Account {
                 }
             }
             Event::Execution(execution) => {
+                // An event that names the id of an order in doubt answers the doubt.
+                if let Some(id) = execution
+                    .order
+                    .as_ref()
+                    .and_then(|o| o.client_order_id.as_deref())
+                {
+                    self.in_doubt.retain(|d| d.client_order_id != id);
+                }
                 if matches!(
                     execution.kind(),
                     Some(

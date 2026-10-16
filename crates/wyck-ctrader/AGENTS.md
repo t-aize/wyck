@@ -30,6 +30,9 @@ Depends on: `wyck-clock`, `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `
 - **A trading call moves money**: simulated on a demo account, real on a live one. A call is not
   idempotent: after a timeout, look at the account before sending the order again (the module docs
   of `trading` say how).
+- **An order needs its proof**: `TradingClient::new_order` takes a `wyck_trading::guard::Cleared`
+  made by `guard::clear` for this order and this kind of account (`ConnectionConfig::mode`), and
+  refuses anything else. Do not add a way to make one outside `guard`.
 - **Demo and live are separate**: `demo.ctraderapi.com` and `live.ctraderapi.com` on port 5036, one
   connection each; the accounts of one cannot be used on the other.
 - **Rate limits**: the server allows 50 requests per second and 5 for history, per connection. The

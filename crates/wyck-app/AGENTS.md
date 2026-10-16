@@ -33,11 +33,19 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 
 ## Invariants and traps
 
-- **An order goes through `Account::place_with` (or `place_batch`)**: it is validated, assessed by
-  the guard of `wyck-trading` (one-click orders are judged more strictly), and not sent again while
-  another is in flight or when it repeats a recent one. Never send an order around it.
-- **A timeout is not a refusal.** After a failed or unanswered trading call the account is read
-  again and marked uncertain; the order is not resent.
+- **An order goes through `Account::place_with` (or `place_batch`)**: it is validated, cleared by
+  the guard of `wyck-trading` (`Account::clear`: one-click orders are judged more strictly), and not
+  sent again while another is in flight or when it repeats a recent one. The connection refuses a
+  new order that has no `Cleared` for it and for the account's `Mode`, so there is no way around
+  it; do not add one (no constructor of `Cleared` outside `guard`).
+- **Every new order carries an id of its own** (`client_order_id`, from the clock, the process and a
+  count), so it can be recognized on the account whatever happens to its answer.
+- **A timeout is not a refusal.** After a failed or unanswered trading call (timeout, closed
+  connection) the account is read again and marked uncertain, the order is kept as `in_doubt`, and
+  it is not resent: once the account is read, `settle_in_doubt` tells the user whether it is
+  working, was executed, or is not on the account. Sending it again is the user's decision.
+- **Demo and live are a `Mode`, fixed when the `Account` is made** from the account the user chose;
+  a proof made for one is refused on a connection of the other.
 - **Tokens live in the credential store**: `token_store` reads and writes them through
   `wyck-storage`. A failed read logs the error, never the token.
 - **`app_paths()` is the first call at start** (`run` in `wyck` does it before anything else): its

@@ -50,6 +50,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tracing::{debug, info, trace, warn};
+use wyck_trading::guard::Mode;
 
 use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{Error, ErrorKind, Result};
@@ -100,6 +101,8 @@ struct Shared {
     silence_timeout: Duration,
     rate_limit_retries: u32,
     max_retry_wait: Duration,
+    /// The kind of account the connection is for.
+    mode: Mode,
     /// How many live [`Client`] values point at this connection, `run` itself excluded (it holds
     /// an `Arc<Shared>` of its own, which would otherwise hide the last external clone going away
     /// from `outgoing`'s sender count). See the [`Drop`] impl below.
@@ -281,6 +284,7 @@ impl Client {
             silence_timeout: config.silence_timeout,
             rate_limit_retries: config.rate_limit_retries,
             max_retry_wait: config.max_retry_wait,
+            mode: config.mode,
             handles: AtomicUsize::new(1),
         });
         tokio::spawn(task::run(
@@ -300,6 +304,12 @@ impl Client {
     #[must_use]
     pub fn events(&self) -> broadcast::Receiver<Event> {
         self.shared.events.subscribe()
+    }
+
+    /// The kind of account this connection is for (demo or live).
+    #[must_use]
+    pub fn mode(&self) -> Mode {
+        self.shared.mode
     }
 
     /// Whether the connection has ended.
