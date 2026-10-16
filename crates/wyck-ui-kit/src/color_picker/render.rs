@@ -15,6 +15,8 @@ use gpui::{
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable;
 use gpui_kit::component::input::InputState;
+use std::rc::Rc;
+use wyck_core::math::f32_of;
 
 impl Render for ColorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -55,11 +57,11 @@ impl Render for ColorPanel {
                     .left(px(saturation * AREA_W - 7.0))
                     .top(px((1.0 - value) * AREA_H - 7.0)),
             )
-            .child(surface("color-area", Drag::Area, self.area.clone(), cx).cursor_crosshair());
+            .child(surface("color-area", Drag::Area, Rc::clone(&self.area), cx).cursor_crosshair());
 
         // The bar: every hue, in six steps of two colors each.
         let strip = (0..6).map(|i| {
-            let (from, to) = (i as f32 * 60.0, (i + 1) as f32 * 60.0);
+            let (from, to) = (f32_of(f64::from(i)) * 60.0, f32_of(f64::from(i + 1)) * 60.0);
             div().flex_1().h_full().bg(linear_gradient(
                 90.,
                 linear_color_stop(rgb(hsv_to_rgb(from, 1.0, 1.0)), 0.),
@@ -84,7 +86,7 @@ impl Render for ColorPanel {
                     .left(px(hue / 360.0 * AREA_W - 8.0))
                     .top(px(-2.0)),
             )
-            .child(surface("color-hue", Drag::Hue, self.bar.clone(), cx).cursor_pointer());
+            .child(surface("color-hue", Drag::Hue, Rc::clone(&self.bar), cx).cursor_pointer());
 
         let fields = self.fields.as_ref();
         let preview = div()
@@ -171,7 +173,7 @@ impl Render for ColorPanel {
                 swatch(format!("color-saved-{i}"), shade, &this).on_mouse_down(
                     MouseButton::Right,
                     move |_, _window, cx| {
-                        forget.update(cx, |_, cx| ColorPanel::forget(shade, cx));
+                        forget.update(cx, |_, cx| Self::forget(shade, cx));
                     },
                 )
             }),
@@ -215,7 +217,7 @@ impl Render for ColorPanel {
                                     .label("Save this color")
                                     .disabled(!can_save)
                                     .cursor_pointer()
-                                    .when(!can_save, |button| button.cursor_not_allowed())
+                                    .when(!can_save, Styled::cursor_not_allowed)
                                     .on_click(move |_, _window, cx| {
                                         this.update(cx, |panel, cx| panel.save_current(cx));
                                     }),

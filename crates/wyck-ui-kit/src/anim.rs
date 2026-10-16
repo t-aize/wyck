@@ -72,7 +72,7 @@ pub fn enter<E: Styled + IntoElement + 'static>(
     id: impl Into<ElementId>,
     index: usize,
 ) -> impl IntoElement {
-    let delay = STAGGER * index as u32;
+    let delay = STAGGER * u32::try_from(index).unwrap_or(u32::MAX);
     let total = ENTER + delay;
     el.relative()
         .with_animation(id, Animation::new(dur(total)), move |el, delta| {

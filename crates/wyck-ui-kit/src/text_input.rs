@@ -106,7 +106,7 @@ impl TextInput {
         if self.selected_range.is_empty() {
             self.move_to(self.previous_boundary(self.cursor_offset()), cx);
         } else {
-            self.move_to(self.selected_range.start, cx)
+            self.move_to(self.selected_range.start, cx);
         }
     }
 
@@ -114,7 +114,7 @@ impl TextInput {
         if self.selected_range.is_empty() {
             self.move_to(self.next_boundary(self.selected_range.end), cx);
         } else {
-            self.move_to(self.selected_range.end, cx)
+            self.move_to(self.selected_range.end, cx);
         }
     }
 
@@ -128,7 +128,7 @@ impl TextInput {
 
     fn select_all(&mut self, _: &TextInputSelectAll, _: &mut Window, cx: &mut Context<Self>) {
         self.move_to(0, cx);
-        self.select_to(self.content.len(), cx)
+        self.select_to(self.content.len(), cx);
     }
 
     fn home(&mut self, _: &TextInputHome, _: &mut Window, cx: &mut Context<Self>) {
@@ -141,16 +141,16 @@ impl TextInput {
 
     fn backspace(&mut self, _: &TextInputBackspace, window: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
-            self.select_to(self.previous_boundary(self.cursor_offset()), cx)
+            self.select_to(self.previous_boundary(self.cursor_offset()), cx);
         }
-        self.replace_text_in_range(None, "", window, cx)
+        self.replace_text_in_range(None, "", window, cx);
     }
 
     fn delete(&mut self, _: &TextInputDelete, window: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
-            self.select_to(self.next_boundary(self.cursor_offset()), cx)
+            self.select_to(self.next_boundary(self.cursor_offset()), cx);
         }
-        self.replace_text_in_range(None, "", window, cx)
+        self.replace_text_in_range(None, "", window, cx);
     }
 
     fn on_mouse_down(
@@ -164,7 +164,7 @@ impl TextInput {
         if event.modifiers.shift {
             self.select_to(self.index_for_mouse_position(event.position), cx);
         } else {
-            self.move_to(self.index_for_mouse_position(event.position), cx)
+            self.move_to(self.index_for_mouse_position(event.position), cx);
         }
     }
 
@@ -185,25 +185,25 @@ impl TextInput {
     }
 
     fn copy(&mut self, _: &TextInputCopy, _: &mut Window, cx: &mut Context<Self>) {
-        if !self.selected_range.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected_range.clone()].to_string(),
-            ));
+        if !self.selected_range.is_empty()
+            && let Some(text) = self.content.get(self.selected_range.clone())
+        {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
         }
     }
 
     fn cut(&mut self, _: &TextInputCut, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.selected_range.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected_range.clone()].to_string(),
-            ));
-            self.replace_text_in_range(None, "", window, cx)
+        if !self.selected_range.is_empty()
+            && let Some(text) = self.content.get(self.selected_range.clone())
+        {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
+            self.replace_text_in_range(None, "", window, cx);
         }
     }
 
     fn move_to(&mut self, offset: usize, cx: &mut Context<Self>) {
         self.selected_range = offset..offset;
-        cx.notify()
+        cx.notify();
     }
 
     fn cursor_offset(&self) -> usize {
@@ -234,15 +234,15 @@ impl TextInput {
 
     fn select_to(&mut self, offset: usize, cx: &mut Context<Self>) {
         if self.selection_reversed {
-            self.selected_range.start = offset
+            self.selected_range.start = offset;
         } else {
-            self.selected_range.end = offset
-        };
+            self.selected_range.end = offset;
+        }
         if self.selected_range.end < self.selected_range.start {
             self.selection_reversed = !self.selection_reversed;
             self.selected_range = self.selected_range.end..self.selected_range.start;
         }
-        cx.notify()
+        cx.notify();
     }
 
     fn offset_from_utf16(&self, offset: usize) -> usize {

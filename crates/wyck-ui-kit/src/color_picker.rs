@@ -25,6 +25,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use wyck_core::math::f32_to_u32;
 
 /// The size of the square, and the height of the hue bar.
 const AREA_W: f32 = 232.0;
@@ -270,7 +271,8 @@ impl ColorPanel {
 
     fn persist(cx: &mut Context<Self>) {
         let colors = cx.default_global::<Saved>().0.clone();
-        if let Some(Persist(persist)) = cx.try_global::<Persist>().map(|p| Persist(p.0.clone())) {
+        if let Some(Persist(persist)) = cx.try_global::<Persist>().map(|p| Persist(Rc::clone(&p.0)))
+        {
             persist(&colors, cx);
         }
     }
@@ -414,7 +416,7 @@ pub(crate) fn panel(
         panel
     });
     panel.update(cx, |panel, _| {
-        panel.attach(color, open, on_change, on_close, opacity)
+        panel.attach(color, open, on_change, on_close, opacity);
     });
     panel
 }
@@ -487,7 +489,7 @@ fn marker(size: f32, fill: u32) -> gpui::Div {
         .rounded_full()
         .bg(rgb(fill))
         .border_2()
-        .border_color(rgb(0xffffff))
+        .border_color(rgb(0xff_ffff))
         .shadow_md()
 }
 
@@ -506,10 +508,11 @@ impl ColorPanel {
     fn opacity_row(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
         let value = self.opacity?;
         let color = self.rgb();
+        let [_, red, green, blue] = color.to_be_bytes();
         let (r, g, b) = (
-            ((color >> 16) & 0xff) as f32 / 255.0,
-            ((color >> 8) & 0xff) as f32 / 255.0,
-            (color & 0xff) as f32 / 255.0,
+            f32::from(red) / 255.0,
+            f32::from(green) / 255.0,
+            f32::from(blue) / 255.0,
         );
         // The bar as last drawn, for the thumb; a guess until it has been drawn once.
         let width = self
@@ -539,7 +542,9 @@ impl ColorPanel {
                     .left(px(value * width - 8.0))
                     .top(px(-2.0)),
             )
-            .child(surface("color-alpha", Drag::Alpha, self.alpha.clone(), cx).cursor_pointer());
+            .child(
+                surface("color-alpha", Drag::Alpha, Rc::clone(&self.alpha), cx).cursor_pointer(),
+            );
         Some(
             div()
                 .flex()
@@ -556,7 +561,7 @@ impl ColorPanel {
                         .justify_end()
                         .text_size(px(crate::tokens::text::small()))
                         .text_color(theme::fg())
-                        .child(format!("{}%", (value * 100.0).round() as u32)),
+                        .child(format!("{}%", f32_to_u32((value * 100.0).round()))),
                 ),
         )
     }

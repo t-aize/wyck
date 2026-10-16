@@ -12,6 +12,7 @@
 //! selection and of the warnings are derived from those.
 
 use std::sync::RwLock;
+use wyck_core::math::f32_of;
 
 use gpui::{Rgba, rgb, rgba};
 
@@ -25,13 +26,17 @@ fn store() -> &'static RwLock<Colors> {
 /// The palette in force.
 pub fn colors() -> Colors {
     // A poisoned lock only means a thread panicked while writing a Copy value: the value is fine.
-    *store().read().unwrap_or_else(|e| e.into_inner())
+    *store()
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Puts a palette in force. The screens read it on their next paint: refresh the windows (see
 /// [`apply`]) to make that now.
 pub(crate) fn set_colors(colors: Colors) {
-    *store().write().unwrap_or_else(|e| e.into_inner()) = colors;
+    *store()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = colors;
 }
 
 fn font_store() -> &'static RwLock<Option<String>> {
@@ -42,7 +47,9 @@ fn font_store() -> &'static RwLock<Option<String>> {
 /// Sets the font of the interface. `None` or a blank name leaves the system's. The screens read it
 /// on their next paint: refresh the windows (see [`apply`]) to make that now.
 pub(crate) fn set_font(name: Option<&str>) {
-    *font_store().write().unwrap_or_else(|e| e.into_inner()) = name
+    *font_store()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = name
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .map(str::to_owned);
@@ -270,10 +277,10 @@ pub fn apply(cx: &mut gpui::App) {
     theme_colors.danger_hover = hsla(destructive()).opacity(0.88);
     theme_colors.danger_active = hsla(destructive()).opacity(0.75);
     theme_colors.danger_foreground = hsla(rgb(
-        if contrast(0x0a0a0a, palette.danger) >= contrast(0xffffff, palette.danger) {
-            0x0a0a0a
+        if contrast(0x0a_0a0a, palette.danger) >= contrast(0xff_ffff, palette.danger) {
+            0x0a_0a0a
         } else {
-            0xffffff
+            0xff_ffff
         },
     ));
     theme_colors.success = hsla(emerald());
@@ -303,11 +310,11 @@ pub fn apply(cx: &mut gpui::App) {
     let theme = Theme::global_mut(cx);
     theme.tokens = theme.colors.into();
     // The root of every window sets its text in the font of the theme.
-    if let Some(name) = font_store()
+    let font = font_store()
         .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
-    {
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    if let Some(name) = font {
         theme.font_family = name.into();
     }
     // Colors are read as they are painted, not through a binding, so no view knows its colors
@@ -323,9 +330,14 @@ pub fn put_in_force(look: &wyck_core::appearance::Look, cx: &mut gpui::App) {
     wyck_core::text_scale::set(look.scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {
-        let _ = window.update(cx, |_, window, _| {
-            window.set_rem_size(gpui::px(16.0 * look.scale as f32 / 100.0));
-        });
+        if window
+            .update(cx, |_, window, _| {
+                window.set_rem_size(gpui::px(16.0 * f32_of(f64::from(look.scale)) / 100.0));
+            })
+            .is_err()
+        {
+            tracing::debug!("a window closed before its text size could follow the scale");
+        }
     }
     set_font(Some(&look.font));
     set_colors(look.colors);
@@ -343,7 +355,7 @@ mod tests {
     fn the_default_palette_is_the_one_of_the_interface() {
         let c = Colors::default();
         assert_eq!(c, Colors::WYCK_DARK);
-        assert_eq!(rgba(c.selected), rgba(0x615fff73));
+        assert_eq!(rgba(c.selected), rgba(0x615f_ff73));
         assert!(luminance(c.bg) < luminance(c.fg), "dark");
         assert!(
             contrast(c.fg, c.bg) >= 7.0 && contrast(c.muted, c.bg) >= 4.5,
@@ -358,35 +370,35 @@ mod tests {
         assert_eq!(dark.chart_text().0, dark.fg);
         // The same theme with a white chart gets dark text and a light tag.
         let white = Colors {
-            chart_bg: 0xffffff,
+            chart_bg: 0xff_ffff,
             ..Colors::WYCK_DARK
         };
         let (fg, muted, tag) = white.chart_text();
-        assert!(contrast(fg, 0xffffff) >= 7.0, "text {fg:x}");
-        assert!(contrast(muted, 0xffffff) >= 4.5, "secondary {muted:x}");
+        assert!(contrast(fg, 0xff_ffff) >= 7.0, "text {fg:x}");
+        assert!(contrast(muted, 0xff_ffff) >= 4.5, "secondary {muted:x}");
         assert!(luminance(tag) > 0.5, "the crosshair tag is light");
         assert!(contrast(fg, tag) >= 4.5, "the text reads on its tag");
         // A light theme on a black chart gets light text.
         let black = Colors {
-            bg: 0xffffff,
-            fg: 0x111111,
-            muted: 0x555555,
-            chart_bg: 0x000000,
+            bg: 0xff_ffff,
+            fg: 0x11_1111,
+            muted: 0x55_5555,
+            chart_bg: 0x00_0000,
             ..Colors::WYCK_DARK
         };
         let (fg, _, tag) = black.chart_text();
-        assert!(contrast(fg, 0x000000) >= 7.0);
+        assert!(contrast(fg, 0x00_0000) >= 7.0);
         assert!(contrast(fg, tag) >= 4.5);
         // Any background: what is drawn on it reads.
         for bg in [
-            0x000000, 0x202020, 0x808080, 0xc0c0c0, 0xffffff, 0xffff00, 0x0000ff,
+            0x00_0000, 0x20_2020, 0x80_8080, 0xc0_c0c0, 0xff_ffff, 0xff_ff00, 0x00_00ff,
         ] {
             for base in [
                 Colors::WYCK_DARK,
                 Colors {
-                    bg: 0xffffff,
-                    fg: 0x111111,
-                    muted: 0x555555,
+                    bg: 0xff_ffff,
+                    fg: 0x11_1111,
+                    muted: 0x55_5555,
                     ..Colors::WYCK_DARK
                 },
             ] {

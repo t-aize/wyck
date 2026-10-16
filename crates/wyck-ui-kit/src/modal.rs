@@ -229,7 +229,7 @@ impl ModalHost {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.shown.as_ref().is_some_and(|s| !s.leaving) || self.under.is_some() {
+        if self.shown.as_ref().is_none_or(|s| s.leaving) || self.under.is_some() {
             self.open(view, options, window, cx);
             return;
         }
@@ -320,9 +320,9 @@ impl ModalHost {
         let (vw, vh) = (f32::from(view.width), f32::from(view.height));
         let pw = shown.options.width.min(vw * MAX_WIDTH_SHARE);
         let ph = shown.options.height.min(vh * MAX_HEIGHT_SHARE);
-        let reach_x = ((vw + pw) / 2.0 - KEEP_VISIBLE).max(0.0);
+        let reach_x = (f32::midpoint(vw, pw) - KEEP_VISIBLE).max(0.0);
         let min_y = -(vh - ph) / 2.0;
-        let max_y = ((vh + ph) / 2.0 - KEEP_HEADER).max(min_y);
+        let max_y = (f32::midpoint(vh, ph) - KEEP_HEADER).max(min_y);
         let dx = f32::from(drag.start.x) + f32::from(event.position.x - drag.origin.x);
         let dy = f32::from(drag.start.y) + f32::from(event.position.y - drag.origin.y);
         self.offset = point(px(dx.clamp(-reach_x, reach_x)), px(dy.clamp(min_y, max_y)));

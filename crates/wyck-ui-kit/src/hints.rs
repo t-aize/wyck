@@ -5,14 +5,15 @@
 //! keys, and an action with no key has no hint.
 
 use std::collections::HashMap;
+use std::hash::BuildHasher;
 use std::sync::RwLock;
 
 static HINTS: RwLock<Option<HashMap<&'static str, String>>> = RwLock::new(None);
 
 /// Replaces what is known about the keys.
-pub fn set(hints: HashMap<&'static str, String>) {
+pub fn set<S: BuildHasher>(hints: HashMap<&'static str, String, S>) {
     if let Ok(mut slot) = HINTS.write() {
-        *slot = Some(hints);
+        *slot = Some(hints.into_iter().collect());
     }
 }
 

@@ -223,6 +223,7 @@ mod tests {
     use wyck_core::text_scale;
 
     use super::*;
+    use wyck_core::math::f32_of;
 
     #[test]
     fn sizes_follow_the_scale_and_the_scale_stays_in_range() {
@@ -235,9 +236,9 @@ mod tests {
         assert_eq!(space::lg(), 24.0);
         assert_eq!(bar::header(), 72.0);
         text_scale::set(10_000);
-        assert_eq!(scaled(100.0), SCALE_MAX as f32);
+        assert_eq!(scaled(100.0), f32_of(f64::from(SCALE_MAX)));
         text_scale::set(1);
-        assert_eq!(scaled(100.0), SCALE_MIN as f32);
+        assert_eq!(scaled(100.0), f32_of(f64::from(SCALE_MIN)));
         text_scale::set(100);
     }
 }

@@ -22,6 +22,6 @@ pub fn tinted(name: IconName, size_px: f32, color: Rgba) -> Svg {
 }
 
 /// A small icon, for a mark beside a name.
-pub fn small(icon: IconName, color: Rgba) -> gpui::Svg {
+pub fn small(icon: IconName, color: Rgba) -> Svg {
     tinted(icon, 13., color)
 }

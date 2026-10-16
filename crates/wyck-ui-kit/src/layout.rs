@@ -50,7 +50,7 @@ pub fn stacked_field(
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(crate::tokens::text::emphasis()))
+                .text_size(px(tokens::text::emphasis()))
                 .text_color(theme::fg())
                 .child(icon::plain(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
@@ -82,7 +82,7 @@ pub fn error_banner(
                 .flex_row()
                 .items_start()
                 .gap_2()
-                .text_size(px(crate::tokens::text::emphasis()))
+                .text_size(px(tokens::text::emphasis()))
                 .text_color(theme::destructive())
                 .child(icon::tinted(
                     IconName::TriangleAlert,
@@ -93,7 +93,7 @@ pub fn error_banner(
         )
         .child(
             div()
-                .text_size(px(crate::tokens::text::body()))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(detail.into()),
         );
@@ -110,7 +110,7 @@ pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl In
         .py(px(2.))
         .rounded_sm()
         .bg(tint)
-        .text_size(px(crate::tokens::text::caption()))
+        .text_size(px(tokens::text::caption()))
         .text_color(color)
         .child(label.into())
 }

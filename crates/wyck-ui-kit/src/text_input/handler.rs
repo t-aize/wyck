@@ -16,7 +16,7 @@ impl EntityInputHandler for TextInput {
     ) -> Option<String> {
         let range = self.range_from_utf16(&range_utf16);
         actual_range.replace(self.range_to_utf16(&range));
-        Some(self.content[range].to_string())
+        self.content.get(range).map(str::to_owned)
     }
 
     fn selected_text_range(
@@ -58,9 +58,13 @@ impl EntityInputHandler for TextInput {
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
 
-        self.content =
-            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
-                .into();
+        let (Some(before), Some(after)) = (
+            self.content.get(..range.start),
+            self.content.get(range.end..),
+        ) else {
+            return;
+        };
+        self.content = format!("{before}{new_text}{after}").into();
         self.selected_range = range.start + new_text.len()..range.start + new_text.len();
         self.marked_range.take();
         cx.notify();
@@ -80,19 +84,25 @@ impl EntityInputHandler for TextInput {
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
 
-        self.content =
-            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
-                .into();
-        if !new_text.is_empty() {
-            self.marked_range = Some(range.start..range.start + new_text.len());
-        } else {
+        let (Some(before), Some(after)) = (
+            self.content.get(..range.start),
+            self.content.get(range.end..),
+        ) else {
+            return;
+        };
+        self.content = format!("{before}{new_text}{after}").into();
+        if new_text.is_empty() {
             self.marked_range = None;
+        } else {
+            self.marked_range = Some(range.start..range.start + new_text.len());
         }
         self.selected_range = new_selected_range_utf16
             .as_ref()
             .map(|range_utf16| self.range_from_utf16(range_utf16))
-            .map(|new_range| new_range.start + range.start..new_range.end + range.end)
-            .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
+            .map_or_else(
+                || range.start + new_text.len()..range.start + new_text.len(),
+                |new_range| new_range.start + range.start..new_range.end + range.end,
+            );
 
         cx.notify();
     }
