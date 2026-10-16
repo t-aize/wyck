@@ -7,7 +7,6 @@
 mod keymap_guard;
 #[cfg(test)]
 mod no_inline_colors;
-pub mod ui;
 
 use std::borrow::Cow;
 
@@ -15,13 +14,13 @@ use gpui::prelude::*;
 use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
-use ui::shell::app_view::AppView;
 use wyck_app::appearance;
 use wyck_app::scripts;
 use wyck_app::updates;
 use wyck_platform::build_info::{self, BuildMode};
 use wyck_platform::logging;
 use wyck_ui_kit::assets;
+use wyck_ui_shell::app_view::AppView;
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -82,7 +81,7 @@ pub fn run() {
                 }
             }
             wyck_ui_editor::init(cx);
-            crate::ui::shell::keymap::apply(&Default::default(), cx);
+            wyck_ui_shell::keymap::apply(&Default::default(), cx);
 
             // Without the bundled font the system's own is used: the app is still usable.
             if let Err(error) = cx
@@ -142,8 +141,8 @@ pub fn run() {
                 return;
             }
 
-            updates::check(cx, Some(ui::shell::settings_hub::announce_update));
-            ui::shell::settings_hub::announce_folders(cx);
+            updates::check(cx, Some(wyck_ui_shell::settings_hub::announce_update));
+            wyck_ui_shell::settings_hub::announce_folders(cx);
 
             cx.activate(true);
         });

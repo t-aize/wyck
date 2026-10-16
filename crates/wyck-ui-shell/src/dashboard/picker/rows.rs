@@ -4,8 +4,8 @@ use gpui::prelude::*;
 use gpui::{Context, FontWeight, MouseMoveEvent, Stateful, div, px};
 
 use super::{RESULT_COLUMN_WIDTH, ROW_HEIGHT};
-use crate::ui::shell::dashboard::catalog::{Class, Entry};
-use crate::ui::shell::dashboard::{Dashboard, lists, marks};
+use crate::dashboard::catalog::{Class, Entry};
+use crate::dashboard::{Dashboard, lists, marks};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{icon, theme, tokens};
 

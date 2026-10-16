@@ -61,23 +61,14 @@ depends = [
 chrono.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 tracing.workspace = true
 wyck-app.workspace = true
-wyck-chart.workspace = true
 wyck-clock.workspace = true
-wyck-core.workspace = true
-wyck-drawings.workspace = true
-wyck-indicators.workspace = true
-wyck-market.workspace = true
 wyck-platform.workspace = true
 wyck-storage.workspace = true
-wyck-trading.workspace = true
-wyck-ui-chart.workspace = true
 wyck-ui-editor.workspace = true
 wyck-ui-kit.workspace = true
-wyck-ui-trading.workspace = true
+wyck-ui-shell.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

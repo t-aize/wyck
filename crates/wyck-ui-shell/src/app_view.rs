@@ -9,9 +9,9 @@ use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, Subscription, Window, div, px,
 };
 
-use crate::ui::shell::dashboard::{AccountInfo, Dashboard, DashboardEvent};
-use crate::ui::shell::locked_frame;
-use crate::ui::shell::sign_in_gate::SignInGate;
+use crate::dashboard::{AccountInfo, Dashboard, DashboardEvent};
+use crate::locked_frame;
+use crate::sign_in_gate::SignInGate;
 use wyck_app::appearance;
 use wyck_app::broker::session::Session;
 use wyck_app::broker::{ConnectionConfig, Environment};

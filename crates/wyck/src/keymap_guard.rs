@@ -14,11 +14,11 @@ const READS_KEYS: &[&str] = &[
     // Up, Down, Enter and Escape in a menu.
     "wyck-ui-kit/src/menu.rs",
     // Up, Down and Enter to choose an account.
-    "wyck/src/ui/shell/sign_in_gate.rs",
+    "wyck-ui-shell/src/sign_in_gate.rs",
     // Escape to give up naming a script.
     "wyck-ui-editor/src/parts/explorer.rs",
     // The key being awaited by the page that sets the shortcuts.
-    "wyck/src/ui/shell/settings_hub/shortcuts.rs",
+    "wyck-ui-shell/src/settings_hub/shortcuts.rs",
 ];
 
 const BY_HAND: &[&str] = &[
@@ -48,6 +48,7 @@ const SCREEN_CRATES: &[&str] = &[
     "wyck-ui-chart/src",
     "wyck-ui-editor/src",
     "wyck-ui-kit/src",
+    "wyck-ui-shell/src",
     "wyck-ui-trading/src",
 ];
 
@@ -75,13 +76,13 @@ fn sources() -> Vec<(String, String)> {
 fn every_binding_is_declared_in_the_table_of_the_keymap() {
     let strays: Vec<String> = sources()
         .into_iter()
-        .filter(|(name, _)| name != "wyck/src/ui/shell/keymap.rs")
+        .filter(|(name, _)| name != "wyck-ui-shell/src/keymap.rs")
         .filter(|(_, text)| text.contains("KeyBinding::new(") || text.contains(".bind_keys("))
         .map(|(name, _)| name)
         .collect();
     assert!(
         strays.is_empty(),
-        "bindings outside ui/shell/keymap.rs (declare them in its table): {strays:?}"
+        "bindings outside wyck-ui-shell/src/keymap.rs (declare them in its table): {strays:?}"
     );
 }
 
@@ -91,7 +92,7 @@ fn keys_read_by_hand_are_told_in_the_keymap() {
     let undeclared: Vec<&str> = sources
         .iter()
         .filter(|(name, text)| {
-            name != "wyck/src/ui/shell/keymap.rs"
+            name != "wyck-ui-shell/src/keymap.rs"
                 && !READS_KEYS.contains(&name.as_str())
                 && BY_HAND.iter().any(|p| text.contains(p))
         })

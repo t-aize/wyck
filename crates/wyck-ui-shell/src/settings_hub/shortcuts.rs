@@ -11,7 +11,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div, px};
 
 use super::{IconName, SettingsHub, button, form, theme, tokens};
-use crate::ui::shell::keymap::{self, Def, Group, Kind};
+use crate::keymap::{self, Def, Group, Kind};
 use wyck_app::shortcuts::{Chord, ChordError, Held, MAX_KEYS_PER_ACTION, clashes, taken_by};
 use wyck_ui_kit::input::InputState;
 

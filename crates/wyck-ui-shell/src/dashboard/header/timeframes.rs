@@ -2,7 +2,7 @@
 
 use super::CUSTOM_TIMEFRAME_WIDTH;
 
-use crate::ui::shell::dashboard::{Dashboard, MenuKind};
+use crate::dashboard::{Dashboard, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use wyck_ui_chart::chart;
@@ -85,11 +85,7 @@ impl Dashboard {
 
     /// Moves the active chart to the next (`longer`) or previous timeframe of the favorites,
     /// going round at the ends.
-    pub(in crate::ui::shell::dashboard) fn step_timeframe(
-        &mut self,
-        longer: bool,
-        cx: &mut Context<Self>,
-    ) {
+    pub(in crate::dashboard) fn step_timeframe(&mut self, longer: bool, cx: &mut Context<Self>) {
         let list: Vec<chart::Timeframe> = self
             .workspace
             .read(cx)

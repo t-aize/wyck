@@ -107,18 +107,13 @@ impl Render for Dashboard {
             cx,
         )
         .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
-            crate::ui::shell::settings_hub::open(
-                this.workspace.clone(),
-                this.multi.clone(),
-                window,
-                cx,
-            );
+            crate::settings_hub::open(this.workspace.clone(), this.multi.clone(), window, cx);
         }))
         .on_action(cx.listener(|this, _: &OpenShortcuts, window, cx| {
-            crate::ui::shell::settings_hub::open_at(
+            crate::settings_hub::open_at(
                 this.workspace.clone(),
                 this.multi.clone(),
-                crate::ui::shell::settings_hub::Page::Shortcuts,
+                crate::settings_hub::Page::Shortcuts,
                 window,
                 cx,
             );

@@ -2,7 +2,7 @@
 
 use super::{CHARTS_MIN, PANEL_MIN, bars};
 
-use crate::ui::shell::dashboard::Dashboard;
+use crate::dashboard::Dashboard;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, div, px};
 use wyck_app::prefs::ticket::{Dock, WIDTH_DEFAULT};
@@ -10,7 +10,7 @@ use wyck_ui_kit::theme;
 
 impl Dashboard {
     /// The charts with the ticket beside them, and the account panel under both.
-    pub(in crate::ui::shell::dashboard) fn trading_layout(
+    pub(in crate::dashboard) fn trading_layout(
         &self,
         charts: gpui::AnyElement,
         cx: &mut Context<Self>,

@@ -274,11 +274,7 @@ impl Dashboard {
                 IconName::Settings2,
                 None,
                 |d, window, cx| {
-                    d.open_settings_page(
-                        crate::ui::shell::settings_hub::Page::Indicators,
-                        window,
-                        cx,
-                    );
+                    d.open_settings_page(crate::settings_hub::Page::Indicators, window, cx);
                 },
             )]),
         ]);
@@ -315,16 +311,10 @@ impl Dashboard {
     /// Opens the settings on `page`.
     pub(super) fn open_settings_page(
         &mut self,
-        page: crate::ui::shell::settings_hub::Page,
+        page: crate::settings_hub::Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        crate::ui::shell::settings_hub::open_at(
-            self.workspace.clone(),
-            self.multi.clone(),
-            page,
-            window,
-            cx,
-        );
+        crate::settings_hub::open_at(self.workspace.clone(), self.multi.clone(), page, window, cx);
     }
 }

@@ -57,7 +57,7 @@ fn bars() -> f32 {
 
 impl Dashboard {
     /// Creates the ticket (which needs the window) and runs what waited for it.
-    pub(in crate::ui::shell::dashboard) fn trading_frame(
+    pub(in crate::dashboard) fn trading_frame(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -184,7 +184,7 @@ impl Dashboard {
     }
 
     /// The lines of the account, the alerts and the ticket, handed to the charts.
-    pub(in crate::ui::shell::dashboard) fn push_lines(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn push_lines(&mut self, cx: &mut Context<Self>) {
         let account = self.trading.read(cx);
         let mut lines = trading::lines(
             &account.book,
@@ -207,7 +207,7 @@ impl Dashboard {
 
     /// The keyboard shortcuts of the ticket: Alt+B and Alt+S pick a side, Ctrl+Enter sends the
     /// order the way the send button does (with its confirmation, unless one-click is on).
-    pub(in crate::ui::shell::dashboard) fn ticket_key(
+    pub(in crate::dashboard) fn ticket_key(
         &mut self,
         side: Option<bool>,
         window: &mut Window,
@@ -226,7 +226,7 @@ impl Dashboard {
     }
 
     /// The panic button: asks, then closes every open position. Working orders stay.
-    pub(in crate::ui::shell::dashboard) fn ask_close_all(
+    pub(in crate::dashboard) fn ask_close_all(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -253,7 +253,7 @@ impl Dashboard {
     }
 
     /// Asks, then cancels every working order. Positions stay open.
-    pub(in crate::ui::shell::dashboard) fn ask_cancel_all(
+    pub(in crate::dashboard) fn ask_cancel_all(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -286,7 +286,7 @@ impl Dashboard {
     }
 
     /// Turns the kill switch on or off: while it is on, no new order can be sent.
-    pub(in crate::ui::shell::dashboard) fn toggle_kill_switch(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn toggle_kill_switch(&mut self, cx: &mut Context<Self>) {
         let on = !self.workspace.read(cx).preferences().risk.kill_switch;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.risk.kill_switch = on);
@@ -312,18 +312,14 @@ impl Dashboard {
     }
 
     /// Hands the safety limits and the zone the day is counted in to the account.
-    pub(in crate::ui::shell::dashboard) fn sync_risk(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn sync_risk(&mut self, cx: &mut Context<Self>) {
         let prefs = self.workspace.read(cx).preferences();
         let (risk, zone) = (prefs.risk.clone(), prefs.chart.zone);
         self.trading
             .update(cx, |account, cx| account.set_risk(risk, zone, cx));
     }
 
-    pub(in crate::ui::shell::dashboard) fn set_ticket_open(
-        &mut self,
-        open: bool,
-        cx: &mut Context<Self>,
-    ) {
+    pub(in crate::dashboard) fn set_ticket_open(&mut self, open: bool, cx: &mut Context<Self>) {
         self.ticket_open = open;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.ticket_open = open);
@@ -332,11 +328,7 @@ impl Dashboard {
         cx.notify();
     }
 
-    pub(in crate::ui::shell::dashboard) fn set_panel_open(
-        &mut self,
-        open: bool,
-        cx: &mut Context<Self>,
-    ) {
+    pub(in crate::dashboard) fn set_panel_open(&mut self, open: bool, cx: &mut Context<Self>) {
         self.panel_open = open;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.panel_open = open);
@@ -344,7 +336,7 @@ impl Dashboard {
         cx.notify();
     }
 
-    pub(in crate::ui::shell::dashboard) fn on_panel_event(
+    pub(in crate::dashboard) fn on_panel_event(
         &mut self,
         event: &PanelEvent,
         cx: &mut Context<Self>,
@@ -361,7 +353,7 @@ impl Dashboard {
     }
 
     /// Puts a symbol on the active chart.
-    pub(in crate::ui::shell::dashboard) fn show_symbol(&mut self, id: i64, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn show_symbol(&mut self, id: i64, cx: &mut Context<Self>) {
         let entry = match &self.catalog {
             super::Load::Ready(catalog) => catalog.by_id(id).cloned(),
             _ => None,
@@ -373,7 +365,7 @@ impl Dashboard {
     }
 
     /// What a chart asked for.
-    pub(in crate::ui::shell::dashboard) fn on_chart_action(
+    pub(in crate::dashboard) fn on_chart_action(
         &mut self,
         symbol: &SymbolRef,
         action: &ChartAction,
@@ -403,7 +395,7 @@ impl Dashboard {
     }
 
     /// A line was dragged on a chart.
-    pub(in crate::ui::shell::dashboard) fn on_line_moved(
+    pub(in crate::dashboard) fn on_line_moved(
         &mut self,
         id: LineId,
         price: f64,
@@ -468,11 +460,7 @@ impl Dashboard {
     }
 
     /// The close button of a line was clicked.
-    pub(in crate::ui::shell::dashboard) fn on_line_closed(
-        &mut self,
-        id: LineId,
-        cx: &mut Context<Self>,
-    ) {
+    pub(in crate::dashboard) fn on_line_closed(&mut self, id: LineId, cx: &mut Context<Self>) {
         match id {
             LineId::Position(position) => self.pending.push(Pending::ClosePosition(position)),
             LineId::Order(order) => self.trading.update(cx, |a, cx| a.cancel_order(order, cx)),

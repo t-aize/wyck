@@ -308,7 +308,7 @@ impl Dashboard {
             .detach();
         let prefs = workspace.read(cx).preferences().clone();
         // The keys the user chose, over the defaults bound at the start.
-        crate::ui::shell::keymap::apply(&prefs.shortcuts, cx);
+        crate::keymap::apply(&prefs.shortcuts, cx);
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),

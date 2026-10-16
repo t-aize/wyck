@@ -53,7 +53,7 @@ actions!(
 /// The key context of the editor's panel.
 pub const CONTEXT: &str = "IndicatorEditor";
 
-/// Prepares the editor. Call once, at startup. Its key bindings are in `ui::shell::keymap`.
+/// Prepares the editor. Call once, at startup. Its key bindings are in `wyck_ui_shell::keymap`.
 pub fn init(cx: &mut App) {
     // Brackets and double quotes close themselves. Single quotes do not: they are apostrophes in a
     // comment far more often than they are a character.

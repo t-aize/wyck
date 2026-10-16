@@ -8,7 +8,7 @@ use crate::keymap_guard::rust_files;
 /// Files that may hold color literals: the brand colors of the symbol marks, the palette, and
 /// the color picker.
 const ALLOWED: &[&str] = &[
-    "src/ui/shell/dashboard/marks.rs",
+    "wyck-ui-shell/src/dashboard/marks.rs",
     "wyck-ui-kit/src/theme.rs",
     "wyck-ui-kit/src/color_picker.rs",
     "wyck-ui-kit/src/color_picker/math.rs",
@@ -40,7 +40,7 @@ fn screens_read_their_colors_from_the_theme() {
     for dir in [
         "../wyck-ui-trading/src",
         "../wyck-ui-editor/src",
-        "src/ui/shell",
+        "../wyck-ui-shell/src",
         "../wyck-ui-chart/src/multichart",
         "../wyck-ui-kit/src",
     ] {

@@ -1,6 +1,6 @@
 //! The account menu that hangs from the header, and the figures in it.
 
-use crate::ui::shell::dashboard::{Conn, Dashboard, DashboardEvent, MenuKind};
+use crate::dashboard::{Conn, Dashboard, DashboardEvent, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, div, px};
 use wyck_ui_kit::icon::IconName;
@@ -55,7 +55,7 @@ impl Dashboard {
     }
 
     /// The menu under the account: its figures, and disconnecting.
-    pub(in crate::ui::shell::dashboard) fn render_menu(
+    pub(in crate::dashboard) fn render_menu(
         &self,
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
@@ -92,7 +92,7 @@ impl Dashboard {
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.close_menus();
                         cx.notify();
-                        crate::ui::shell::settings_hub::open(
+                        crate::settings_hub::open(
                             this.workspace.clone(),
                             this.multi.clone(),
                             window,

@@ -9825,25 +9825,16 @@ dependencies = [
  "chrono",
  "gpui-kit",
  "gpui-pre",
- "serde",
- "serde_json",
  "tempfile",
  "tracing",
  "winresource",
  "wyck-app",
- "wyck-chart",
  "wyck-clock",
- "wyck-core",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
  "wyck-platform",
  "wyck-storage",
- "wyck-trading",
- "wyck-ui-chart",
  "wyck-ui-editor",
  "wyck-ui-kit",
- "wyck-ui-trading",
+ "wyck-ui-shell",
 ]
 
 [[package]]
@@ -10059,6 +10050,29 @@ dependencies = [
  "tracing",
  "unicode-segmentation",
  "wyck-core",
+]
+
+[[package]]
+name = "wyck-ui-shell"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "gpui-pre",
+ "serde",
+ "serde_json",
+ "tracing",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-clock",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-chart",
+ "wyck-ui-editor",
+ "wyck-ui-kit",
+ "wyck-ui-trading",
 ]
 
 [[package]]

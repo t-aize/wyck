@@ -1,7 +1,7 @@
 //! The keys of the actions, as the screens write them in tooltips and menus.
 //!
 //! The shortcuts can be changed, so a hint cannot be typed into the screen that shows it: it asks
-//! here, and gets the keys in force now. `ui::shell::keymap` fills this in whenever it binds the
+//! here, and gets the keys in force now. `wyck_ui_shell::keymap` fills this in whenever it binds the
 //! keys, and an action with no key has no hint.
 
 use std::collections::HashMap;

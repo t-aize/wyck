@@ -2,7 +2,7 @@
 
 use super::Pending;
 
-use crate::ui::shell::dashboard::Dashboard;
+use crate::dashboard::Dashboard;
 use gpui::Context;
 use wyck_app::alerts;
 use wyck_app::market_data::now_ms;
@@ -15,7 +15,7 @@ impl Dashboard {
     /// Gives the alerts what they read from the account: how the symbols they watch are written
     /// (from the contracts, which are asked for when they are not known yet) and, for the ones on
     /// a profit, what the positions make now.
-    pub(in crate::ui::shell::dashboard) fn feed_alerts(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn feed_alerts(&mut self, cx: &mut Context<Self>) {
         let symbols = self.alerts.read(cx).symbols();
         for id in symbols {
             self.trading
@@ -38,7 +38,7 @@ impl Dashboard {
     }
 
     /// An alert fired or ran out: says so, with the buttons that help.
-    pub(in crate::ui::shell::dashboard) fn on_alert_event(
+    pub(in crate::dashboard) fn on_alert_event(
         &mut self,
         event: &alerts::AlertsEvent,
         cx: &mut Context<Self>,
@@ -118,7 +118,7 @@ impl Dashboard {
 
     /// Adds an alert on `symbol` at `price` and opens it, so its condition and message can be
     /// set straight away.
-    pub(in crate::ui::shell::dashboard) fn add_alert(
+    pub(in crate::dashboard) fn add_alert(
         &mut self,
         symbol: &SymbolRef,
         price: f64,
@@ -164,7 +164,7 @@ impl Dashboard {
     }
 
     /// Adds an alert on an indicator or a drawing and opens it, so its condition can be set.
-    pub(in crate::ui::shell::dashboard) fn add_alert_on(
+    pub(in crate::dashboard) fn add_alert_on(
         &mut self,
         symbol: &SymbolRef,
         seed: &wyck_ui_chart::chart::events::AlertSeed,
@@ -238,7 +238,7 @@ impl Dashboard {
     }
 
     /// An alert at the active chart's last price.
-    pub(in crate::ui::shell::dashboard) fn add_alert_here(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::dashboard) fn add_alert_here(&mut self, cx: &mut Context<Self>) {
         let chart = self.multi.read(cx).active_chart().clone();
         let Some(symbol) = self.multi.read(cx).active_symbol(cx) else {
             return;

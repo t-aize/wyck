@@ -1,0 +1,34 @@
+[package]
+name = "wyck-ui-shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "The frame of the Wyck window: the dashboard that lays out the screens, the settings, the sign-in gate and the keyboard shortcuts."
+
+[dependencies]
+chrono.workspace = true
+gpui.workspace = true
+tracing.workspace = true
+wyck-app.workspace = true
+wyck-chart.workspace = true
+wyck-clock.workspace = true
+wyck-core.workspace = true
+wyck-drawings.workspace = true
+wyck-indicators.workspace = true
+wyck-market.workspace = true
+wyck-trading.workspace = true
+wyck-ui-chart.workspace = true
+wyck-ui-editor.workspace = true
+wyck-ui-kit.workspace = true
+wyck-ui-trading.workspace = true
+
+[dev-dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

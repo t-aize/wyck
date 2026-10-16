@@ -38,7 +38,7 @@ impl SettingsHub {
         cx.notify();
     }
 
-    pub(in crate::ui::shell::settings_hub) fn font_group(
+    pub(in crate::settings_hub) fn font_group(
         &self,
         a: &appearance::Appearance,
         cx: &mut Context<Self>,
@@ -65,7 +65,7 @@ impl SettingsHub {
     }
 
     /// A small drawing of candles in the colors in force, to see a change before leaving.
-    pub(in crate::ui::shell::settings_hub) fn candle_preview(&self) -> AnyElement {
+    pub(in crate::settings_hub) fn candle_preview(&self) -> AnyElement {
         let c = theme::colors();
         // (rising, body height, wick above, wick below)
         let shape: [(bool, f32, f32, f32); 16] = [
