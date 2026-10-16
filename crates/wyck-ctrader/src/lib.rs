@@ -120,8 +120,9 @@
 //! Everything above the wire is covered by tests with a local mock server (`cargo test -p
 //! wyck-ctrader`). The examples in `crates/wyck-ctrader/examples` run the same calls against a real
 //! demo account; nothing automated does. Two points are open: whether the OAuth consent page echoes
-//! `state` back (checked by `auth::AuthorizationCode::state_echoed` during sign in, which needs a
-//! real sign in through a browser), and how long a broker keeps ticks (a demo account's retention
+//! `state` back (the sign in refuses a redirect without it, see `auth::CallbackListener`; if the
+//! real page does not echo it, `allow_missing_state` is the one switch, and it needs a real sign in
+//! through a browser to find out), and how long a broker keeps ticks (a demo account's retention
 //! is not documented).
 
 mod account;

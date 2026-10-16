@@ -23,9 +23,12 @@
 //! It answers the first request that carries a `code` (or an `error`) and ignores others (the
 //! browser's request for `/favicon.ico`, a port scan) with a 404, then keeps waiting. A request
 //! whose `state` does not match the expected one is rejected the same way: it did not come from the
-//! consent page this call opened. If the redirect carries no `state` at all it is accepted and
-//! [`AuthorizationCode::state_echoed`] is `false`, because the server's documentation does not say
-//! that it echoes the parameter; a caller that wants to be strict can refuse such a code.
+//! consent page this call opened. So is a request with a code and no `state` at all: any page or
+//! program on the machine can send one to the fixed port, and signing in with a code the user did
+//! not ask for would put the user on someone else's account. RFC 6749 (4.1.2) makes the server echo
+//! the `state` it was given, so a real redirect always has it. If a server is found that does not,
+//! [`CallbackListener::allow_missing_state`] restores the old behaviour for that server, and
+//! [`AuthorizationCode::state_echoed`] tells whether the check was made.
 
 use std::time::Duration;
 
@@ -82,6 +85,7 @@ impl AuthorizationCode {
 pub struct CallbackListener {
     listener: TcpListener,
     port: u16,
+    allow_missing_state: bool,
 }
 
 impl CallbackListener {
@@ -104,7 +108,20 @@ impl CallbackListener {
             .map_err(|e| Error::Transport(e.to_string()))?
             .port();
         debug!(port, "listening for the OAuth sign in redirect");
-        Ok(Self { listener, port })
+        Ok(Self {
+            listener,
+            port,
+            allow_missing_state: false,
+        })
+    }
+
+    /// Accepts a redirect that carries a code but no `state`, for a server that does not echo it.
+    /// The code is then flagged: [`AuthorizationCode::state_echoed`] is `false`. Off by default,
+    /// because anything on the machine can send a code to this port.
+    #[must_use]
+    pub fn allow_missing_state(mut self) -> Self {
+        self.allow_missing_state = true;
+        self
     }
 
     /// The port being listened on.
@@ -151,7 +168,7 @@ impl CallbackListener {
                 respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
                 continue;
             };
-            match parse_redirect(&head, expected_state) {
+            match parse_redirect(&head, expected_state, self.allow_missing_state) {
                 Redirect::Code(code) => {
                     if !code.state_echoed() {
                         warn!("the redirect carried no state to check; accepted the code anyway");
@@ -167,6 +184,13 @@ impl CallbackListener {
                     warn!(%reason, "the sign in redirect denied access");
                     respond(&mut stream, "200 OK", FAILURE_PAGE).await;
                     return Err(Error::Auth(reason));
+                }
+                Redirect::MissingState => {
+                    warn!(
+                        "ignored a redirect with no state: it cannot be told from a request that \
+                         did not come from the consent page"
+                    );
+                    respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
                 }
                 Redirect::Ignore => {
                     debug!(
@@ -217,12 +241,14 @@ enum Redirect {
     Code(AuthorizationCode),
     /// The user refused, or the server reported an error.
     Denied(String),
+    /// A code or an error without the `state` that was asked for.
+    MissingState,
     /// Anything else.
     Ignore,
 }
 
 /// Reads a request head as a redirect. Pure, so the rules are tested without a socket.
-fn parse_redirect(head: &str, expected_state: &str) -> Redirect {
+fn parse_redirect(head: &str, expected_state: &str, allow_missing_state: bool) -> Redirect {
     let Some(line) = head.lines().next() else {
         return Redirect::Ignore;
     };
@@ -235,11 +261,15 @@ fn parse_redirect(head: &str, expected_state: &str) -> Redirect {
     };
     let query: std::collections::HashMap<String, String> = url.query_pairs().into_owned().collect();
 
-    // A state that is present must match; one that is absent is allowed (see the module docs).
+    // A state that is present must match; one that is absent is refused unless the caller allowed
+    // it (see the module docs). A request with neither a code nor an error is just noise.
     let state_echoed = match query.get("state") {
         Some(state) if state == expected_state => true,
-        Some(_) => return Redirect::Ignore,
-        None => false,
+        None if allow_missing_state => false,
+        None if query.get("code").is_some_and(|c| !c.is_empty()) || query.contains_key("error") => {
+            return Redirect::MissingState;
+        }
+        Some(_) | None => return Redirect::Ignore,
     };
     if let Some(error) = query.get("error") {
         let detail = query
@@ -271,7 +301,7 @@ mod tests {
 
     #[test]
     fn a_redirect_with_a_matching_state_gives_the_code() {
-        match parse_redirect("GET /?code=abc123&state=s1 HTTP/1.1\r\n\r\n", "s1") {
+        match parse_redirect("GET /?code=abc123&state=s1 HTTP/1.1\r\n\r\n", "s1", false) {
             Redirect::Code(c) => {
                 assert_eq!(c.code(), "abc123");
                 assert!(c.state_echoed());
@@ -281,8 +311,21 @@ mod tests {
     }
 
     #[test]
-    fn a_redirect_without_a_state_is_accepted_and_flagged() {
-        match parse_redirect("GET /?code=abc HTTP/1.1\r\n\r\n", "s1") {
+    fn a_redirect_without_a_state_is_refused() {
+        for head in [
+            "GET /?code=abc HTTP/1.1\r\n\r\n",
+            "GET /?error=access_denied HTTP/1.1\r\n\r\n",
+        ] {
+            assert!(
+                matches!(parse_redirect(head, "s1", false), Redirect::MissingState),
+                "{head:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_redirect_without_a_state_is_accepted_and_flagged_when_allowed() {
+        match parse_redirect("GET /?code=abc HTTP/1.1\r\n\r\n", "s1", true) {
             Redirect::Code(c) => assert!(!c.state_echoed()),
             other => panic!("{other:?}"),
         }
@@ -291,7 +334,7 @@ mod tests {
     #[test]
     fn a_wrong_state_is_not_accepted() {
         assert!(matches!(
-            parse_redirect("GET /?code=abc&state=other HTTP/1.1\r\n\r\n", "s1"),
+            parse_redirect("GET /?code=abc&state=other HTTP/1.1\r\n\r\n", "s1", false),
             Redirect::Ignore
         ));
     }
@@ -301,6 +344,7 @@ mod tests {
         match parse_redirect(
             "GET /?error=access_denied&error_description=No&state=s1 HTTP/1.1\r\n\r\n",
             "s1",
+            false,
         ) {
             Redirect::Denied(text) => {
                 assert!(text.contains("access_denied") && text.contains("No"));
@@ -319,7 +363,7 @@ mod tests {
             "garbage",
         ] {
             assert!(
-                matches!(parse_redirect(head, "s1"), Redirect::Ignore),
+                matches!(parse_redirect(head, "s1", false), Redirect::Ignore),
                 "{head:?}"
             );
         }
@@ -327,7 +371,7 @@ mod tests {
 
     #[test]
     fn a_code_with_url_encoding_is_decoded() {
-        match parse_redirect("GET /?code=a%2Fb%3D&state=s HTTP/1.1\r\n\r\n", "s") {
+        match parse_redirect("GET /?code=a%2Fb%3D&state=s HTTP/1.1\r\n\r\n", "s", false) {
             Redirect::Code(c) => assert_eq!(c.code(), "a/b="),
             other => panic!("{other:?}"),
         }
@@ -358,6 +402,17 @@ mod tests {
         let waiting = tokio::spawn(listener.wait("real", Duration::from_secs(5)));
         let forged = get(port, "/?code=EVIL&state=fake").await;
         assert!(forged.starts_with("HTTP/1.1 404"));
+        get(port, "/?code=GOOD&state=real").await;
+        assert_eq!(waiting.await.unwrap().unwrap().code(), "GOOD");
+    }
+
+    #[tokio::test]
+    async fn a_code_without_a_state_does_not_end_the_wait() {
+        let listener = CallbackListener::bind(0).await.unwrap();
+        let port = listener.port();
+        let waiting = tokio::spawn(listener.wait("real", Duration::from_secs(5)));
+        let forged = get(port, "/?code=EVIL").await;
+        assert!(forged.starts_with("HTTP/1.1 400"), "{forged}");
         get(port, "/?code=GOOD&state=real").await;
         assert_eq!(waiting.await.unwrap().unwrap().code(), "GOOD");
     }

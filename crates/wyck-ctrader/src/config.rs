@@ -44,7 +44,8 @@ impl Environment {
 /// asks for; every field can be changed.
 #[derive(Debug, Clone)]
 pub struct ConnectionConfig {
-    /// The WebSocket address to connect to (`wss://...`, or `ws://...` for a local test server).
+    /// The WebSocket address to connect to: `wss://...`, or `ws://...` to this machine only (a
+    /// local test server). The credentials travel on this connection, so no clear text leaves it.
     pub url: String,
     /// How long the connection attempt may take.
     pub connect_timeout: Duration,
@@ -107,8 +108,8 @@ impl ConnectionConfig {
     /// or the heartbeat is not under the server's 10 second silence limit.
     pub(crate) fn validate(&self) -> crate::Result<()> {
         let bad = |what: &str| Err(crate::Error::Config(what.to_owned()));
-        if !(self.url.starts_with("wss://") || self.url.starts_with("ws://")) {
-            return bad("the address must start with wss:// or ws://");
+        if !is_acceptable_address(&self.url) {
+            return bad("the address must be wss://, or ws:// to this machine only");
         }
         if self.standard_rate == 0 || self.historical_rate == 0 {
             return bad("a request rate must be at least 1 per second");
@@ -131,6 +132,28 @@ impl ConnectionConfig {
             return bad("the event capacity must be at least 1");
         }
         Ok(())
+    }
+}
+
+/// Whether `address` may carry the credentials: any `wss://`, and `ws://` only when the host is
+/// the loopback address of this machine.
+fn is_acceptable_address(address: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(address) else {
+        return false;
+    };
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    match url.scheme() {
+        "wss" => true,
+        "ws" => {
+            let host = host.trim_start_matches('[').trim_end_matches(']');
+            host.eq_ignore_ascii_case("localhost")
+                || host
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        }
+        _ => false,
     }
 }
 
@@ -160,6 +183,33 @@ impl ClientCredentials {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clear_text_is_for_this_machine_only() {
+        for good in [
+            "wss://demo.ctraderapi.com:5036",
+            "ws://127.0.0.1:9000",
+            "ws://localhost:9000/x",
+            "ws://[::1]:9000",
+        ] {
+            assert!(
+                ConnectionConfig::with_url(good).validate().is_ok(),
+                "{good}"
+            );
+        }
+        for bad in [
+            "ws://demo.ctraderapi.com:5036",
+            "ws://192.168.1.10:9000",
+            "ws://localhost.evil.example:9000",
+            "ws://127.0.0.1.evil.example",
+            "http://127.0.0.1",
+            "wss://",
+            "not a url",
+            "",
+        ] {
+            assert!(ConnectionConfig::with_url(bad).validate().is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn environments_have_their_own_host_and_the_json_port() {
