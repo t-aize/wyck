@@ -153,6 +153,10 @@ impl ScaleMargin {
 
 /// The lines and tags the chart draws for the price itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct PriceLines {
     /// The dotted line across the chart at the newest price.
     #[serde(default = "wyck_core::defaults::yes")]
@@ -190,6 +194,10 @@ impl Default for PriceLines {
 /// What the legend shows: its first line (the symbol always shows, since it is the button that
 /// changes it) and the lines of the indicators under it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct StatusLine {
     /// The open, high, low and close of the bar under the pointer.
     #[serde(default = "wyck_core::defaults::yes")]
@@ -222,6 +230,10 @@ impl Default for StatusLine {
 
 /// Which of the lines handed in by trading show on the prices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct TradingLines {
     #[serde(default = "wyck_core::defaults::yes")]
     pub orders: bool,
@@ -247,7 +259,7 @@ impl Default for TradingLines {
 
 impl TradingLines {
     /// Whether the line `id` shows.
-    pub fn shows(&self, id: super::lines::LineId) -> bool {
+    pub fn shows(self, id: super::lines::LineId) -> bool {
         use super::lines::LineId;
         match id {
             LineId::Order(_) => self.orders,
@@ -274,7 +286,7 @@ mod tests {
         assert!(!colors.any());
         assert_eq!(toml::to_string(&colors).unwrap(), "");
         let set = ChartColors {
-            up: Some(0x112233),
+            up: Some(0x11_2233),
             ..ChartColors::default()
         };
         assert!(set.any());

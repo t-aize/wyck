@@ -17,10 +17,11 @@ pub struct Hsla {
 }
 
 pub(crate) fn rgb(hex: u32) -> Rgba {
+    let [_, red, green, blue] = hex.to_be_bytes();
     Rgba {
-        r: ((hex >> 16) & 0xff) as f32 / 255.0,
-        g: ((hex >> 8) & 0xff) as f32 / 255.0,
-        b: (hex & 0xff) as f32 / 255.0,
+        r: f32::from(red) / 255.0,
+        g: f32::from(green) / 255.0,
+        b: f32::from(blue) / 255.0,
         a: 1.0,
     }
 }
@@ -44,12 +45,16 @@ pub(crate) fn transparent_black() -> Hsla {
 }
 
 impl From<Rgba> for Hsla {
+    #[expect(
+        clippy::float_cmp,
+        reason = "`max` is one of `r`, `g` and `b` picked with `f32::max`, and `l` is exactly 0 or 1 only for black and white, so these comparisons are exact"
+    )]
     fn from(color: Rgba) -> Self {
         let Rgba { r, g, b, a } = color;
         let max = r.max(g.max(b));
         let min = r.min(g.min(b));
         let delta = max - min;
-        let l = (max + min) / 2.0;
+        let l = f32::midpoint(max, min);
         let s = if l == 0.0 || l == 1.0 {
             0.0
         } else if l < 0.5 {

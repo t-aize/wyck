@@ -6,6 +6,8 @@ use super::{
 };
 use crate::axis;
 use crate::data::Series;
+use wyck_core::math::{count_f64, f32_of, f64_to_usize, i64_to_f64};
+use wyck_drawings::look::Face;
 use wyck_drawings::model::style::Dash;
 use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;
@@ -13,9 +15,9 @@ use wyck_market::Timeframe;
 /// The solid strips of the two axes and the lines that set them off.
 pub(super) fn axes_background(frame: &Frame<'_>, geometry: &Geometry) -> Cmd {
     let (ox, oy) = frame.origin;
-    let plot_w = geometry.plot_w() as f32;
-    let plot_h = geometry.plot_h() as f32;
-    let (w, h) = (frame.w as f32, frame.h as f32);
+    let plot_w = f32_of(geometry.plot_w());
+    let plot_h = f32_of(geometry.plot_h());
+    let (w, h) = (f32_of(frame.w), f32_of(frame.h));
     let p = frame.palette;
     let one = 1.0 / frame.scale;
     let rect = |x: f32, y: f32, rw: f32, rh: f32, c: Hsla| Cmd::Rect {
@@ -97,11 +99,11 @@ pub(super) fn day_breaks(frame: &Frame<'_>, first: usize, last: usize) -> Vec<us
 pub(super) fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     let p = cx.f.palette;
     let lines = cx.f.settings.price_lines;
-    let (x0, x1) = (cx.ox, cx.ox + cx.plot_w as f32);
+    let (x0, x1) = (cx.ox, cx.ox + f32_of(cx.plot_w));
     if lines.previous_close
         && let Some(close) = previous_close(cx.f.raw, cx.f.settings.zone)
     {
-        let y = cx.snap(cx.y(close as f64)) + 0.5;
+        let y = cx.snap(cx.y(i64_to_f64(close))) + 0.5;
         out.push(Cmd::Stroke {
             points: vec![(x0, y), (x1, y)],
             width: 1.0,
@@ -112,8 +114,8 @@ pub(super) fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     if let Some(ask) = cx.f.ask.filter(|_| lines.ask_line) {
         out.push(Cmd::Stroke {
             points: vec![
-                (x0, cx.snap(cx.y(ask as f64)) + 0.5),
-                (x1, cx.snap(cx.y(ask as f64)) + 0.5),
+                (x0, cx.snap(cx.y(i64_to_f64(ask))) + 0.5),
+                (x1, cx.snap(cx.y(i64_to_f64(ask))) + 0.5),
             ],
             width: 1.0,
             color: with_alpha(p.text, 0.35),
@@ -122,7 +124,7 @@ pub(super) fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     }
     if let Some(price) = cx.f.raw.last_price().filter(|_| lines.last_line) {
         let c = with_alpha(cx.up_color(last_is_up(cx.f.raw)), 0.8);
-        let y = cx.snap(cx.y(price as f64)) + 0.5;
+        let y = cx.snap(cx.y(i64_to_f64(price))) + 0.5;
         out.push(Cmd::Stroke {
             points: vec![(x0, y), (x1, y)],
             width: 1.0,
@@ -163,15 +165,15 @@ pub(super) fn draw_axis_tags(
     pointer_out: &mut Vec<Cmd>,
 ) {
     let p = cx.f.palette;
-    let axis_x = cx.ox + cx.plot_w as f32 + 1.0;
+    let axis_x = cx.ox + f32_of(cx.plot_w) + 1.0;
     let main = geometry.main();
     let clamp_y = |band: &Band, y: f32| {
-        let top = cx.oy + band.top as f32 + 9.0;
-        let bottom = cx.oy + band.bottom() as f32 - 9.0;
+        let top = cx.oy + f32_of(band.top) + 9.0;
+        let bottom = cx.oy + f32_of(band.bottom()) - 9.0;
         if top <= bottom {
             y.clamp(top, bottom)
         } else {
-            (top + bottom) / 2.0
+            f32::midpoint(top, bottom)
         }
     };
     let tag = |text: String, y: f32, bg: Hsla, fg: Hsla| Cmd::Tag {
@@ -187,7 +189,7 @@ pub(super) fn draw_axis_tags(
         within: None,
         size: font(),
         bold: false,
-        face: Default::default(),
+        face: Face::default(),
     };
     for mark in cx.f.marks.iter().filter(|m| m.axis_tag) {
         let y = cx.y(mark.price);
@@ -201,12 +203,13 @@ pub(super) fn draw_axis_tags(
         }
     }
     if let Some(price) = cx.f.raw.last_price() {
-        let y = clamp_y(&main, cx.y(price as f64));
+        let y = clamp_y(&main, cx.y(i64_to_f64(price)));
         let bg = hsla(cx.up_color(last_is_up(cx.f.raw)));
         let lines = cx.f.settings.price_lines;
         if lines.last_tag {
             out.push(tag(
-                cx.map.label(price as f64, ValueFormat::Price, cx.f.digits),
+                cx.map
+                    .label(i64_to_f64(price), ValueFormat::Price, cx.f.digits),
                 y,
                 bg,
                 hsla(p.bg),
@@ -234,7 +237,7 @@ pub(super) fn draw_axis_tags(
                     within: None,
                     size: font(),
                     bold: false,
-                    face: Default::default(),
+                    face: Face::default(),
                 });
             }
         }
@@ -242,7 +245,9 @@ pub(super) fn draw_axis_tags(
     let Some(((hx, hy), band_index)) = pointer else {
         return;
     };
-    let band = geometry.bands[band_index];
+    let Some(&band) = geometry.bands.get(band_index) else {
+        return;
+    };
     let y = clamp_y(&band, cx.oy + hy);
     let text = if !band.contains(f64::from(hy)) {
         None
@@ -260,11 +265,12 @@ pub(super) fn draw_axis_tags(
         pointer_out.push(tag(text, y, hsla(p.tag), hsla(p.text_strong)));
     }
     if cx.len > 0 {
-        let index =
+        let index = f64_to_usize(
             cx.f.view
                 .index_at(f64::from(hx), cx.len, cx.plot_w)
                 .round()
-                .clamp(0.0, (cx.len - 1) as f64) as usize;
+                .clamp(0.0, count_f64(cx.len - 1)),
+        );
         if let Some(time) = cx.series.time_at(index) {
             let text = axis::full_time(
                 time,
@@ -275,17 +281,17 @@ pub(super) fn draw_axis_tags(
             pointer_out.push(Cmd::Tag {
                 text,
                 x: cx.x(index),
-                y: cx.oy + geometry.plot_h() as f32 + 4.0,
+                y: cx.oy + f32_of(geometry.plot_h()) + 4.0,
                 height: 20.0,
                 pad: 8.0,
                 bg: hsla(p.tag),
                 fg: hsla(p.text_strong),
                 align: Align::Center,
                 fixed_width: None,
-                within: Some((cx.ox, cx.ox + cx.plot_w as f32)),
+                within: Some((cx.ox, cx.ox + f32_of(cx.plot_w))),
                 size: font(),
                 bold: false,
-                face: Default::default(),
+                face: Face::default(),
             });
         }
     }
@@ -293,7 +299,7 @@ pub(super) fn draw_axis_tags(
 
 /// Keep enough room for a label while using the height available on each axis.
 pub(super) fn axis_tick_target(height: f64) -> usize {
-    (height / 28.0).floor().clamp(2.0, 32.0) as usize
+    f64_to_usize((height / 28.0).floor().clamp(2.0, 32.0))
 }
 
 /// Move axis tags apart within their own bands. Later tags have priority. Drop a lower priority
@@ -301,12 +307,12 @@ pub(super) fn axis_tick_target(height: f64) -> usize {
 pub(super) fn spread_tags(tags: &mut Vec<Cmd>, geometry: &Geometry, oy: f32) {
     let mut placed: Vec<(f32, f32)> = Vec::new();
     for i in (0..tags.len()).rev() {
-        let Cmd::Tag {
+        let Some(Cmd::Tag {
             y,
             height,
             fixed_width: Some(_),
             ..
-        } = &tags[i]
+        }) = tags.get(i)
         else {
             continue;
         };
@@ -316,9 +322,12 @@ pub(super) fn spread_tags(tags: &mut Vec<Cmd>, geometry: &Geometry, oy: f32) {
             tags.remove(i);
             continue;
         };
-        let band = geometry.bands[band];
-        let top = oy + band.top as f32;
-        let bottom = oy + band.bottom() as f32;
+        let Some(&band) = geometry.bands.get(band) else {
+            tags.remove(i);
+            continue;
+        };
+        let top = oy + f32_of(band.top);
+        let bottom = oy + f32_of(band.bottom());
         let fits = |at: f32| {
             at >= top && at + h <= bottom && placed.iter().all(|(t, b)| at + h <= *t || at >= *b)
         };
@@ -326,12 +335,12 @@ pub(super) fn spread_tags(tags: &mut Vec<Cmd>, geometry: &Geometry, oy: f32) {
             Some(wanted)
         } else {
             (1..400).find_map(|step| {
-                let d = step as f32;
+                let d = f32_of(f64::from(step));
                 [wanted - d, wanted + d].into_iter().find(|at| fits(*at))
             })
         };
         if let Some(chosen) = chosen {
-            if let Cmd::Tag { y, .. } = &mut tags[i] {
+            if let Some(Cmd::Tag { y, .. }) = tags.get_mut(i) {
                 *y = chosen;
             }
             placed.push((chosen, chosen + h));
@@ -387,7 +396,7 @@ mod tests {
             within: None,
             size: font(),
             bold: false,
-            face: Default::default(),
+            face: Face::default(),
         };
         let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
         spread_tags(&mut tags, &Geometry::single(1_000.0, 528.0), 0.0);

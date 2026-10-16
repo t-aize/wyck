@@ -15,6 +15,7 @@
 //! - the delta and the volume of each bar under it.
 
 use serde::{Deserialize, Serialize};
+use wyck_core::math::{f64_to_i64, f64_to_u64, i64_to_f64, u64_to_f64};
 
 use super::flow::Level;
 
@@ -67,6 +68,10 @@ impl HeatScope {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct FootprintSettings {
     pub mode: CellMode,
     /// Rows of this many price steps (the last decimal of the symbol); 0 picks them for the zoom.
@@ -175,13 +180,13 @@ pub(crate) fn row_size(step: i64, fixed: u32, step_px: f64, want_px: f64) -> i64
 /// then the next of 10, 20, 50, 100, 200... so the rows of a wide range stay round numbers.
 fn nice(n: f64) -> i64 {
     if n <= 10.0 {
-        return n.ceil().max(1.0) as i64;
+        return f64_to_i64(n.ceil().max(1.0));
     }
     let mut base = 1i64;
     loop {
         for m in [1, 2, 5] {
             let v = base.saturating_mul(m);
-            if v as f64 >= n || v >= i64::MAX / 10 {
+            if i64_to_f64(v) >= n || v >= i64::MAX / 10 {
                 return v;
             }
         }
@@ -242,7 +247,7 @@ pub(crate) struct Analysis {
 
 impl Analysis {
     pub(crate) fn delta(&self) -> i64 {
-        self.buy as i64 - self.sell as i64
+        i64::try_from(self.buy).unwrap_or(i64::MAX) - i64::try_from(self.sell).unwrap_or(i64::MAX)
     }
 
     pub(crate) fn volume(&self) -> u64 {
@@ -310,9 +315,11 @@ pub(crate) fn analyze(
 /// The row with the most volume; the first (lowest) when several tie.
 fn point_of_control(rows: &[Row]) -> usize {
     let mut best = 0;
+    let mut best_volume = rows.first().map_or(0, Row::volume);
     for (i, row) in rows.iter().enumerate() {
-        if row.volume() > rows[best].volume() {
+        if row.volume() > best_volume {
             best = i;
+            best_volume = row.volume();
         }
     }
     best
@@ -323,9 +330,9 @@ fn point_of_control(rows: &[Row]) -> usize {
 /// it holds enough.
 fn value_area(rows: &[Row], poc: usize, share: f64) -> (usize, usize) {
     let total: u64 = rows.iter().map(Row::volume).sum();
-    let target = (total as f64 * share.clamp(0.0, 1.0)).ceil() as u64;
+    let target = f64_to_u64((u64_to_f64(total) * share.clamp(0.0, 1.0)).ceil());
     let (mut low, mut high) = (poc, poc);
-    let mut held = rows[poc].volume();
+    let mut held = rows.get(poc).map_or(0, Row::volume);
     let pair = |from: usize, up: bool| -> (u64, usize) {
         // The next two rows (or the one left) in a direction, and how many of them there are.
         let mut sum = 0;
@@ -391,14 +398,19 @@ fn imbalances(rows: &[Row], settings: &FootprintSettings) -> (Vec<bool>, Vec<boo
     let next_to = |i: usize, below: bool| -> Option<&Row> {
         let at = if below { i.checked_sub(1)? } else { i + 1 };
         let row = rows.get(at)?;
+        let current = rows.get(i)?;
         let wanted = if below {
-            rows[i].index - 1
+            current.index - 1
         } else {
-            rows[i].index + 1
+            current.index + 1
         };
         (row.index == wanted).then_some(row)
     };
-    for (i, row) in rows.iter().enumerate() {
+    for ((buy_slot, sell_slot), (i, row)) in buys
+        .iter_mut()
+        .zip(sells.iter_mut())
+        .zip(rows.iter().enumerate())
+    {
         if settings.diagonal {
             // A gap counts as an empty row, except at the ends of the bar.
             let below = if i == 0 {
@@ -411,11 +423,11 @@ fn imbalances(rows: &[Row], settings: &FootprintSettings) -> (Vec<bool>, Vec<boo
             } else {
                 Some(next_to(i, false).map_or(0, |r| r.buy))
             };
-            buys[i] = below.is_some_and(|other| wins(row.buy, other, settings));
-            sells[i] = above.is_some_and(|other| wins(row.sell, other, settings));
+            *buy_slot = below.is_some_and(|other| wins(row.buy, other, settings));
+            *sell_slot = above.is_some_and(|other| wins(row.sell, other, settings));
         } else {
-            buys[i] = wins(row.buy, row.sell, settings);
-            sells[i] = wins(row.sell, row.buy, settings);
+            *buy_slot = wins(row.buy, row.sell, settings);
+            *sell_slot = wins(row.sell, row.buy, settings);
         }
     }
     (buys, sells)
@@ -426,15 +438,19 @@ fn stacks(rows: &[Row], buys: &[bool], sells: &[bool], min_rows: u32) -> Vec<Sta
     let mut out = Vec::new();
     for (flags, buy) in [(buys, true), (sells, false)] {
         let mut start: Option<usize> = None;
+        let flag = |i: usize| flags.get(i).copied().unwrap_or(false);
         for i in 0..=rows.len() {
-            let on = i < rows.len()
-                && flags[i]
-                && start.is_none_or(|s| rows[i].index == rows[i - 1].index + 1 && s <= i);
+            let continues = |s: usize| {
+                let current = rows.get(i);
+                let before = i.checked_sub(1).and_then(|p| rows.get(p));
+                matches!((current, before), (Some(a), Some(b)) if a.index == b.index + 1) && s <= i
+            };
+            let on = i < rows.len() && flag(i) && start.is_none_or(continues);
             match (on, start) {
                 (true, None) => start = Some(i),
                 (true, Some(_)) | (false, None) => {}
                 (false, Some(s)) => {
-                    if (i - s) as u32 >= min_rows {
+                    if u32::try_from(i - s).unwrap_or(u32::MAX) >= min_rows {
                         out.push(Stack {
                             buy,
                             first: s,
@@ -442,7 +458,7 @@ fn stacks(rows: &[Row], buys: &[bool], sells: &[bool], min_rows: u32) -> Vec<Sta
                         });
                     }
                     // A row that broke the run may start the next one.
-                    start = (i < rows.len() && flags[i]).then_some(i);
+                    start = (i < rows.len() && flag(i)).then_some(i);
                 }
             }
         }
@@ -467,14 +483,14 @@ pub fn compact(value: u64) -> String {
     if value < 10_000 {
         value.to_string()
     } else if value < 1_000_000 {
-        let k = value as f64 / 1_000.0;
+        let k = u64_to_f64(value) / 1_000.0;
         if k < 100.0 {
             format!("{k:.1}k")
         } else {
             format!("{k:.0}k")
         }
     } else {
-        format!("{:.1}M", value as f64 / 1_000_000.0)
+        format!("{:.1}M", u64_to_f64(value) / 1_000_000.0)
     }
 }
 
@@ -490,6 +506,7 @@ pub fn signed(value: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_i64;
 
     fn level(price: i64, sell: u32, buy: u32) -> Level {
         Level { price, sell, buy }
@@ -553,7 +570,7 @@ mod tests {
         let levels: Vec<Level> = volumes
             .iter()
             .enumerate()
-            .map(|(i, v)| level(i as i64, 0, *v))
+            .map(|(i, v)| level(count_i64(i), 0, *v))
             .collect();
         let mut s = settings();
         s.value_area_percent = 70;
@@ -641,7 +658,7 @@ mod tests {
         s.imbalance = false;
         let a = analyze(&[level(0, 0, 50), level(1, 0, 50)], 1, &s).unwrap();
         assert!(a.buy_imbalance.iter().all(|b| !b));
-        assert!(a.stacks.is_empty());
+        assert_eq!(a.stacks, [] as [Stack; 0]);
     }
 
     #[test]
@@ -667,7 +684,7 @@ mod tests {
             }]
         );
         s.stack_rows = 4;
-        assert!(analyze(&levels, 1, &s).unwrap().stacks.is_empty());
+        assert_eq!(analyze(&levels, 1, &s).unwrap().stacks, [] as [Stack; 0]);
     }
 
     #[test]

@@ -103,10 +103,11 @@ impl BarFlow {
                 at
             }
         };
-        let level = &mut self.levels[at];
-        match side {
-            Side::Sell => level.sell = level.sell.saturating_add(1),
-            Side::Buy => level.buy = level.buy.saturating_add(1),
+        if let Some(level) = self.levels.get_mut(at) {
+            match side {
+                Side::Sell => level.sell = level.sell.saturating_add(1),
+                Side::Buy => level.buy = level.buy.saturating_add(1),
+            }
         }
     }
 
@@ -195,12 +196,13 @@ pub fn next_step<T>(
         }
         (None, _) => {
             let start = want.max(len.saturating_sub(per_chunk));
+            let opens = time(bars.get(start)?);
             Some(Step {
                 start,
                 end: len,
-                from: time(&bars[start]),
+                from: opens,
                 to: now,
-                covers: time(&bars[start]),
+                covers: opens,
                 newest: true,
             })
         }
@@ -213,12 +215,13 @@ pub fn next_step<T>(
                 return None;
             }
             let start = want.max(end.saturating_sub(per_chunk));
+            let opens = time(bars.get(start)?);
             Some(Step {
                 start,
                 end,
-                from: time(&bars[start]),
+                from: opens,
                 to: covered - 1,
-                covers: time(&bars[start]),
+                covers: opens,
                 newest: false,
             })
         }
@@ -266,13 +269,18 @@ impl Flow {
         self.bars.get(at)
     }
 
-    fn bar_mut(&mut self, time_ms: i64) -> &mut BarFlow {
-        match self.bars.binary_search_by_key(&time_ms, |b| b.time_ms) {
-            Ok(at) => &mut self.bars[at],
+    /// Counts one quote at `price` on `side` into the bar that opens at `time_ms`, adding the bar
+    /// when it is not there yet.
+    fn add_to_bar(&mut self, time_ms: i64, price: i64, side: Side) {
+        let at = match self.bars.binary_search_by_key(&time_ms, |b| b.time_ms) {
+            Ok(at) => at,
             Err(at) => {
                 self.bars.insert(at, BarFlow::new(time_ms));
-                &mut self.bars[at]
+                at
             }
+        };
+        if let Some(bar) = self.bars.get_mut(at) {
+            bar.add(price, side);
         }
     }
 
@@ -300,7 +308,7 @@ impl Flow {
             if let Some((price, side)) = classifier.push(quote.bid, quote.ask)
                 && let Some(open) = bar_open(times, bar_ms, quote.time_ms)
             {
-                self.bar_mut(open).add(price, side);
+                self.add_to_bar(open, price, side);
             }
             if newest {
                 self.last_ms = quote.time_ms;
@@ -317,7 +325,7 @@ impl Flow {
     pub fn push_live(&mut self, open: i64, time_ms: i64, bid: Option<i64>, ask: Option<i64>) {
         self.last_ms = self.last_ms.max(time_ms);
         if let Some((price, side)) = self.classifier.push(bid, ask) {
-            self.bar_mut(open).add(price, side);
+            self.add_to_bar(open, price, side);
             self.trim();
         }
     }
@@ -334,6 +342,7 @@ impl Flow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::count_i64;
 
     fn q(time_ms: i64, bid: i64, ask: i64) -> Quote {
         Quote {
@@ -520,7 +529,7 @@ mod tests {
     }
 
     fn minutes(n: usize) -> Vec<i64> {
-        (0..n as i64).map(|i| i * 60_000).collect()
+        (0..count_i64(n)).map(|i| i * 60_000).collect()
     }
 
     #[test]
@@ -599,8 +608,8 @@ mod tests {
     fn the_oldest_bars_are_dropped_past_the_limit() {
         let mut flow = Flow::default();
         flow.cover_from(0);
-        for i in 0..(MAX_FLOW_BARS as i64 + 10) {
-            flow.bar_mut(i * 1_000).add(1, Side::Buy);
+        for i in 0..(count_i64(MAX_FLOW_BARS) + 10) {
+            flow.add_to_bar(i * 1_000, 1, Side::Buy);
         }
         flow.trim();
         assert_eq!(flow.len(), MAX_FLOW_BARS);

@@ -5,6 +5,7 @@ use super::color::transparent_black;
 use super::ctx::Ctx;
 use super::{Align, Cmd, DrawingView, P, hsla, rgb_alpha};
 use crate::projection::ChartProjection;
+use wyck_core::math::count_f32;
 use wyck_drawings::geometry as shapes;
 use wyck_drawings::geometry::{Anchor, Prim};
 use wyck_drawings::model::style::Dash;
@@ -74,7 +75,7 @@ pub(super) fn draw_script_drawings(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
 pub(crate) fn ellipse_points(center: P, rx: f32, ry: f32, steps: usize) -> Vec<P> {
     (0..=steps)
         .map(|i| {
-            let angle = i as f32 / steps as f32 * std::f32::consts::TAU;
+            let angle = count_f32(i) / count_f32(steps) * std::f32::consts::TAU;
             (center.0 + rx * angle.cos(), center.1 + ry * angle.sin())
         })
         .collect()
@@ -199,7 +200,7 @@ pub(super) fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                 out.push(Cmd::Text {
                     text,
                     x: x + pad_x,
-                    y: y + pad_y + i as f32 * size * row + (size * row - size * 1.3) / 2.0,
+                    y: y + pad_y + count_f32(i) * size * row + (size * row - size * 1.3) / 2.0,
                     size,
                     color: rgb_alpha(fg, 1.0),
                     align: Align::Left,

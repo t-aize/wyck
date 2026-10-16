@@ -6,12 +6,14 @@
 //! work of a frame stays bounded by the screen, like the other chart types.
 
 use super::color::{Hsla, color_hsla, transparent_black};
+use wyck_core::math::{count_f32, f32_of, i64_to_f64};
 use wyck_market::Bar;
 
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::ctx::Ctx;
 use super::series;
 use crate::tpo::{Profile, TpoColor, TpoDisplay, letter};
+use wyck_drawings::look::Face;
 use wyck_indicators::spec::ValueFormat;
 
 /// Profiles in a slot narrower than this are drawn as bars.
@@ -42,14 +44,14 @@ fn label_size() -> f32 {
 pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
     let profiles = &cx.f.display.tpo;
     let last = last.min(profiles.len()).min(bars.len());
-    let visible = &profiles[first.min(last)..last];
+    let visible = profiles.get(first.min(last)..last).unwrap_or_default();
     let rows: usize = visible.iter().map(|p| p.rows.len()).sum();
     if cx.f.view.bar_px < COMPACT_PX || visible.is_empty() || rows > MAX_ROWS {
         series::solid_candles(cx, bars, first, last, out);
         return;
     }
     let settings = &cx.f.settings.tpo;
-    let slot = cx.f.view.bar_px as f32;
+    let slot = f32_of(cx.f.view.bar_px);
     let pad = slot * 0.04;
     let labels = settings.labels && slot >= LABEL_SLOT;
     let usable = slot - 2.0 * pad - if labels { label_w() } else { 0.0 };
@@ -60,7 +62,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         .max()
         .unwrap_or(1)
         .max(1);
-    let col_w = (usable / widest as f32).min(MAX_COL);
+    let col_w = (usable / count_f32(widest)).min(MAX_COL);
     let marks: usize = visible.iter().map(|p| p.marks).sum();
     let look = Look {
         col_w,
@@ -102,7 +104,7 @@ fn single_rows(profile: &Profile, shown: bool) -> Vec<bool> {
     let mut rows = vec![false; profile.rows.len()];
     if shown {
         for print in &profile.singles {
-            for row in &mut rows[print.first..=print.last] {
+            for row in rows.get_mut(print.first..=print.last).into_iter().flatten() {
                 *row = true;
             }
         }
@@ -121,26 +123,29 @@ fn mark_color(cx: &Ctx<'_>, profile: &Profile, mark: u16, count: usize, widest: 
         }
         TpoColor::ByTime => {
             let share = if profile.periods > 1 {
-                (usize::from(mark) % profile.periods) as f32 / (profile.periods - 1) as f32
+                count_f32(usize::from(mark) % profile.periods) / count_f32(profile.periods - 1)
             } else {
                 1.0
             };
             with_alpha(p.tpo, 0.3 + 0.7 * share.min(1.0))
         }
-        TpoColor::ByCount => with_alpha(p.tpo, 0.3 + 0.7 * count as f32 / widest as f32),
+        TpoColor::ByCount => with_alpha(p.tpo, 0.3 + 0.7 * count_f32(count) / count_f32(widest)),
     }
 }
 
 fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &mut Vec<Cmd>) {
     let settings = &cx.f.settings.tpo;
     let p = cx.f.palette;
-    let (top_edge, bottom_edge) = (cx.oy + cx.band.top as f32, cx.oy + cx.band.bottom() as f32);
+    let (top_edge, bottom_edge) = (
+        cx.oy + f32_of(cx.band.top),
+        cx.oy + f32_of(cx.band.bottom()),
+    );
     let right = left + look.usable;
     // The y of the top and of the bottom of a row, upward first whatever the scale does.
     let span = |row: usize| {
         let (a, b) = (
-            cx.y(profile.row_top(row) as f64),
-            cx.y(profile.row_bottom(row) as f64),
+            cx.y(i64_to_f64(profile.row_top(row))),
+            cx.y(i64_to_f64(profile.row_bottom(row))),
         );
         (a.min(b), a.max(b))
     };
@@ -175,7 +180,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
     if settings.initial_balance
         && let Some((low, high)) = profile.initial_balance
     {
-        let (top, bottom) = (cx.y(high as f64), cx.y(low as f64));
+        let (top, bottom) = (cx.y(i64_to_f64(high)), cx.y(i64_to_f64(low)));
         let (top, bottom) = (top.min(bottom), top.max(bottom));
         out.push(Cmd::Rect {
             x: left - 1.0,
@@ -197,7 +202,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
         let h = bottom - top;
         let is_poc = settings.poc && row == profile.poc;
         let in_va = !settings.value_area || (va_low..=va_high).contains(&row);
-        let single = singles[row];
+        let single = singles.get(row).copied().unwrap_or(false);
         let tone = |mark: u16| {
             let mut c = if is_poc {
                 with_alpha(p.tpo_poc, 1.0)
@@ -217,13 +222,13 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
             for (k, mark) in marks.iter().enumerate() {
                 out.push(Cmd::Text {
                     text: letter(*mark).to_string(),
-                    x: left + (k as f32 + 0.5) * look.col_w,
-                    y: (top + bottom) / 2.0 - size * 0.65,
+                    x: left + (count_f32(k) + 0.5) * look.col_w,
+                    y: f32::midpoint(top, bottom) - size * 0.65,
                     size,
                     color: tone(*mark),
                     align: Align::Center,
                     bold: is_poc,
-                    face: Default::default(),
+                    face: Face::default(),
                 });
             }
         } else if look.blocks_apart {
@@ -231,7 +236,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                 let mut c = tone(*mark);
                 c.a *= 0.75;
                 out.push(Cmd::rect(
-                    left + k as f32 * look.col_w + 0.5,
+                    left + count_f32(k) * look.col_w + 0.5,
                     top + 0.5,
                     look.col_w - 1.0,
                     (h - 1.0).max(1.0),
@@ -244,7 +249,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
             out.push(Cmd::rect(
                 left,
                 top + 0.5,
-                marks.len() as f32 * look.col_w,
+                count_f32(marks.len()) * look.col_w,
                 (h - 1.0).max(1.0),
                 c,
             ));
@@ -261,7 +266,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
     if settings.poc && settings.poc_line {
         let (top, bottom) = span(profile.poc);
         out.push(line(
-            cx.snap((top + bottom) / 2.0) + 0.5,
+            cx.snap(f32::midpoint(top, bottom)) + 0.5,
             with_alpha(p.tpo_poc, 0.9),
             1.2,
             None,
@@ -280,7 +285,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
         }
     }
     if settings.midpoint {
-        let y = cx.snap(cx.y(profile.midpoint() as f64)) + 0.5;
+        let y = cx.snap(cx.y(i64_to_f64(profile.midpoint()))) + 0.5;
         out.push(line(y, with_alpha(p.text, 0.5), 1.0, Some([4.0, 4.0])));
     }
     if settings.poor_extremes {
@@ -303,7 +308,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                     color: with_alpha(p.tpo_single, 0.95),
                     align: Align::Left,
                     bold: false,
-                    face: Default::default(),
+                    face: Face::default(),
                 });
             }
         }
@@ -311,7 +316,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
     if settings.open_close {
         let center = |row: usize| {
             let (top, bottom) = span(row);
-            (top + bottom) / 2.0
+            f32::midpoint(top, bottom)
         };
         let y = center(profile.open_row);
         out.push(Cmd::Rect {
@@ -324,7 +329,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
             radius: 2.5,
         });
         let y = center(profile.close_row);
-        let end = profile.rows[profile.close_row].len() as f32 * look.col_w;
+        let end = count_f32(profile.rows.get(profile.close_row).map_or(0, Vec::len)) * look.col_w;
         out.push(Cmd::Rect {
             x: left + end + 1.0,
             y: y - 2.5,
@@ -341,7 +346,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
         let text = |price: i64, name: &str| {
             format!(
                 "{name} {}",
-                cx.map.label(price as f64, ValueFormat::Price, digits)
+                cx.map.label(i64_to_f64(price), ValueFormat::Price, digits)
             )
         };
         let mut written: Vec<f32> = Vec::new();
@@ -357,15 +362,18 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                     color,
                     align: Align::Left,
                     bold: false,
-                    face: Default::default(),
+                    face: Face::default(),
                 });
             }
         };
         if settings.poc {
             let (top, bottom) = span(profile.poc);
-            let price = (profile.row_bottom(profile.poc) + profile.row_top(profile.poc)) / 2;
+            let price = i64::midpoint(
+                profile.row_bottom(profile.poc),
+                profile.row_top(profile.poc),
+            );
             put(
-                (top + bottom) / 2.0,
+                f32::midpoint(top, bottom),
                 text(price, "POC"),
                 with_alpha(p.tpo_poc, 1.0),
             );

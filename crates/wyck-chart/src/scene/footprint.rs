@@ -9,6 +9,7 @@
 //! has not loaded yet are candles too, so a bar is never missing.
 
 use super::color::{Rgba, rgb, transparent_black};
+use wyck_core::math::{count_f32, f32_of, f64_to_i64, i64_to_f64, u64_to_f32};
 use wyck_market::Bar;
 
 use super::cmd::{Align, Cmd, font, hsla, rgb_alpha, with_alpha};
@@ -16,13 +17,14 @@ use super::ctx::Ctx;
 use super::{quote_unit, series};
 use crate::flow::Flow;
 use crate::footprint::{self as model, Analysis, CellMode, HeatScope};
+use wyck_drawings::look::Face;
 
 /// Bars narrower than this are drawn as plain candles.
 const DETAIL_MIN_PX: f64 = 24.0;
 /// The height of the strip under the prices that holds each bar's delta and volume.
 pub(super) const SUMMARY_H: f32 = 34.0;
 /// The color of the point of control and the value area.
-const POC: u32 = 0xf5b942;
+const POC: u32 = 0xf5_b942;
 /// How many bars a stack or a point of control is followed to the right before giving up on it
 /// being touched.
 const FOLLOW_BARS: usize = 2_000;
@@ -43,7 +45,7 @@ fn heat(value: u64, max: u64) -> f32 {
     if value == 0 || max == 0 {
         return 0.0;
     }
-    let share = (value as f32 / max as f32).clamp(0.0, 1.0);
+    let share = (u64_to_f32(value) / u64_to_f32(max)).clamp(0.0, 1.0);
     0.07 + 0.5 * share.powf(0.75)
 }
 
@@ -55,30 +57,33 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         Some(flow) if bar_px >= DETAIL_MIN_PX && model::supports(cx.f.timeframe) => flow,
         _ => return series::solid_candles(cx, bars, first, last, out),
     };
-    let s = &cx.f.settings.footprint;
-    let p = cx.f.palette;
-    let (up, down) = (p.up, p.down);
+    let settings = &cx.f.settings.footprint;
+    let palette = cx.f.palette;
+    let (up, down) = (palette.up, palette.down);
 
     // The height of a row: what a number needs, or what the user chose.
     let unit = quote_unit(cx.f.digits).max(1.0);
-    let middle = (cx.map.lo + cx.map.hi) / 2.0;
+    let middle = f64::midpoint(cx.map.lo, cx.map.hi);
     let unit_px = f64::from((cx.y(middle) - cx.y(middle + unit)).abs());
-    let want_px = if s.numbers {
+    let want_px = if settings.numbers {
         12.0
     } else {
         2.0 * model::MIN_ROW_PX
     };
-    let size = model::row_size(unit as i64, s.row_steps, unit_px, want_px);
+    let size = model::row_size(f64_to_i64(unit), settings.row_steps, unit_px, want_px);
     let half = unit / 2.0;
 
-    let analyses: Vec<Option<Analysis>> = (first..last)
-        .map(|i| {
-            flow.bar(bars[i].time_ms)
-                .and_then(|b| model::analyze(&b.levels, size, s))
+    let analyses: Vec<Option<Analysis>> = bars
+        .get(first..last)
+        .unwrap_or_default()
+        .iter()
+        .map(|bar| {
+            flow.bar(bar.time_ms)
+                .and_then(|b| model::analyze(&b.levels, size, settings))
         })
         .collect();
     // The busiest cell of the screen, for the heat that compares bars with each other.
-    let cell_max = |a: &Analysis| match s.mode {
+    let cell_max = |a: &Analysis| match settings.mode {
         CellMode::BidAsk => u64::from(a.max_side),
         CellMode::Delta => a.max_delta,
         CellMode::Volume => a.max_volume,
@@ -91,12 +96,15 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         .unwrap_or(1)
         .max(1);
 
-    let (top, bottom) = (cx.oy + cx.band.top as f32, cx.oy + cx.band.bottom() as f32);
-    let plot_right = cx.ox + cx.plot_w as f32;
+    let (top, bottom) = (
+        cx.oy + f32_of(cx.band.top),
+        cx.oy + f32_of(cx.band.bottom()),
+    );
+    let plot_right = cx.ox + f32_of(cx.plot_w);
     // Where a row is, from its top to its bottom: a price sits in the middle of its cell.
     let row_y = |index: i64| -> (f32, f32) {
-        let low = (index * size) as f64 - half;
-        let (a, b) = (cx.y(low + size as f64), cx.y(low));
+        let low = i64_to_f64(index * size) - half;
+        let (a, b) = (cx.y(low + i64_to_f64(size)), cx.y(low));
         (a.min(b), a.max(b))
     };
     // The rows from one to another, from the top of the higher to the bottom of the lower.
@@ -106,12 +114,11 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         (a0.min(b0), a1.max(b1))
     };
     let on_screen = |(y0, y1): (f32, f32)| y1 >= top && y0 <= bottom;
-    let bidask = s.mode == CellMode::BidAsk;
-    let w = (bar_px * 0.94).min(bar_px - 2.0).max(8.0) as f32;
+    let bidask = settings.mode == CellMode::BidAsk;
+    let w = f32_of((bar_px * 0.94).min(bar_px - 2.0).max(8.0));
     let text_y = |center: f32, size: f32| center - size * 1.3 / 2.0;
 
-    for (k, i) in (first..last).enumerate() {
-        let bar = &bars[i];
+    for (i, (bar, analysis)) in (first..last).zip(bars.iter().skip(first).zip(&analyses)) {
         let x = cx.x(i);
         let (x0, x1) = (x - w / 2.0, x + w / 2.0);
         // The candle is in the middle when there are two columns, at the left when there is one.
@@ -121,18 +128,20 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         } else {
             ((x0 + 5.0, x1), (x0 + 5.0, x1))
         };
-        let Some(a) = &analyses[k] else {
+        let Some(a) = analysis else {
             candle_strip(cx, bar, body_x, out);
             continue;
         };
-        let norm = match s.heat_scope {
+        let norm = match settings.heat_scope {
             HeatScope::Bar => cell_max(a).max(1),
             HeatScope::Visible => visible_max,
         };
 
-        if s.value_area {
-            let (y_top, y_bottom) =
-                span_y(a.rows[a.value_area.0].index, a.rows[a.value_area.1].index);
+        if settings.value_area
+            && let (Some(low_row), Some(high_row)) =
+                (a.rows.get(a.value_area.0), a.rows.get(a.value_area.1))
+        {
+            let (y_top, y_bottom) = span_y(low_row.index, high_row.index);
             if on_screen((y_top, y_bottom)) {
                 out.push(Cmd::rect(
                     x0,
@@ -152,20 +161,20 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         }
 
         // The size of the numbers: what the rows allow, and what the columns hold.
-        let row_px = {
-            let (y0, y1) = row_y(a.rows[0].index);
+        let row_px = a.rows.first().map_or(0.0, |lowest| {
+            let (y0, y1) = row_y(lowest.index);
             y1 - y0
-        };
-        let longest = match s.mode {
+        });
+        let longest = match settings.mode {
             CellMode::BidAsk => model::compact(u64::from(a.max_side)).len(),
-            CellMode::Delta => model::signed(a.max_delta as i64).len(),
+            CellMode::Delta => model::signed(i64::try_from(a.max_delta).unwrap_or(i64::MAX)).len(),
             CellMode::Volume => model::compact(a.max_volume).len(),
         };
         let column = left.1 - left.0;
         let font = (row_px - 2.0)
             .min(font())
-            .min((column - 4.0) / (longest as f32 * 0.6));
-        let numbers = s.numbers && font >= 7.0;
+            .min((column - 4.0) / (count_f32(longest) * 0.6));
+        let numbers = settings.numbers && font >= 7.0;
 
         let mut texts: Vec<Cmd> = Vec::new();
         let mut outlines: Vec<Cmd> = Vec::new();
@@ -176,12 +185,12 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
             }
             let gap = if y1 - y0 >= 6.0 { 1.0 } else { 0.0 };
             let (cy0, ch) = (y0 + gap / 2.0, (y1 - y0 - gap).max(0.5));
-            let center = (y0 + y1) / 2.0;
-            let buy_wins = a.buy_imbalance[r];
-            let sell_wins = a.sell_imbalance[r];
-            match s.mode {
+            let center = f32::midpoint(y0, y1);
+            let buy_wins = a.buy_imbalance.get(r).copied().unwrap_or(false);
+            let sell_wins = a.sell_imbalance.get(r).copied().unwrap_or(false);
+            match settings.mode {
                 CellMode::BidAsk => {
-                    if s.heat {
+                    if settings.heat {
                         for (side, count, color) in [(left, row.sell, down), (right, row.buy, up)] {
                             let alpha = heat(u64::from(count), norm);
                             if alpha > 0.0 {
@@ -212,10 +221,10 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                                 },
                                 y: text_y(center, font),
                                 size: font,
-                                color: hsla(if wins { color } else { p.text_strong }),
+                                color: hsla(if wins { color } else { palette.text_strong }),
                                 align,
                                 bold: wins,
-                                face: Default::default(),
+                                face: Face::default(),
                             });
                         }
                     }
@@ -226,7 +235,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                     }
                 }
                 CellMode::Delta | CellMode::Volume => {
-                    let (value, color, alpha) = if s.mode == CellMode::Delta {
+                    let (value, color, alpha) = if settings.mode == CellMode::Delta {
                         let d = row.delta();
                         (
                             model::signed(d),
@@ -236,11 +245,11 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                     } else {
                         (
                             model::compact(row.volume()),
-                            p.line,
+                            palette.line,
                             heat(row.volume(), norm),
                         )
                     };
-                    if s.heat && alpha > 0.0 {
+                    if settings.heat && alpha > 0.0 {
                         out.push(Cmd::rect(
                             left.0,
                             cy0,
@@ -252,13 +261,13 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                     if numbers {
                         texts.push(Cmd::Text {
                             text: value,
-                            x: (left.0 + left.1) / 2.0,
+                            x: f32::midpoint(left.0, left.1),
                             y: text_y(center, font),
                             size: font,
-                            color: hsla(p.text_strong),
+                            color: hsla(palette.text_strong),
                             align: Align::Center,
                             bold: buy_wins || sell_wins,
-                            face: Default::default(),
+                            face: Face::default(),
                         });
                     }
                     for (wins, color) in [(buy_wins, up), (sell_wins, down)] {
@@ -270,8 +279,9 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
             }
         }
 
-        if s.poc {
-            let poc = &a.rows[a.poc];
+        if settings.poc
+            && let Some(poc) = a.rows.get(a.poc)
+        {
             let (y0, y1) = row_y(poc.index);
             if on_screen((y0, y1)) {
                 out.push(Cmd::Rect {
@@ -301,7 +311,12 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
             touched.map_or(plot_right, |offset| cx.x(i + 1 + offset))
         };
         for stack in &a.stacks {
-            let (y_top, y_bottom) = span_y(a.rows[stack.first].index, a.rows[stack.last].index);
+            let (Some(first_row), Some(last_row)) =
+                (a.rows.get(stack.first), a.rows.get(stack.last))
+            else {
+                continue;
+            };
+            let (y_top, y_bottom) = span_y(first_row.index, last_row.index);
             if !on_screen((y_top, y_bottom)) {
                 continue;
             }
@@ -314,9 +329,9 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                 y_bottom - y_top,
                 with_alpha(color, 0.9),
             ));
-            if s.project_stacks {
-                let low = a.rows[stack.first].index * size;
-                let high = (a.rows[stack.last].index + 1) * size - 1;
+            if settings.project_stacks {
+                let low = first_row.index * size;
+                let high = (last_row.index + 1) * size - 1;
                 let end = follow(low, high);
                 if end > x1 {
                     out.push(Cmd::rect(
@@ -331,12 +346,14 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                 }
             }
         }
-        if s.extend_poc && s.poc {
-            let poc = &a.rows[a.poc];
+        if settings.extend_poc
+            && settings.poc
+            && let Some(poc) = a.rows.get(a.poc)
+        {
             let (y0, y1) = row_y(poc.index);
             let end = follow(poc.index * size, (poc.index + 1) * size - 1);
             if end > x1 && on_screen((y0, y1)) {
-                let y = (y0 + y1) / 2.0;
+                let y = f32::midpoint(y0, y1);
                 out.push(Cmd::Stroke {
                     points: vec![(x1, cx.snap(y) + 0.5), (end, cx.snap(y) + 0.5)],
                     width: 1.0,
@@ -347,7 +364,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         }
     }
 
-    if s.summary {
+    if settings.summary {
         summary(cx, &analyses, first, w, out);
     }
 }
@@ -368,10 +385,10 @@ fn outline((x0, x1): (f32, f32), y: f32, h: f32, color: Rgba) -> Cmd {
 /// The candle of a bar, thin, beside or between its cells.
 fn candle_strip(cx: &Ctx<'_>, bar: &Bar, x: f32, out: &mut Vec<Cmd>) {
     let color = hsla(cx.up_color(bar.close >= bar.open));
-    let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
+    let (y_high, y_low) = (cx.y(i64_to_f64(bar.high)), cx.y(i64_to_f64(bar.low)));
     let wick = 1.0 / cx.f.scale;
     out.push(cx.vline(x, y_high.min(y_low), y_low.max(y_high) + wick, color));
-    let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
+    let (y_open, y_close) = (cx.y(i64_to_f64(bar.open)), cx.y(i64_to_f64(bar.close)));
     let top = cx.snap(y_open.min(y_close));
     let height = (cx.snap(y_open.max(y_close)) - top).max(1.0 / cx.f.scale);
     out.push(Cmd::rect(x - BODY_W / 2.0, top, BODY_W, height, color));
@@ -386,8 +403,8 @@ fn summary(
     out: &mut Vec<Cmd>,
 ) {
     let p = cx.f.palette;
-    let (left, right) = (cx.ox, cx.ox + cx.plot_w as f32);
-    let y = cx.oy + cx.band.bottom() as f32 - SUMMARY_H;
+    let (left, right) = (cx.ox, cx.ox + f32_of(cx.plot_w));
+    let y = cx.oy + f32_of(cx.band.bottom()) - SUMMARY_H;
     out.push(Cmd::rect(
         left,
         y,
@@ -405,7 +422,7 @@ fn summary(
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
-        face: Default::default(),
+        face: Face::default(),
     };
     for (k, analysis) in analyses.iter().enumerate() {
         let Some(a) = analysis else { continue };
@@ -416,7 +433,7 @@ fn summary(
         let delta = a.delta();
         let mut push = |text: String, y: f32, color: Rgba, bold: bool| {
             // Kept to the width of the bar, and dropped when it does not fit.
-            if text.len() as f32 * font() * 0.6 <= width + 8.0 {
+            if count_f32(text.len()) * font() * 0.6 <= width + 8.0 {
                 out.push(Cmd::Text {
                     text,
                     x,
@@ -425,7 +442,7 @@ fn summary(
                     color: hsla(color),
                     align: Align::Center,
                     bold,
-                    face: Default::default(),
+                    face: Face::default(),
                 });
             }
         };

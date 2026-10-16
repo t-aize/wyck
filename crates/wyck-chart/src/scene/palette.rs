@@ -36,21 +36,21 @@ pub struct Palette {
 impl Palette {
     pub fn new() -> Self {
         Self {
-            up: rgb(0x26a69a),
-            down: rgb(0xef5350),
-            line: rgb(0x5b8def),
-            grid: rgb(0x30343b),
-            text: rgb(0x9aa0a6),
-            text_strong: rgb(0xf0f0f0),
-            bg: rgb(0x0a0a0a),
-            tag: rgb(0x363a45),
-            border: rgb(0x30343b),
-            crosshair: rgb(0x9aa0a6),
-            accent: rgb(0x7c86ff),
-            kagi_yang: rgb(0x26a69a),
-            kagi_yin: rgb(0xef5350),
-            pnf_up: rgb(0x26a69a),
-            pnf_down: rgb(0xef5350),
+            up: rgb(0x26_a69a),
+            down: rgb(0xef_5350),
+            line: rgb(0x5b_8def),
+            grid: rgb(0x30_343b),
+            text: rgb(0x9a_a0a6),
+            text_strong: rgb(0xf0_f0f0),
+            bg: rgb(0x0a_0a0a),
+            tag: rgb(0x36_3a45),
+            border: rgb(0x30_343b),
+            crosshair: rgb(0x9a_a0a6),
+            accent: rgb(0x7c_86ff),
+            kagi_yang: rgb(0x26_a69a),
+            kagi_yin: rgb(0xef_5350),
+            pnf_up: rgb(0x26_a69a),
+            pnf_down: rgb(0xef_5350),
             tpo: rgb(TPO_MARKS),
             tpo_poc: rgb(TPO_POC),
             tpo_value_area: rgb(TPO_VALUE_AREA),
@@ -150,15 +150,15 @@ mod tests {
         assert_eq!(plain.kagi_yin, plain.down);
         assert_eq!(plain.pnf_up, plain.up);
         let colors = ChartColors {
-            up: Some(0x112233),
-            kagi_yin: Some(0x445566),
-            pnf_up: Some(0x778899),
+            up: Some(0x11_2233),
+            kagi_yin: Some(0x44_5566),
+            pnf_up: Some(0x77_8899),
             ..ChartColors::default()
         };
         let p = Palette::for_chart_with_base(&colors, Palette::new());
-        assert_eq!(p.kagi_yang, rgb(0x112233), "follows the rising color");
-        assert_eq!(p.kagi_yin, rgb(0x445566));
-        assert_eq!(p.pnf_up, rgb(0x778899));
+        assert_eq!(p.kagi_yang, rgb(0x11_2233), "follows the rising color");
+        assert_eq!(p.kagi_yin, rgb(0x44_5566));
+        assert_eq!(p.pnf_up, rgb(0x77_8899));
         assert_eq!(p.pnf_down, p.down);
     }
 }

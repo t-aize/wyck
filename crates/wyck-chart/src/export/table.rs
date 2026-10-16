@@ -5,6 +5,7 @@ use super::columns::ColumnKey;
 use super::options::ExportOptions;
 use super::render::{local_text, zone_name};
 use super::source::{Cell, Point, Source, Table, TableColumn};
+use wyck_core::math::{count_i64, f64_to_i64, i64_to_f64};
 
 use crate::settings::ChartKind;
 use crate::zone::Zone;
@@ -40,8 +41,12 @@ pub(super) fn select(items: &[Point], source: &Source<'_>, options: &ExportOptio
         RangeKind::Dates => {
             let from = parse_bound(&options.from, zone, false).unwrap_or(i64::MIN);
             let to = parse_bound(&options.to, zone, true).unwrap_or(i64::MAX);
-            all.filter(|&i| (from..=to).contains(&items[i].time))
-                .collect()
+            all.filter(|&i| {
+                items
+                    .get(i)
+                    .is_some_and(|item| (from..=to).contains(&item.time))
+            })
+            .collect()
         }
         RangeKind::Visible => {
             let series = source.display.shown(source.raw);
@@ -56,16 +61,23 @@ pub(super) fn select(items: &[Point], source: &Source<'_>, options: &ExportOptio
                 // time of the point after the last.
                 let start = series.time_at(first).unwrap_or(i64::MIN);
                 let end = series.time_at(last).map_or(i64::MAX, |t| t - 1);
-                all.filter(|&i| (start..=end).contains(&items[i].time))
-                    .collect()
+                all.filter(|&i| {
+                    items
+                        .get(i)
+                        .is_some_and(|item| (start..=end).contains(&item.time))
+                })
+                .collect()
             }
         }
     };
-    if options.skip_forming && !picked.is_empty() && picked.last() == Some(&(items.len() - 1)) {
+    if options.skip_forming
+        && let Some(newest) = items.last()
+        && picked.last() == Some(&(items.len() - 1))
+    {
         let forming = source.is_derived(options.content)
             || source
                 .bar_ms
-                .is_some_and(|ms| items[items.len() - 1].time + ms > source.now_ms);
+                .is_some_and(|ms| newest.time + ms > source.now_ms);
         if forming {
             picked.pop();
         }
@@ -90,8 +102,13 @@ pub(super) fn cell(
     source: &Source<'_>,
     options: &ExportOptions,
 ) -> Cell {
-    let it = items[i];
-    let previous = i.checked_sub(1).map(|p| items[p].close);
+    let Some(&it) = items.get(i) else {
+        return Cell::Empty;
+    };
+    let previous = i
+        .checked_sub(1)
+        .and_then(|p| items.get(p))
+        .map(|item| item.close);
     let profile = || {
         (options.content == Content::Shown && source.kind == ChartKind::Tpo)
             .then(|| source.display.tpo.get(i))
@@ -109,13 +126,13 @@ pub(super) fn cell(
         ColumnKey::Volume => Cell::Int(it.volume),
         ColumnKey::Change => previous.map_or(Cell::Empty, |p| Cell::Price(it.close - p)),
         ColumnKey::ChangePercent => match previous {
-            Some(p) if p != 0 => Cell::Value((it.close - p) as f64 / p as f64 * 100.0),
+            Some(p) if p != 0 => Cell::Value(i64_to_f64(it.close - p) / i64_to_f64(p) * 100.0),
             _ => Cell::Empty,
         },
         ColumnKey::Range => Cell::Price(it.high - it.low),
         ColumnKey::Body => Cell::Price(it.close - it.open),
         ColumnKey::Typical => Cell::Price((it.high + it.low + it.close) / 3),
-        ColumnKey::Median => Cell::Price((it.high + it.low) / 2),
+        ColumnKey::Median => Cell::Price(i64::midpoint(it.high, it.low)),
         ColumnKey::Direction => Cell::Text(
             match it.close.cmp(&it.open) {
                 std::cmp::Ordering::Greater => "up",
@@ -124,7 +141,7 @@ pub(super) fn cell(
             }
             .to_owned(),
         ),
-        ColumnKey::Index => Cell::Int(n as i64),
+        ColumnKey::Index => Cell::Int(count_i64(n)),
         ColumnKey::Symbol => Cell::Text(source.symbol.to_owned()),
         ColumnKey::Timeframe => Cell::Text(source.timeframe.to_owned()),
         ColumnKey::ChartType => Cell::Text(
@@ -145,7 +162,7 @@ pub(super) fn cell(
             }
         }
         ColumnKey::Poc => profile().map_or(Cell::Empty, |p| {
-            Cell::Price((p.row_bottom(p.poc) + p.row_top(p.poc)) / 2)
+            Cell::Price(i64::midpoint(p.row_bottom(p.poc), p.row_top(p.poc)))
         }),
         ColumnKey::ValueAreaHigh => {
             profile().map_or(Cell::Empty, |p| Cell::Price(p.row_top(p.value_area.1)))
@@ -159,8 +176,8 @@ pub(super) fn cell(
         ColumnKey::InitialBalanceLow => profile()
             .and_then(|p| p.initial_balance)
             .map_or(Cell::Empty, |(low, _)| Cell::Price(low)),
-        ColumnKey::Marks => profile().map_or(Cell::Empty, |p| Cell::Int(p.marks as i64)),
-        ColumnKey::Periods => profile().map_or(Cell::Empty, |p| Cell::Int(p.periods as i64)),
+        ColumnKey::Marks => profile().map_or(Cell::Empty, |p| Cell::Int(count_i64(p.marks))),
+        ColumnKey::Periods => profile().map_or(Cell::Empty, |p| Cell::Int(count_i64(p.periods))),
         ColumnKey::PoorHigh => {
             profile().map_or(Cell::Empty, |p| Cell::Text(p.poor_high.to_string()))
         }
@@ -208,7 +225,7 @@ pub(super) fn cell(
                 .filter(|v| v.is_finite())
                 .map_or(Cell::Empty, |v| {
                     if in_price {
-                        Cell::Price(v.round() as i64)
+                        Cell::Price(f64_to_i64(v.round()))
                     } else {
                         Cell::Value(v)
                     }
@@ -230,8 +247,9 @@ pub fn table(source: &Source<'_>, options: &ExportOptions, rows: Option<usize>) 
     }
     let total_rows = picked.len();
     // The dates of the notes are those of all the rows, not only of the ones a preview builds.
-    let first = picked.first().map(|&i| items[i].time);
-    let last = picked.last().map(|&i| items[i].time);
+    let time_of = |&i: &usize| items.get(i).map(|item| item.time);
+    let first = picked.first().and_then(time_of);
+    let last = picked.last().and_then(time_of);
     if let Some(cap) = rows {
         picked.truncate(cap);
     }

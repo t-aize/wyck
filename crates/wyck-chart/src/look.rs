@@ -43,6 +43,10 @@ impl Default for ChartContent {
 /// How every chart looks, saved once.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own saved switch; grouping them would change the saved settings"
+)]
 pub struct ChartLook {
     pub zone: Zone,
     /// Whether higher prices are drawn lower.
@@ -163,7 +167,7 @@ mod tests {
             ..ChartSettings::default()
         };
         settings.studies.push(StudyConfig::new(StudyKind::Rsi));
-        settings.colors.up = Some(0x00ff00);
+        settings.colors.up = Some(0x00_ff00);
         let back = ChartSettings::from_parts(settings.content(), &settings.look());
         assert_eq!(back, settings);
     }

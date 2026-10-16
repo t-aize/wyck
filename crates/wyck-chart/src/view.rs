@@ -4,6 +4,8 @@
 //! weekend without prices leaves no hole, as on any trading chart. Point `i` is centered at
 //! `i + 0.5` in "index space", and the right edge of the plot sits at `len + offset`.
 
+use wyck_core::math::{count_f64, f64_to_usize};
+
 pub(crate) const MIN_BAR_PX: f64 = 0.2;
 /// Wide enough for a footprint's numbers.
 pub(crate) const MAX_BAR_PX: f64 = 260.0;
@@ -43,7 +45,7 @@ impl View {
 
     /// The index-space position of the right edge.
     pub(crate) fn right(&self, len: usize) -> f64 {
-        len as f64 + self.offset
+        count_f64(len) + self.offset
     }
 
     /// How many points the plot width holds.
@@ -65,8 +67,8 @@ impl View {
     pub fn visible(&self, len: usize, plot_w: f64) -> (usize, usize) {
         let right = self.right(len);
         let left = right - self.span(plot_w);
-        let first = (left.floor() - 1.0).max(0.0) as usize;
-        let last = ((right.ceil() + 1.0).max(0.0) as usize).min(len);
+        let first = f64_to_usize((left.floor() - 1.0).max(0.0));
+        let last = f64_to_usize((right.ceil() + 1.0).max(0.0)).min(len);
         (first.min(last), last)
     }
 
@@ -75,8 +77,8 @@ impl View {
         self.bar_px = self.bar_px.clamp(MIN_BAR_PX, MAX_BAR_PX);
         let span = self.span(plot_w.max(1.0));
         let max_offset = span * 0.6;
-        let min_right = KEEP_VISIBLE.min(len as f64);
-        let min_offset = min_right - len as f64;
+        let min_right = KEEP_VISIBLE.min(count_f64(len));
+        let min_offset = min_right - count_f64(len);
         self.offset = self.offset.min(max_offset).max(min_offset);
     }
 
@@ -88,7 +90,7 @@ impl View {
 
     /// Put a point at the middle of the plot without changing the zoom.
     pub fn center_on(&mut self, index: f64, len: usize, plot_w: f64) {
-        self.offset = index + 0.5 + self.span(plot_w) / 2.0 - len as f64;
+        self.offset = index + 0.5 + self.span(plot_w) / 2.0 - count_f64(len);
         self.clamp(len, plot_w);
     }
 
@@ -100,7 +102,7 @@ impl View {
         let anchor = self.index_at(anchor_x, len, plot_w);
         self.bar_px = (self.bar_px * factor).clamp(MIN_BAR_PX, MAX_BAR_PX);
         let right = anchor + 0.5 + (plot_w - anchor_x) / self.bar_px;
-        self.offset = right - len as f64;
+        self.offset = right - count_f64(len);
         self.clamp(len, plot_w);
     }
 
@@ -113,7 +115,7 @@ impl View {
     /// unless they are following the newest point.
     pub fn on_appended(&mut self, added: usize) {
         if !self.is_following() {
-            self.offset -= added as f64;
+            self.offset -= count_f64(added);
         }
     }
 
@@ -130,7 +132,7 @@ pub(crate) fn padded_range(lo: f64, hi: f64, min_range: f64, share: f64) -> (f64
     let mut lo = lo;
     let mut hi = hi;
     if range < min_range {
-        let mid = (lo + hi) / 2.0;
+        let mid = f64::midpoint(lo, hi);
         lo = mid - min_range / 2.0;
         hi = mid + min_range / 2.0;
         range = min_range;

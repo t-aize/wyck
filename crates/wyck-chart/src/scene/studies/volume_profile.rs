@@ -4,6 +4,7 @@ use super::dash_pattern;
 use crate::data::Series;
 use crate::scene::cmd::{Cmd, rgb_alpha};
 use crate::scene::ctx::Ctx;
+use wyck_core::math::{f32_of, f64_to_usize, i64_to_f64};
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::profile;
 use wyck_indicators::profile::Slice;
@@ -17,39 +18,44 @@ pub(super) fn volume_profile(
     out: &mut Vec<Cmd>,
 ) {
     let slices: Vec<Slice> = match cx.series {
-        Series::Bars(bars) => bars[first.min(bars.len())..last.min(bars.len())]
+        Series::Bars(bars) => bars
+            .get(first.min(bars.len())..last.min(bars.len()))
+            .unwrap_or_default()
             .iter()
             .map(|b| Slice {
-                open: b.open as f64,
-                high: b.high as f64,
-                low: b.low as f64,
-                close: b.close as f64,
-                volume: b.volume as f64,
+                open: i64_to_f64(b.open),
+                high: i64_to_f64(b.high),
+                low: i64_to_f64(b.low),
+                close: i64_to_f64(b.close),
+                volume: i64_to_f64(b.volume),
             })
             .collect(),
         Series::Ticks(ticks) => {
-            let slice = &ticks[first.min(ticks.len())..last.min(ticks.len())];
+            let slice = ticks
+                .get(first.min(ticks.len())..last.min(ticks.len()))
+                .unwrap_or_default();
             slice
                 .iter()
                 .enumerate()
                 .map(|(i, t)| {
-                    let before = if i > 0 { slice[i - 1].price } else { t.price } as f64;
+                    let previous = i.checked_sub(1).and_then(|p| slice.get(p));
+                    let before = i64_to_f64(previous.map_or(t.price, |prev| prev.price));
                     Slice {
                         open: before,
-                        high: before.max(t.price as f64),
-                        low: before.min(t.price as f64),
-                        close: t.price as f64,
+                        high: before.max(i64_to_f64(t.price)),
+                        low: before.min(i64_to_f64(t.price)),
+                        close: i64_to_f64(t.price),
                         volume: 1.0,
                     }
                 })
                 .collect()
         }
     };
-    let rows = config.input("rows") as usize;
+    let rows = f64_to_usize(config.input("rows"));
     let Some(profile) = profile::build(&slices, rows, config.input("value_area") / 100.0) else {
         return;
     };
-    let max_w = cx.plot_w as f32 * (config.input("width") as f32 / 100.0);
+    let max_w = f32_of(cx.plot_w) * (f32_of(config.input("width")) / 100.0);
     let right_side = config.input("side") == 0.0;
     let highlight = config.input("highlight") != 0.0;
     let (up_style, down_style, poc_style) = (
@@ -58,7 +64,7 @@ pub(super) fn volume_profile(
         config.plot_style("poc"),
     );
     let edge = if right_side {
-        cx.ox + cx.plot_w as f32
+        cx.ox + f32_of(cx.plot_w)
     } else {
         cx.ox
     };
@@ -69,11 +75,11 @@ pub(super) fn volume_profile(
         }
         let in_area = (profile.value_area.0..=profile.value_area.1).contains(&index);
         let alpha = if in_area && highlight {
-            config.input("area_opacity") as f32 / 100.0
+            f32_of(config.input("area_opacity")) / 100.0
         } else if highlight {
-            config.input("other_opacity") as f32 / 100.0
+            f32_of(config.input("other_opacity")) / 100.0
         } else {
-            config.input("normal_opacity") as f32 / 100.0
+            f32_of(config.input("normal_opacity")) / 100.0
         };
         let (y_top, y_bottom) = (cx.y(row.hi), cx.y(row.lo));
         let height = (y_bottom - y_top).abs() - 1.0;
@@ -81,8 +87,8 @@ pub(super) fn volume_profile(
             continue;
         }
         let top = y_top.min(y_bottom) + 0.5;
-        let width = (total / profile.max_total) as f32 * max_w;
-        let up_w = (row.up / total) as f32 * width;
+        let width = f32_of(total / profile.max_total) * max_w;
+        let up_w = f32_of(row.up / total) * width;
         let parts = [
             (up_w, up_style.color, up_style.visible, up_style.opacity),
             (
@@ -113,11 +119,12 @@ pub(super) fn volume_profile(
             offset += w;
         }
     }
-    if poc_style.visible {
-        let row = profile.rows[profile.poc];
-        let y = cx.snap(cx.y((row.lo + row.hi) / 2.0)) + 0.5;
+    if poc_style.visible
+        && let Some(row) = profile.rows.get(profile.poc)
+    {
+        let y = cx.snap(cx.y(f64::midpoint(row.lo, row.hi))) + 0.5;
         out.push(Cmd::Stroke {
-            points: vec![(cx.ox, y), (cx.ox + cx.plot_w as f32, y)],
+            points: vec![(cx.ox, y), (cx.ox + f32_of(cx.plot_w), y)],
             width: poc_style.width,
             color: rgb_alpha(poc_style.color, poc_style.opacity),
             dash: dash_pattern(poc_style.dash),

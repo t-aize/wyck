@@ -2,6 +2,8 @@
 //! plot between them cut into horizontal bands, the prices on top and one band per indicator pane
 //! under them, sized by their weights.
 
+use wyck_core::math::f32_of;
+
 /// Width of the price axis on the right: it grows with the text it holds.
 pub fn axis_w() -> f32 {
     wyck_core::text_scale::scaled(76.0)
@@ -65,8 +67,11 @@ impl Geometry {
                     *height = MIN_BAND;
                 }
             }
-            if heights[0] - taken >= MIN_BAND * 2.0 {
-                heights[0] -= taken;
+            let main = heights.first().copied().unwrap_or(0.0);
+            if main - taken >= MIN_BAND * 2.0 {
+                if let Some(first) = heights.first_mut() {
+                    *first -= taken;
+                }
             } else {
                 // No room: back to the plain shares.
                 heights = weights.iter().map(|w| plot_h * w / total).collect();
@@ -99,8 +104,12 @@ impl Geometry {
         (self.h - f64::from(axis_h())).max(1.0)
     }
 
+    /// The band of the prices: the first, or the whole plot when there is none.
     pub fn main(&self) -> Band {
-        self.bands[0]
+        self.bands.first().copied().unwrap_or(Band {
+            top: 0.0,
+            h: self.plot_h(),
+        })
     }
 
     /// The band under `y`, if `y` is on the plot.
@@ -128,7 +137,7 @@ impl Geometry {
         );
         let pair_w = wa + wb;
         let wa2 = pair_w * new_a / pair_h;
-        Some((wa2 as f32, (pair_w - wa2) as f32))
+        Some((f32_of(wa2), f32_of(pair_w - wa2)))
     }
 }
 

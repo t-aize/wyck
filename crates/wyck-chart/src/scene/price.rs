@@ -5,6 +5,7 @@
 //! same height at any price), or evenly but labelled as a percentage change or an index of 100
 //! from the first bar on screen. The scale can also be turned upside down.
 
+use wyck_core::math::{count_f64, f64_to_i64};
 use wyck_market::format_price;
 
 use wyck_core::format;
@@ -92,7 +93,7 @@ impl PriceMap {
     pub fn zoomed(&self, factor: f64, anchor_y: Option<f64>) -> (f64, f64) {
         let factor = factor.clamp(0.05, 20.0);
         let (a, b) = (self.t(self.lo), self.t(self.hi));
-        let anchor = anchor_y.map_or((a + b) / 2.0, |y| self.t(self.price(y)));
+        let anchor = anchor_y.map_or(f64::midpoint(a, b), |y| self.t(self.price(y)));
         (
             self.untransform(anchor - (anchor - a) / factor),
             self.untransform(anchor + (b - anchor) / factor),
@@ -156,10 +157,10 @@ impl PriceMap {
 fn log_ticks(lo: f64, hi: f64, target: usize, min_step: f64) -> Vec<f64> {
     let (a, b) = (lo.ln(), hi.ln());
     let target = target.max(2);
-    let step = (b - a) / target as f64;
+    let step = (b - a) / count_f64(target);
     let mut out: Vec<f64> = Vec::new();
     for i in 0..=target {
-        let raw = (a + step * i as f64).exp();
+        let raw = (a + step * count_f64(i)).exp();
         // Round to a fifth of the distance to the next label at this price: round enough to
         // read, close enough to keep the labels evenly spread.
         let local = raw * (step.exp() - 1.0);
@@ -181,7 +182,7 @@ pub fn format_value(value: f64, format: ValueFormat, digits: u32) -> String {
         return String::new();
     }
     match format {
-        ValueFormat::Price => format_price(value.round() as i64, digits),
+        ValueFormat::Price => format_price(f64_to_i64(value.round()), digits),
         ValueFormat::Plain(decimals) => format::trim(value, decimals as usize),
         ValueFormat::Percent(decimals) => format!("{}%", format::trim(value, decimals as usize)),
         ValueFormat::Count => count(value),
@@ -198,7 +199,7 @@ pub(crate) fn count(value: f64) -> String {
     } else if abs >= 1e3 {
         (value / 1e3, "K")
     } else {
-        return format!("{}", value.round() as i64);
+        return format!("{}", f64_to_i64(value.round()));
     };
     format!("{}{suffix}", format::trim(scaled, 2))
 }
@@ -277,7 +278,7 @@ mod tests {
     fn percent_labels_are_round_percentages_from_the_base() {
         let m = map(ScaleMode::Percent, false);
         let ticks = m.ticks(6, 0.01);
-        assert!(!ticks.is_empty());
+        assert_ne!(ticks, [] as [f64; 0]);
         for tick in &ticks {
             let label = m.label(*tick, ValueFormat::Price, 5);
             assert!(label.ends_with('%'), "{label}");

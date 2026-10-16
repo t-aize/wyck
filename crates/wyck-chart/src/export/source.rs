@@ -139,11 +139,10 @@ impl Source<'_> {
     pub fn column_name(&self, key: ColumnKey) -> String {
         match key {
             ColumnKey::Study { study, plot } => {
-                let title = self
-                    .settings
-                    .studies
-                    .get(study)
-                    .map_or_else(|| format!("Study {}", study + 1), |c| c.title());
+                let title = self.settings.studies.get(study).map_or_else(
+                    || format!("Study {}", study + 1),
+                    wyck_indicators::config::StudyConfig::title,
+                );
                 let line = self
                     .display
                     .studies

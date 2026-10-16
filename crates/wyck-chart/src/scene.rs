@@ -36,6 +36,8 @@ use super::flow::Flow;
 use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings};
 use super::view::View;
+use wyck_core::math::{count_f64, f32_of};
+use wyck_drawings::look::Face;
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::style::Dash;
 use wyck_indicators::spec::{Placement, ValueFormat};
@@ -50,11 +52,11 @@ fn watermark_size() -> f32 {
 }
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
-pub(crate) const TPO_MARKS: u32 = 0x7f93b2;
-pub(crate) const TPO_POC: u32 = 0xf0a020;
-pub(crate) const TPO_VALUE_AREA: u32 = 0x5b8def;
-pub(crate) const TPO_IB: u32 = 0xb27be6;
-pub(crate) const TPO_SINGLE: u32 = 0xe5586a;
+pub(crate) const TPO_MARKS: u32 = 0x7f_93b2;
+pub(crate) const TPO_POC: u32 = 0xf0_a020;
+pub(crate) const TPO_VALUE_AREA: u32 = 0x5b_8def;
+pub(crate) const TPO_IB: u32 = 0xb2_7be6;
+pub(crate) const TPO_SINGLE: u32 = 0xe5_586a;
 
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
@@ -161,7 +163,7 @@ fn pointer_of(frame: &Frame<'_>, geometry: &Geometry, map: &PriceMap) -> Option<
         -1.0
     };
     let main = geometry.main();
-    (main.contains(y) || !price.is_finite()).then_some(((x as f32, y as f32), 0))
+    (main.contains(y) || !price.is_finite()).then_some(((f32_of(x), f32_of(y)), 0))
 }
 
 /// Builds every command for one frame.
@@ -209,7 +211,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             first,
             last,
             |i| series.time_at(i),
-            |i| frame.view.x_of(i as f64, len, plot_w),
+            |i| frame.view.x_of(count_f64(i), len, plot_w),
             plot_w,
             96.0,
             frame.settings.zone,
@@ -220,7 +222,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             first,
             last,
             |i| series.time_at(i),
-            |i| frame.view.x_of(i as f64, len, plot_w),
+            |i| frame.view.x_of(count_f64(i), len, plot_w),
             plot_w,
             120.0,
             frame.settings.zone,
@@ -233,13 +235,13 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     if let Some(text) = &frame.watermark {
         plot.push(Cmd::Text {
             text: text.clone(),
-            x: ox + plot_w as f32 / 2.0,
-            y: oy + (main.top + main.h / 2.0) as f32 - watermark_size() * 0.65,
+            x: ox + f32_of(plot_w) / 2.0,
+            y: oy + f32_of(main.top + main.h / 2.0) - watermark_size() * 0.65,
             size: watermark_size(),
             color: with_alpha(p.text_strong, 0.07),
             align: Align::Center,
             bold: true,
-            face: Default::default(),
+            face: Face::default(),
         });
     }
     let (grid_h, grid_v) = (
@@ -248,15 +250,15 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     );
     if grid_h {
         for value in &main_ticks {
-            plot.push(cx.hline(cx.y(*value), ox, ox + plot_w as f32, hsla(p.grid)));
+            plot.push(cx.hline(cx.y(*value), ox, ox + f32_of(plot_w), hsla(p.grid)));
         }
     }
     if grid_v {
         for label in &time_labels {
             plot.push(cx.vline(
                 cx.x(label.index),
-                oy + main.top as f32,
-                oy + main.bottom() as f32,
+                oy + f32_of(main.top),
+                oy + f32_of(main.bottom()),
                 hsla(p.grid),
             ));
         }
@@ -266,7 +268,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             plot.push(cx.vline(
                 cx.x(index),
                 oy,
-                oy + plot_h as f32,
+                oy + f32_of(plot_h),
                 with_alpha(p.text, 0.28),
             ));
         }
@@ -280,7 +282,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         plot.push(Cmd::Stroke {
             points: vec![
                 (x0, cx.snap(y) + 0.5),
-                (ox + plot_w as f32, cx.snap(y) + 0.5),
+                (ox + f32_of(plot_w), cx.snap(y) + 0.5),
             ],
             width: mark.width,
             color: rgb_alpha(mark.color, 0.9),
@@ -298,17 +300,21 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     }
     cmds.push(Cmd::Clip {
         x: ox,
-        y: oy + main.top as f32,
-        w: plot_w as f32,
-        h: main.h as f32,
+        y: oy + f32_of(main.top),
+        w: f32_of(plot_w),
+        h: f32_of(main.h),
         inner: plot,
     });
 
     let panes = frame.settings.panes();
     let mut pane_maps: Vec<(Band, PriceMap, ValueFormat, Vec<f64>)> = Vec::new();
     for (i, pane) in panes.iter().enumerate() {
-        let band = geometry.bands[i + 1];
-        let config = &frame.settings.studies[pane.study];
+        let (Some(&band), Some(config)) = (
+            geometry.bands.get(i + 1),
+            frame.settings.studies.get(pane.study),
+        ) else {
+            continue;
+        };
         let Some(Some(output)) = frame.display.studies.get(pane.study) else {
             continue;
         };
@@ -318,7 +324,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         let min_step = match format {
             ValueFormat::Price => unit,
             ValueFormat::Plain(decimals) | ValueFormat::Percent(decimals) => {
-                10f64.powi(-(decimals as i32))
+                10f64.powi(-i32::try_from(decimals).unwrap_or(i32::MAX))
             }
             ValueFormat::Count => 1.0,
         };
@@ -326,15 +332,20 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         let mut inner = Vec::new();
         if grid_h {
             for value in &ticks {
-                inner.push(cx.hline(cx.y_on(&pmap, *value), ox, ox + plot_w as f32, hsla(p.grid)));
+                inner.push(cx.hline(
+                    cx.y_on(&pmap, *value),
+                    ox,
+                    ox + f32_of(plot_w),
+                    hsla(p.grid),
+                ));
             }
         }
         if grid_v {
             for label in &time_labels {
                 inner.push(cx.vline(
                     cx.x(label.index),
-                    oy + band.top as f32,
-                    oy + band.bottom() as f32,
+                    oy + f32_of(band.top),
+                    oy + f32_of(band.bottom()),
                     hsla(p.grid),
                 ));
             }
@@ -347,9 +358,9 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
         cmds.push(Cmd::Clip {
             x: ox,
-            y: oy + band.top as f32,
-            w: plot_w as f32,
-            h: band.h as f32,
+            y: oy + f32_of(band.top),
+            w: f32_of(plot_w),
+            h: f32_of(band.h),
             inner,
         });
         pane_maps.push((band, pmap, format, ticks));
@@ -362,7 +373,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
                 .view
                 .index_at(f64::from(hx), len, plot_w)
                 .round()
-                .clamp(0.0, (len - 1) as f64);
+                .clamp(0.0, count_f64(len - 1));
             cx.xf(index)
         } else {
             ox + hx
@@ -370,12 +381,12 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         cmds.push(Cmd::Clip {
             x: ox,
             y: oy,
-            w: plot_w as f32,
-            h: plot_h as f32,
+            w: f32_of(plot_w),
+            h: f32_of(plot_h),
             inner: vec![Cmd::Stroke {
                 points: vec![
                     (cx.snap(x) + 0.5, oy),
-                    (cx.snap(x) + 0.5, oy + plot_h as f32),
+                    (cx.snap(x) + 0.5, oy + f32_of(plot_h)),
                 ],
                 width: 1.0,
                 color: hsla(p.crosshair),
@@ -387,13 +398,13 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     cmds.push(axes::axes_background(frame, &geometry));
     for band in geometry.bands.iter().skip(1) {
         cmds.push(cx.hline(
-            oy + band.top as f32,
+            oy + f32_of(band.top),
             ox,
-            ox + frame.w as f32,
+            ox + f32_of(frame.w),
             hsla(p.border),
         ));
     }
-    let axis_x = ox + plot_w as f32 + 8.0;
+    let axis_x = ox + f32_of(plot_w) + 8.0;
     let text = |text: String, y: f32| Cmd::Text {
         text,
         x: axis_x,
@@ -402,10 +413,10 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
-        face: Default::default(),
+        face: Face::default(),
     };
     let in_band = |band: &Band, y: f32| {
-        y >= oy + band.top as f32 + 6.0 && y <= oy + band.bottom() as f32 - 6.0
+        y >= oy + f32_of(band.top) + 6.0 && y <= oy + f32_of(band.bottom()) - 6.0
     };
     // The tags of the price axes are made first, spread so none hides another, and the scales'
     // labels then keep clear of them. The pointer's tags go over everything and move nothing.
@@ -454,7 +465,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
     }
     // The labels stop short of the time zone, which sits at the right end of the axis.
-    let zone_left = ox + plot_w as f32 - zone_w();
+    let zone_left = ox + f32_of(plot_w) - zone_w();
     for label in &time_labels {
         if cx.x(label.index) > zone_left - 16.0 {
             continue;
@@ -462,7 +473,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         cmds.push(Cmd::Text {
             text: label.text.clone(),
             x: cx.x(label.index),
-            y: oy + plot_h as f32 + 8.0,
+            y: oy + f32_of(plot_h) + 8.0,
             size: font(),
             color: if label.major {
                 hsla(p.text_strong)
@@ -471,7 +482,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             },
             align: Align::Center,
             bold: label.major,
-            face: Default::default(),
+            face: Face::default(),
         });
     }
     // The zone the times are in, at the right end of the time axis. The scale buttons are in the
@@ -479,13 +490,13 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let corner_time = frame.raw.last_time().unwrap_or(frame.now_ms);
     cmds.push(Cmd::Text {
         text: frame.settings.zone.label(corner_time),
-        x: ox + plot_w as f32 - 8.0,
-        y: oy + plot_h as f32 + 8.0,
+        x: ox + f32_of(plot_w) - 8.0,
+        y: oy + f32_of(plot_h) + 8.0,
         size: font(),
         color: hsla(p.text),
         align: Align::Right,
         bold: false,
-        face: Default::default(),
+        face: Face::default(),
     });
     cmds.extend(tags);
     cmds.extend(pointer_tags);
@@ -506,7 +517,7 @@ fn pane_maps_for_tags(
 fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
     let y = cx.snap(cx.oy + hy) + 0.5;
     Cmd::Stroke {
-        points: vec![(cx.ox, y), (cx.ox + cx.plot_w as f32, y)],
+        points: vec![(cx.ox, y), (cx.ox + f32_of(cx.plot_w), y)],
         width: 1.0,
         color: hsla(cx.f.palette.crosshair),
         dash: cx.f.settings.crosshair.dash(),
@@ -526,6 +537,7 @@ mod tests {
     use crate::settings::ScaleMode;
     use crate::view::PriceScale;
     use crate::zone::Zone;
+    use wyck_core::math::{count_f64, count_i64, f32_of, f64_to_i64};
     use wyck_indicators::compute::{ScriptDrawing, StudyOutput};
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
@@ -534,14 +546,14 @@ mod tests {
     fn bars(n: usize) -> Vec<Bar> {
         (0..n)
             .map(|i| {
-                let base = 100_000 + (i as i64 % 50) * 10;
+                let base = 100_000 + (count_i64(i) % 50) * 10;
                 Bar {
-                    time_ms: 1_767_571_200_000 + i as i64 * 60_000,
+                    time_ms: 1_767_571_200_000 + count_i64(i) * 60_000,
                     open: base,
                     high: base + 30,
                     low: base - 20,
                     close: base + 10,
-                    volume: 1 + i as i64 % 7,
+                    volume: 1 + count_i64(i) % 7,
                 }
             })
             .collect()
@@ -694,8 +706,8 @@ mod tests {
     fn a_line_over_many_ticks_stays_bounded() {
         let ticks: Vec<Tick> = (0..200_000)
             .map(|i| Tick {
-                time_ms: 1_767_571_200_000 + i as i64 * 100,
-                price: 100_000 + ((i as i64 * 7919) % 400),
+                time_ms: 1_767_571_200_000 + i64::from(i) * 100,
+                price: 100_000 + ((i64::from(i) * 7919) % 400),
             })
             .collect();
         let mut view = View::new(0.2);
@@ -823,7 +835,7 @@ mod tests {
         );
         let marks = [PriceMark {
             price: 100_200.0,
-            color: 0x00ff00,
+            color: 0x00_ff00,
             dash: Dash::Dashed,
             width: 1.0,
             from_x: None,
@@ -839,6 +851,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp_const,
+        reason = "the band is clamped to exactly the minimum, a constant returned as is"
+    )]
     fn a_compact_atr_pane_keeps_its_last_value_on_the_axis() {
         let mut settings = ChartSettings::default();
         let mut atr = StudyConfig::new(StudyKind::Atr);
@@ -866,8 +882,8 @@ mod tests {
                     ..
                 } => {
                     text == &label
-                        && g.bands[1].top as f32 <= *y
-                        && *y + *height <= g.bands[1].bottom() as f32
+                        && f32_of(g.bands[1].top) <= *y
+                        && *y + *height <= f32_of(g.bands[1].bottom())
                 }
                 _ => false,
             }),
@@ -984,24 +1000,24 @@ mod tests {
         );
         let mut frame = f.frame();
         frame.timeframe = Timeframe::Bars(Period::D1);
-        assert!(day_breaks(&frame, 0, 120).is_empty());
+        assert_eq!(day_breaks(&frame, 0, 120), [] as [usize; 0]);
     }
 
     #[test]
     fn a_chart_overrides_only_the_colors_it_sets() {
         let theme = Palette::new();
         let colors = ChartColors {
-            up: Some(0x00ff00),
-            background: Some(0x101010),
+            up: Some(0x00_ff00),
+            background: Some(0x10_1010),
             ..ChartColors::default()
         };
         let own = Palette::for_chart_with_base(&colors, Palette::new());
-        assert_eq!(own.up, rgb(0x00ff00));
-        assert_eq!(own.bg, rgb(0x101010));
+        assert_eq!(own.up, rgb(0x00_ff00));
+        assert_eq!(own.bg, rgb(0x10_1010));
         assert_eq!(own.down, theme.down);
         let grid = Palette::for_chart_with_base(
             &ChartColors {
-                grid: Some(0xffffff),
+                grid: Some(0xff_ffff),
                 ..ChartColors::default()
             },
             Palette::new(),
@@ -1250,10 +1266,10 @@ mod tests {
     fn tpo_bars() -> Vec<Bar> {
         (0..864)
             .map(|i| {
-                let wave = ((i as f64 * 0.05).sin() * 300.0) as i64;
+                let wave = f64_to_i64((f64::from(i) * 0.05).sin() * 300.0);
                 let base = 100_000 + wave;
                 Bar {
-                    time_ms: 1_767_571_200_000 + i as i64 * 300_000,
+                    time_ms: 1_767_571_200_000 + i64::from(i) * 300_000,
                     open: base,
                     high: base + 60,
                     low: base - 60,
@@ -1354,9 +1370,9 @@ mod tests {
         view.offset = View::home_offset();
         let many: Vec<Bar> = (0..60_000)
             .map(|i| {
-                let base = 100_000 + ((i as f64 * 0.01).sin() * 900.0) as i64;
+                let base = 100_000 + f64_to_i64((f64::from(i) * 0.01).sin() * 900.0);
                 Bar {
-                    time_ms: 1_767_571_200_000 + i as i64 * 3_600_000,
+                    time_ms: 1_767_571_200_000 + i64::from(i) * 3_600_000,
                     open: base,
                     high: base + 50,
                     low: base - 50,
@@ -1430,14 +1446,18 @@ mod tests {
         use wyck_drawings::model::Point;
         let points = (0..tool.anchors().max(2))
             .map(|i| Point {
-                t: 1_767_571_200_000 + (210 + i as i64 * 9) * 60_000,
-                p: 100_000.0 + 60.0 + ((i as f64 * 37.0) % 90.0),
+                t: 1_767_571_200_000 + (210 + count_i64(i) * 9) * 60_000,
+                p: 100_000.0 + 60.0 + ((count_f64(i) * 37.0) % 90.0),
             })
             .collect();
         Drawing::new(1, tool, points)
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "`bar_px` and `pan` come from the lists of literals the test loops over, so the comparison is exact"
+    )]
     fn every_drawing_tool_draws_finite_shapes_at_any_zoom_and_position() {
         use wyck_drawings::model::tool::Tool;
         let mut shown_at_start = Vec::new();

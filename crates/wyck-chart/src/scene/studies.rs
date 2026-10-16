@@ -8,6 +8,9 @@ use super::cmd::{Align, Cmd, P, font, rgb_alpha};
 use super::ctx::Ctx;
 use super::geometry::{Band, axis_w};
 use super::price::{self, PriceMap};
+use wyck_core::math::Series as _;
+use wyck_core::math::{count_i64, f32_of, f32_to_i32, f64_to_i64, i64_to_f64};
+use wyck_drawings::look::Face;
 use wyck_drawings::model::style::Dash;
 use wyck_indicators::compute::{DOWN_COLOR, FillOut, PlotOut, StudyOutput, UP_COLOR};
 use wyck_indicators::config::StudyConfig;
@@ -17,12 +20,15 @@ use wyck_indicators::style::FillStyle;
 
 /// The part of the data a plot draws on screen: data indices `from..to`.
 fn data_range(cx: &Ctx<'_>, plot: &PlotOut, first: usize) -> (usize, usize) {
-    let n = plot.values.len() as i64;
+    let n = count_i64(plot.values.len());
     // The right edge may be past the data: plots shifted forward draw there.
-    let right = cx.f.view.index_at(cx.plot_w, cx.len, cx.plot_w).ceil() as i64 + 2;
-    let from = (first as i64 - 1 - plot.offset).clamp(0, n);
+    let right = f64_to_i64(cx.f.view.index_at(cx.plot_w, cx.len, cx.plot_w).ceil()) + 2;
+    let from = (count_i64(first) - 1 - plot.offset).clamp(0, n);
     let to = (right - plot.offset).clamp(0, n);
-    (from as usize, to as usize)
+    (
+        usize::try_from(from).unwrap_or_default(),
+        usize::try_from(to).unwrap_or_default(),
+    )
 }
 
 /// The lowest and highest value of a plot among the points on screen.
@@ -32,9 +38,9 @@ pub(super) fn visible_range(
     first: usize,
     last: usize,
 ) -> Option<(f64, f64)> {
-    let n = plot.values.len() as i64;
-    let from = (first as i64 - plot.offset).clamp(0, n) as usize;
-    let to = (last as i64 - plot.offset).clamp(0, n) as usize;
+    let n = count_i64(plot.values.len());
+    let from = usize::try_from((count_i64(first) - plot.offset).clamp(0, n)).unwrap_or_default();
+    let to = usize::try_from((count_i64(last) - plot.offset).clamp(0, n)).unwrap_or_default();
     let mut range: Option<(f64, f64)> = None;
     for v in plot.values.get(from..to)?.iter().filter(|v| v.is_finite()) {
         range = Some(range.map_or((*v, *v), |(lo, hi)| (lo.min(*v), hi.max(*v))));
@@ -54,42 +60,41 @@ pub(super) fn pane_map(
     first: usize,
     last: usize,
 ) -> PriceMap {
-    let (lo, hi) = match fixed {
-        Some(range) => range,
-        None => {
-            let mut range: Option<(f64, f64)> = None;
-            for plot in &output.plots {
-                if !config.plot_style(plot.key).visible {
-                    continue;
-                }
-                if let Some((l, h)) = visible_range(
-                    plot,
-                    config.plot_style(plot.key).kind.unwrap_or(plot.kind),
-                    first,
-                    last,
-                ) {
-                    range = Some(range.map_or((l, h), |(lo, hi)| (lo.min(l), hi.max(h))));
-                }
+    let (lo, hi) = if let Some(range) = fixed {
+        range
+    } else {
+        let mut range: Option<(f64, f64)> = None;
+        for plot in &output.plots {
+            if !config.plot_style(plot.key).visible {
+                continue;
             }
-            let (mut lo, mut hi) = range.unwrap_or((0.0, 1.0));
-            for (index, level) in output.levels.iter().enumerate() {
-                let style = config.levels.get(&index).copied().unwrap_or_default();
-                if !style.visible {
-                    continue;
-                }
-                let level = style.value.as_ref().unwrap_or(level);
-                if *level >= lo - (hi - lo) && *level <= hi + (hi - lo) {
-                    lo = lo.min(*level);
-                    hi = hi.max(*level);
-                }
+            if let Some((l, h)) = visible_range(
+                plot,
+                config.plot_style(plot.key).kind.unwrap_or(plot.kind),
+                first,
+                last,
+            ) {
+                range = Some(range.map_or((l, h), |(lo, hi)| (lo.min(l), hi.max(h))));
             }
-            if hi - lo < 1e-12 {
-                let pad = hi.abs().max(1.0) * 0.01;
-                (lo - pad, hi + pad)
-            } else {
-                let pad = (hi - lo) * 0.08;
-                (lo - pad, hi + pad)
+        }
+        let (mut lo, mut hi) = range.unwrap_or((0.0, 1.0));
+        for (index, level) in output.levels.iter().enumerate() {
+            let style = config.levels.get(&index).copied().unwrap_or_default();
+            if !style.visible {
+                continue;
             }
+            let level = style.value.as_ref().unwrap_or(level);
+            if *level >= lo - (hi - lo) && *level <= hi + (hi - lo) {
+                lo = lo.min(*level);
+                hi = hi.max(*level);
+            }
+        }
+        if hi - lo < 1e-12 {
+            let pad = hi.abs().max(1.0) * 0.01;
+            (lo - pad, hi + pad)
+        } else {
+            let pad = (hi - lo) * 0.08;
+            (lo - pad, hi + pad)
         }
     };
     PriceMap::linear(lo, hi, band.top + 6.0, band.bottom() - 6.0)
@@ -102,8 +107,7 @@ fn segments(cx: &Ctx<'_>, plot: &PlotOut, map: &PriceMap, first: usize) -> Vec<V
     let mut out: Vec<Vec<P>> = Vec::new();
     let mut current: Vec<P> = Vec::new();
     let mut last_column: Option<i32> = None;
-    for i in from..to {
-        let v = plot.values[i];
+    for (i, &v) in (from..to).zip(plot.values.iter().skip(from)) {
         if !v.is_finite() {
             if current.len() > 1 {
                 out.push(std::mem::take(&mut current));
@@ -112,9 +116,9 @@ fn segments(cx: &Ctx<'_>, plot: &PlotOut, map: &PriceMap, first: usize) -> Vec<V
             last_column = None;
             continue;
         }
-        let x = cx.xf((i as i64 + plot.offset) as f64);
+        let x = cx.xf(i64_to_f64(count_i64(i) + plot.offset));
         let point = (x, cx.y_on(map, v));
-        let column = x.floor() as i32;
+        let column = f32_to_i32(x.floor());
         if cx.f.view.bar_px < 1.0 && last_column == Some(column) {
             if let Some(end) = current.last_mut() {
                 *end = point;
@@ -155,11 +159,16 @@ fn draw_plot(
         }
         PlotKind::Dots => {
             let (from, to) = data_range(cx, plot, first);
-            let r = (style.width.max(1.0) + (cx.f.view.bar_px as f32 / 6.0).min(2.0)) / 2.0;
-            for i in from..to {
-                let v = plot.values[i];
+            let r = f32::midpoint(
+                style.width.max(1.0),
+                (f32_of(cx.f.view.bar_px) / 6.0).min(2.0),
+            );
+            for (i, &v) in (from..to).zip(plot.values.iter().skip(from)) {
                 if v.is_finite() {
-                    let (x, y) = (cx.xf((i as i64 + plot.offset) as f64), cx.y_on(map, v));
+                    let (x, y) = (
+                        cx.xf(i64_to_f64(count_i64(i) + plot.offset)),
+                        cx.y_on(map, v),
+                    );
                     out.push(Cmd::Rect {
                         x: x - r,
                         y: y - r,
@@ -175,23 +184,22 @@ fn draw_plot(
         PlotKind::Histogram => {
             let (from, to) = data_range(cx, plot, first);
             let zero = cx.y_on(map, 0.0);
-            let bar_px = cx.f.view.bar_px as f32;
+            let bar_px = f32_of(cx.f.view.bar_px);
             let width = if bar_px >= 2.0 {
                 (bar_px * style.bar_width).max(1.0)
             } else {
                 1.0
             };
             let mut last_column: Option<i32> = None;
-            for i in from..to {
-                let v = plot.values[i];
+            for (i, &v) in (from..to).zip(plot.values.iter().skip(from)) {
                 if !v.is_finite() {
                     continue;
                 }
-                let x = cx.xf((i as i64 + plot.offset) as f64);
-                if bar_px < 1.0 && last_column == Some(x.floor() as i32) {
+                let x = cx.xf(i64_to_f64(count_i64(i) + plot.offset));
+                if bar_px < 1.0 && last_column == Some(f32_to_i32(x.floor())) {
                     continue;
                 }
-                last_column = Some(x.floor() as i32);
+                last_column = Some(f32_to_i32(x.floor()));
                 let y = cx.y_on(map, v);
                 let color = match &plot.up {
                     Some(up) => {
@@ -257,8 +265,10 @@ fn draw_fill(
     // Runs where both have a value and the same one is on top.
     let mut run: Vec<usize> = Vec::new();
     let flush = |run: &mut Vec<usize>, out: &mut Vec<Cmd>| {
-        if run.len() > 1 {
-            let above = a.values[run[0]] >= b.values[run[0]];
+        if let Some(&start) = run.first()
+            && run.len() > 1
+        {
+            let above = a.values.at(start) >= b.values.at(start);
             let other = style.and_then(|s| s.other).or(fill.other);
             let color = match other {
                 Some(other) if !above => other,
@@ -266,8 +276,8 @@ fn draw_fill(
             };
             let edge = |line: &PlotOut, i: usize| {
                 (
-                    cx.xf((i as i64 + line.offset) as f64),
-                    cx.y_on(map, line.values[i]),
+                    cx.xf(i64_to_f64(count_i64(i) + line.offset)),
+                    cx.y_on(map, line.values.at(i)),
                 )
             };
             let mut points: Vec<P> = run.iter().map(|&i| edge(a, i)).collect();
@@ -280,14 +290,14 @@ fn draw_fill(
         run.clear();
     };
     for i in from..to {
-        let (va, vb) = (a.values[i], b.values[i]);
+        let (va, vb) = (a.values.at(i), b.values.at(i));
         if !(va.is_finite() && vb.is_finite()) {
             flush(&mut run, out);
             continue;
         }
         if style.and_then(|s| s.other).or(fill.other).is_some()
             && let Some(&prev) = run.last()
-            && (a.values[prev] >= b.values[prev]) != (va >= vb)
+            && (a.values.at(prev) >= b.values.at(prev)) != (va >= vb)
         {
             // Close this run on the crossing bar so the two colors meet.
             run.push(i);
@@ -348,12 +358,12 @@ pub(super) fn pane(
     last: usize,
     out: &mut Vec<Cmd>,
 ) {
-    let (left, right) = (cx.ox, cx.ox + cx.plot_w as f32);
+    let (left, right) = (cx.ox, cx.ox + f32_of(cx.plot_w));
     let accent = config
         .spec()
         .plots
         .first()
-        .map_or(0x787b86, |plot| config.plot_style(plot.key).color);
+        .map_or(0x78_7b86, |plot| config.plot_style(plot.key).color);
     if let Some((lo, hi)) = output.band
         && config.band.is_none_or(|style| style.visible)
     {
@@ -406,10 +416,10 @@ pub(super) fn value_tags(
     panes: &[(usize, PriceMap, Band, ValueFormat)],
     out: &mut Vec<Cmd>,
 ) {
-    let axis_x = cx.ox + cx.plot_w as f32 + 1.0;
+    let axis_x = cx.ox + f32_of(cx.plot_w) + 1.0;
     let mut tag = |text: String, y: f32, band: &Band, color: u32| {
-        let top = cx.oy + band.top as f32 + 9.0;
-        let bottom = cx.oy + band.bottom() as f32 - 9.0;
+        let top = cx.oy + f32_of(band.top) + 9.0;
+        let bottom = cx.oy + f32_of(band.bottom()) - 9.0;
         if bottom < top || !y.is_finite() {
             return;
         }
@@ -420,13 +430,13 @@ pub(super) fn value_tags(
             height: 18.0,
             pad: 7.0,
             bg: rgb_alpha(color, 1.0),
-            fg: rgb_alpha(0xffffff, 1.0),
+            fg: rgb_alpha(0xff_ffff, 1.0),
             align: Align::Left,
             fixed_width: Some(axis_w() - 2.0),
             within: None,
             size: font(),
             bold: false,
-            face: Default::default(),
+            face: Face::default(),
         });
     };
     let last_value = |plot: &PlotOut| plot.values.iter().rev().find(|v| v.is_finite()).copied();
@@ -453,7 +463,9 @@ pub(super) fn value_tags(
         }
     }
     for (study, map, band, format) in panes {
-        let config = &cx.f.settings.studies[*study];
+        let Some(config) = cx.f.settings.studies.get(*study) else {
+            continue;
+        };
         if !config.axis_labels {
             continue;
         }

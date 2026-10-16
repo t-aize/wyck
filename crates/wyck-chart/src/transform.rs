@@ -25,6 +25,7 @@
 pub(crate) mod settings;
 
 use serde::{Deserialize, Serialize};
+use wyck_core::math::count_i64;
 use wyck_market::Bar;
 
 /// Most elements a construction produces, like the bar limit of the chart.
@@ -85,7 +86,7 @@ pub(crate) fn samples(bars: &[Bar], path: PricePath) -> Vec<Sample> {
     let mut out = Vec::with_capacity(bars.len() * if path == PricePath::Ohlc { 4 } else { 1 });
     for bar in bars {
         let points = path.points(bar);
-        let n = points.len() as i64;
+        let n = count_i64(points.len());
         let share = bar.volume / n;
         for (i, &price) in points.iter().enumerate() {
             let volume = if i + 1 == points.len() {
@@ -231,7 +232,9 @@ pub(crate) fn line_break(samples: &[Sample], lines: usize) -> Vec<Bar> {
             continue;
         };
         let up = last.close > last.open;
-        let recent = &out[out.len().saturating_sub(lines)..];
+        let recent = out
+            .get(out.len().saturating_sub(lines)..)
+            .unwrap_or_default();
         let highest = recent.iter().map(|b| b.high).max().unwrap_or(last.high);
         let lowest = recent.iter().map(|b| b.low).min().unwrap_or(last.low);
         let line = if up {
@@ -491,13 +494,14 @@ pub(crate) fn range_bars(bars: &[Bar], range: i64, path: PricePath) -> Vec<Bar> 
 mod tests {
     use super::settings::{BoxSize, TransformSettings};
     use super::*;
+    use wyck_core::math::count_i64;
 
     fn closes(prices: &[i64]) -> Vec<Bar> {
         prices
             .iter()
             .enumerate()
             .map(|(i, &p)| Bar {
-                time_ms: i as i64 * 60_000,
+                time_ms: count_i64(i) * 60_000,
                 open: p,
                 high: p,
                 low: p,
@@ -626,7 +630,7 @@ mod tests {
         ];
         let close = renko(&samples(&bars, PricePath::Close), 10, 2, false);
         let path = renko(&samples(&bars, PricePath::Ohlc), 10, 2, false);
-        assert!(close.is_empty());
+        assert_eq!(close, [] as [Bar; 0]);
         assert!(path.len() >= 6, "{path:?}");
     }
 
@@ -729,7 +733,7 @@ mod tests {
         ];
         let (_, close) = point_and_figure(&samples(&bars, PricePath::Close), 10, 3);
         let (_, path) = point_and_figure(&samples(&bars, PricePath::Ohlc), 10, 3);
-        assert!(close.is_empty());
+        assert_eq!(close, [] as [PnfColumn; 0]);
         // Up to the high, and the close back near the start turns the column.
         assert!(path.len() >= 2, "{path:?}");
         assert!(path[0].up && path[0].top >= 14, "{path:?}");
@@ -828,10 +832,10 @@ mod tests {
 
     #[test]
     fn nothing_in_gives_nothing_out() {
-        assert!(renko(&[], 10, 2, true).is_empty());
-        assert!(line_break(&[], 3).is_empty());
-        assert!(kagi(&[], 10).0.is_empty());
-        assert!(point_and_figure(&[], 10, 3).0.is_empty());
-        assert!(range_bars(&[], 10, PricePath::Ohlc).is_empty());
+        assert_eq!(renko(&[], 10, 2, true), [] as [Bar; 0]);
+        assert_eq!(line_break(&[], 3), [] as [Bar; 0]);
+        assert_eq!(kagi(&[], 10).0, [] as [Bar; 0]);
+        assert_eq!(point_and_figure(&[], 10, 3).0, [] as [Bar; 0]);
+        assert_eq!(range_bars(&[], 10, PricePath::Ohlc), [] as [Bar; 0]);
     }
 }

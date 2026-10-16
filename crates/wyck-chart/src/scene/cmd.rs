@@ -86,7 +86,7 @@ pub enum Cmd {
         y: f32,
         w: f32,
         h: f32,
-        inner: Vec<Cmd>,
+        inner: Vec<Self>,
     },
 }
 
@@ -134,7 +134,7 @@ pub fn fitted_size(
     let mut lo = min;
     let mut hi = preferred.max(min);
     for _ in 0..10 {
-        let mid = (lo + hi) / 2.0;
+        let mid = f32::midpoint(lo, hi);
         if fits(mid) {
             lo = mid;
         } else {
@@ -213,7 +213,7 @@ pub(crate) fn texts(cmds: &[Cmd]) -> Vec<String> {
     for cmd in cmds {
         match cmd {
             Cmd::Text { text, .. } | Cmd::Tag { text, .. } | Cmd::FittedText { text, .. } => {
-                out.push(text.clone())
+                out.push(text.clone());
             }
             Cmd::Clip { inner, .. } => out.extend(texts(inner)),
             _ => {}
