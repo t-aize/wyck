@@ -235,11 +235,7 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
             let made = cx
                 .background_executor()
                 .spawn(async move {
-                    #[expect(
-                        clippy::disallowed_methods,
-                        reason = "wall-clock read, to be routed through an injectable clock"
-                    )]
-                    let stamp = chrono::Local::now().to_rfc3339();
+                    let stamp = chrono::DateTime::<chrono::Local>::from(wyck_clock::now()).to_rfc3339();
                     paths
                         .backups()
                         .snapshot_before_update(Some(&scripts), VERSION, &stamp)

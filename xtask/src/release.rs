@@ -12,7 +12,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
-use chrono::{SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use clap::{Subcommand, ValueEnum};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use semver::Version;
@@ -331,11 +331,8 @@ fn manifest(assets: &Path, tag: &str, repository: &str, notes: &Path) -> Result<
         }
     }
 
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "wall-clock read, to be routed through an injectable clock"
-    )]
-    let pub_date = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    let pub_date =
+        DateTime::<Utc>::from(wyck_clock::now()).to_rfc3339_opts(SecondsFormat::Secs, true);
     let manifest = Manifest {
         version,
         notes: fs::read_to_string(notes)

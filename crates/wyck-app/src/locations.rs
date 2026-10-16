@@ -67,11 +67,9 @@ fn prepare() -> Option<AppPaths> {
     let mut paths = AppPaths::discover().ok()?;
     let mut startup = Startup::default();
     if paths.config_dir().join(relocate::PENDING).exists() {
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
+        let stamp = chrono::DateTime::<chrono::Local>::from(wyck_clock::now())
+            .format("%Y-%m-%d-%H%M%S")
+            .to_string();
         startup.applied = relocate::apply_pending(&paths, &stamp);
         paths = AppPaths::discover().ok()?;
     }

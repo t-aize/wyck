@@ -298,11 +298,7 @@ impl OAuthClient {
                 "the token endpoint answered {status}"
             )));
         }
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let now = SystemTime::now();
+        let now = wyck_clock::now();
         let result = match parse_token_response(&body, now) {
             Ok(tokens) if status.is_success() => Ok(tokens),
             // An error body is more useful than the bare status.

@@ -185,11 +185,7 @@ fn message_of(info: &PanicHookInfo<'_>) -> String {
 /// Writes the report of a panic into `dir` and trims the old ones. `None` when it could not be
 /// written. Never panics.
 fn record_panic(dir: &Path, summary: &str, thread: &str, backtrace: &str) -> Option<PathBuf> {
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "wall-clock read, to be routed through an injectable clock"
-    )]
-    let now = chrono::Local::now();
+    let now = chrono::DateTime::<chrono::Local>::from(wyck_clock::now());
     let text = report_text(&now.to_rfc3339(), summary, thread, backtrace);
     // The counter is padded so that, within one second, the names still sort in the order the
     // reports were written.

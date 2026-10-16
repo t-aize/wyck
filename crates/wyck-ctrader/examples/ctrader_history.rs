@@ -11,8 +11,6 @@
 
 #![expect(clippy::print_stdout, reason = "an example talks to the terminal")]
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 use wyck_market::{Period, to_price};
 
@@ -49,13 +47,7 @@ async fn main() -> wyck_ctrader::Result<()> {
         .find(|s| s.symbol_name.as_deref() == Some(name.as_str()))
         .ok_or_else(|| Error::Config(format!("no symbol named {name}")))?;
 
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "wall-clock read, to be routed through an injectable clock"
-    )]
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+    let now_ms = wyck_clock::unix_ms();
     let day_ms = 24 * 60 * 60 * 1_000;
     let bars = market
         .bars(symbol.symbol_id, Period::M1, now_ms - day_ms, now_ms)

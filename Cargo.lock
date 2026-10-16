@@ -9838,6 +9838,7 @@ dependencies = [
  "winresource",
  "wyck-app",
  "wyck-chart",
+ "wyck-clock",
  "wyck-core",
  "wyck-drawings",
  "wyck-indicators",
@@ -9868,6 +9869,7 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "tracing",
  "wyck-chart",
+ "wyck-clock",
  "wyck-core",
  "wyck-ctrader",
  "wyck-drawings",
@@ -9894,6 +9896,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wyck-clock"
+version = "0.2.1"
+
+[[package]]
 name = "wyck-core"
 version = "0.2.1"
 dependencies = [
@@ -9917,6 +9923,7 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "uuid",
+ "wyck-clock",
  "wyck-core",
  "wyck-market",
  "wyck-trading",
@@ -9970,6 +9977,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "wyck-clock",
 ]
 
 [[package]]
@@ -9990,6 +9998,7 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "tracing",
  "uuid",
+ "wyck-clock",
  "wyck-platform",
  "zeroize",
 ]
@@ -10149,6 +10158,7 @@ dependencies = [
  "sha2 0.11.1",
  "tempfile",
  "toml 1.1.8+spec-1.1.0",
+ "wyck-clock",
 ]
 
 [[package]]

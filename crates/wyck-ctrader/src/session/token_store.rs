@@ -60,17 +60,12 @@ impl TokenStore for MemoryTokenStore {
 mod tests {
     use super::*;
     use secrecy::ExposeSecret;
-    use std::time::SystemTime;
 
     #[tokio::test]
     async fn the_memory_store_keeps_what_it_is_given() {
         let store = MemoryTokenStore::default();
         assert!(store.load().await.unwrap().is_none());
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let now = SystemTime::now();
+        let now = wyck_clock::now();
         let tokens = crate::auth::parse_token_response(
             br#"{"accessToken":"a","refreshToken":"r","expiresIn":10}"#,
             now,

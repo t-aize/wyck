@@ -249,11 +249,7 @@ impl BackupStore {
         let path = self.path_of(&id)?;
         atomic_write(&path, text.as_bytes())?;
         info!(id, kind = ?kind, "saved a backup");
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let now = SystemTime::now();
+        let now = wyck_clock::now();
         Ok(BackupEntry {
             id,
             kind,
@@ -282,11 +278,7 @@ impl BackupStore {
             .list()?
             .into_iter()
             .find(|entry| entry.kind == BackupKind::Automatic);
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let now = SystemTime::now();
+        let now = wyck_clock::now();
         let due = newest
             .and_then(|entry| entry.modified)
             .and_then(|modified| now.duration_since(modified).ok())

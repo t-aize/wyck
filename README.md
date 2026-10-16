@@ -67,6 +67,7 @@ this table, and `cargo xtask deps` checks it:
 
 | Crate | Owns |
 |---|---|
+| `wyck-clock` | The one place the wall clock is read, so tests and replays can give another |
 | `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
 | `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
 | `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |

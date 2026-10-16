@@ -358,11 +358,7 @@ impl Library {
         let from = self.path_of(id);
         let trash = self.dir.join(TRASH);
         std::fs::create_dir_all(&trash).map_err(io_error(&trash))?;
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let stamp = SystemTime::now()
+        let stamp = wyck_clock::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
         let to = trash.join(format!("{}-{stamp}.{EXTENSION}", id.replace('/', "-")));

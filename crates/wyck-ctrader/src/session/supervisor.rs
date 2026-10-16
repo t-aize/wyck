@@ -53,12 +53,8 @@ pub(super) fn classify(error: &Error) -> Next {
 }
 
 /// A cheap source of jitter: the sub-second part of the clock.
-#[expect(
-    clippy::disallowed_methods,
-    reason = "wall-clock read, to be routed through an injectable clock"
-)]
 pub(super) fn noise() -> u32 {
-    SystemTime::now()
+    wyck_clock::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.subsec_nanos())
 }
@@ -113,11 +109,7 @@ pub(super) async fn supervise(
         shared.set_state(SessionState::Connecting { attempt });
 
         // 1. Tokens: refresh when they are about to expire, or when the server said they are bad.
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "wall-clock read, to be routed through an injectable clock"
-        )]
-        let now = SystemTime::now();
+        let now = wyck_clock::now();
         if force_refresh || tokens.expires_within(now, config.refresh_margin) {
             // Token refresh is not cancellation safe: the endpoint may rotate the refresh
             // token before returning its answer. Finish the request and persistence attempt
@@ -413,11 +405,7 @@ pub(super) async fn restore_subscriptions(client: &Client, shared: &Shared) {
 /// Never less than `min_refresh_wait`, so a pair that is already inside the margin cannot make a busy loop.
 pub(super) fn refresh_delay(tokens: &TokenSet, config: &SessionConfig) -> Option<Duration> {
     let expires_at = tokens.expires_at()?;
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "wall-clock read, to be routed through an injectable clock"
-    )]
-    let now = SystemTime::now();
+    let now = wyck_clock::now();
     let due = expires_at
         .checked_sub(config.refresh_margin)
         .and_then(|at| at.duration_since(now).ok())
@@ -503,6 +491,42 @@ pub(super) async fn wait_after_failure(
 mod tests {
 
     use super::*;
+
+    /// A pair that lasts `lifetime` from the moment the clock of the test says.
+    fn tokens_for(lifetime: Duration, obtained_at: SystemTime) -> TokenSet {
+        TokenSet {
+            access_token: secrecy::SecretString::from("a"),
+            refresh_token: secrecy::SecretString::from("r"),
+            token_type: None,
+            expires_in: Some(lifetime),
+            obtained_at,
+        }
+    }
+
+    #[test]
+    fn the_renewal_is_planned_from_the_clock_not_from_the_machine() {
+        let config = SessionConfig::new(
+            crate::config::ConnectionConfig::new(crate::config::Environment::Demo),
+            crate::config::ClientCredentials::new("id", "secret"),
+            1,
+        );
+        let start = SystemTime::UNIX_EPOCH + Duration::from_hours(500_000);
+        let tokens = tokens_for(config.refresh_margin + Duration::from_secs(600), start);
+        let clock = Arc::new(wyck_clock::ManualClock::new(start));
+        let shared: wyck_clock::SharedClock = Arc::<wyck_clock::ManualClock>::clone(&clock);
+        wyck_clock::with_clock(shared, || {
+            assert_eq!(
+                refresh_delay(&tokens, &config),
+                Some(Duration::from_secs(600).max(config.min_refresh_wait))
+            );
+            // Ten minutes later the pair is inside the margin: renew as soon as allowed.
+            clock.advance(Duration::from_secs(600));
+            assert_eq!(
+                refresh_delay(&tokens, &config),
+                Some(config.min_refresh_wait)
+            );
+        });
+    }
 
     #[test]
     fn failures_are_sorted_into_retry_refresh_or_end() {

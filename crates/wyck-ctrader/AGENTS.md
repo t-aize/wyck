@@ -4,7 +4,7 @@ A typed client of the cTrader Open API over its JSON WebSocket: the connection, 
 a session that reconnects and renews its tokens, and the calls for market data, accounts and
 trading. No screen, no file, no keyring: tokens come in as arguments and go out as values.
 
-Depends on: `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungstenite`, `reqwest`,
+Depends on: `wyck-clock`, `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungstenite`, `reqwest`,
 `futures-util`, `serde`, `serde_json`, `secrecy`, `uuid`, `async-trait`, `thiserror`, `tracing`
 (`dotenvy` in the examples).
 

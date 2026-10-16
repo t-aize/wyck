@@ -67,6 +67,12 @@ const OWNERS: &[(&str, &[&str])] = &[
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
 const LAYERS: &[Layer] = &[
     Layer {
+        name: "wyck-clock",
+        internal: &[],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck-core",
         internal: &[],
         forbidden: NOT_IN_THE_DOMAIN,
@@ -109,7 +115,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "wyck-ctrader",
-        internal: &["wyck-core", "wyck-market", "wyck-trading"],
+        internal: &["wyck-clock", "wyck-core", "wyck-market", "wyck-trading"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -128,7 +134,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "wyck-platform",
-        internal: &[],
+        internal: &["wyck-clock"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -147,7 +153,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "wyck-storage",
-        internal: &["wyck-platform"],
+        internal: &["wyck-clock", "wyck-platform"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -167,6 +173,7 @@ const LAYERS: &[Layer] = &[
         name: "wyck-app",
         internal: &[
             "wyck-chart",
+            "wyck-clock",
             "wyck-core",
             "wyck-ctrader",
             "wyck-drawings",
@@ -203,6 +210,7 @@ const LAYERS: &[Layer] = &[
         internal: &[
             "wyck-app",
             "wyck-chart",
+            "wyck-clock",
             "wyck-core",
             "wyck-ctrader",
             "wyck-drawings",
@@ -218,7 +226,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "xtask",
-        internal: &[],
+        internal: &["wyck-clock"],
         forbidden: &["gpui", "gpui-kit", "tokio", "reqwest", "keyring"],
         own_lints: false,
     },
