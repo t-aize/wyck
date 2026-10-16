@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use tracing::{debug, trace, warn};
+use tracing::{trace, warn};
 
 use crate::error::{ConfigError, Result};
 
@@ -183,7 +183,7 @@ fn sync_dir(dir: &Path) {
     if let Ok(handle) = fs::File::open(dir)
         && let Err(error) = handle.sync_all()
     {
-        debug!(%error, path = %dir.display(), "could not flush a directory");
+        tracing::debug!(%error, path = %dir.display(), "could not flush a directory");
     }
     #[cfg(not(unix))]
     let _ = dir;
