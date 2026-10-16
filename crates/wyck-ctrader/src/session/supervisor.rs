@@ -53,6 +53,10 @@ pub(super) fn classify(error: &Error) -> Next {
 }
 
 /// A cheap source of jitter: the sub-second part of the clock.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "wall-clock read, to be routed through an injectable clock"
+)]
 pub(super) fn noise() -> u32 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -109,7 +113,12 @@ pub(super) async fn supervise(
         shared.set_state(SessionState::Connecting { attempt });
 
         // 1. Tokens: refresh when they are about to expire, or when the server said they are bad.
-        if force_refresh || tokens.expires_within(SystemTime::now(), config.refresh_margin) {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
+        let now = SystemTime::now();
+        if force_refresh || tokens.expires_within(now, config.refresh_margin) {
             // Token refresh is not cancellation safe: the endpoint may rotate the refresh
             // token before returning its answer. Finish the request and persistence attempt
             // before honoring a stop, so a stop cannot discard a pair already received.
@@ -122,18 +131,18 @@ pub(super) async fn supervise(
                     tokens = fresh;
                     force_refresh = false;
                 }
-                Err(error) => match classify_refresh_error(&error) {
-                    Next::Fail => break 'session Some(error),
-                    _ => {
-                        // The endpoint could not be reached: wait and try again.
-                        if let Some(end) =
-                            wait_after_failure(&config, &shared, &mut stop, attempt, &error).await
-                        {
-                            break 'session end;
-                        }
-                        continue;
+                Err(error) => {
+                    if classify_refresh_error(&error) == Next::Fail {
+                        break 'session Some(error);
                     }
-                },
+                    // The endpoint could not be reached: wait and try again.
+                    if let Some(end) =
+                        wait_after_failure(&config, &shared, &mut stop, attempt, &error).await
+                    {
+                        break 'session end;
+                    }
+                    continue;
+                }
             }
         }
 
@@ -232,16 +241,13 @@ pub(super) async fn supervise(
     };
 
     shared.set_client(None);
-    match outcome {
-        Some(error) => {
-            warn!(%error, "the Open API session ended");
-            shared.set_state(SessionState::Failed(error.to_string()));
-            shared.emit(SessionEvent::Failed(error));
-        }
-        None => {
-            shared.set_state(SessionState::Stopped);
-            shared.emit(SessionEvent::Stopped);
-        }
+    if let Some(error) = outcome {
+        warn!(%error, "the Open API session ended");
+        shared.set_state(SessionState::Failed(error.to_string()));
+        shared.emit(SessionEvent::Failed(error));
+    } else {
+        shared.set_state(SessionState::Stopped);
+        shared.emit(SessionEvent::Stopped);
     }
 }
 
@@ -407,9 +413,14 @@ pub(super) async fn restore_subscriptions(client: &Client, shared: &Shared) {
 /// Never less than `min_refresh_wait`, so a pair that is already inside the margin cannot make a busy loop.
 pub(super) fn refresh_delay(tokens: &TokenSet, config: &SessionConfig) -> Option<Duration> {
     let expires_at = tokens.expires_at()?;
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "wall-clock read, to be routed through an injectable clock"
+    )]
+    let now = SystemTime::now();
     let due = expires_at
         .checked_sub(config.refresh_margin)
-        .and_then(|at| at.duration_since(SystemTime::now()).ok())
+        .and_then(|at| at.duration_since(now).ok())
         .unwrap_or_default();
     Some(due.max(config.min_refresh_wait))
 }

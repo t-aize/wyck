@@ -66,9 +66,14 @@ mod tests {
     async fn the_memory_store_keeps_what_it_is_given() {
         let store = MemoryTokenStore::default();
         assert!(store.load().await.unwrap().is_none());
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
+        let now = SystemTime::now();
         let tokens = crate::auth::parse_token_response(
             br#"{"accessToken":"a","refreshToken":"r","expiresIn":10}"#,
-            SystemTime::now(),
+            now,
         )
         .unwrap();
         store.save(&tokens).await.unwrap();

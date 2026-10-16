@@ -45,6 +45,10 @@ pub(crate) struct SymbolByIdRes {
 /// `ProtoOASymbolsForConversionReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "mirrors `ProtoOASymbolsForConversionReq`, whose fields are all ids"
+)]
 pub(crate) struct SymbolsForConversionReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,

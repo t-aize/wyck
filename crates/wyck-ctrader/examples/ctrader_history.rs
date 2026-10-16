@@ -16,27 +16,30 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 use wyck_market::{Period, to_price};
 
-fn var(name: &str) -> String {
-    let _ = dotenvy::dotenv();
-    std::env::var(name).unwrap_or_else(|_| panic!("set {name}"))
+fn var(name: &str) -> wyck_ctrader::Result<String> {
+    // A `.env` file is optional: the variables may already be in the environment.
+    dotenvy::dotenv().ok();
+    std::env::var(name).map_err(|_| Error::Config(format!("set {name}")))
 }
 
 #[tokio::main]
 async fn main() -> wyck_ctrader::Result<()> {
     let name = std::env::args().nth(1).unwrap_or_else(|| "EURUSD".into());
     let credentials = ClientCredentials::new(
-        var("WYCK_OPENAPI_CLIENT_ID"),
-        var("WYCK_OPENAPI_CLIENT_SECRET"),
+        var("WYCK_OPENAPI_CLIENT_ID")?,
+        var("WYCK_OPENAPI_CLIENT_SECRET")?,
     );
     let client = ClientBuilder::new(Environment::Demo)
         .credentials(credentials)
         .connect()
         .await?;
-    let account_id: i64 = var("WYCK_OPENAPI_ACCOUNT_ID")
+    let account_id: i64 = var("WYCK_OPENAPI_ACCOUNT_ID")?
         .parse()
         .map_err(|_| Error::Config("WYCK_OPENAPI_ACCOUNT_ID is not a number".into()))?;
     let account = client.account(account_id);
-    account.authorize(&var("WYCK_OPENAPI_ACCESS_TOKEN")).await?;
+    account
+        .authorize(&var("WYCK_OPENAPI_ACCESS_TOKEN")?)
+        .await?;
 
     let market = account.market();
     let symbol = market
@@ -46,6 +49,10 @@ async fn main() -> wyck_ctrader::Result<()> {
         .find(|s| s.symbol_name.as_deref() == Some(name.as_str()))
         .ok_or_else(|| Error::Config(format!("no symbol named {name}")))?;
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "wall-clock read, to be routed through an injectable clock"
+    )]
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));

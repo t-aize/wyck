@@ -298,7 +298,12 @@ impl OAuthClient {
                 "the token endpoint answered {status}"
             )));
         }
-        let result = match parse_token_response(&body, SystemTime::now()) {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
+        let now = SystemTime::now();
+        let result = match parse_token_response(&body, now) {
             Ok(tokens) if status.is_success() => Ok(tokens),
             // An error body is more useful than the bare status.
             Err(error) if status.is_success() => Err(error),
@@ -314,7 +319,7 @@ impl OAuthClient {
                 "the token endpoint answered with a fresh token pair"
             ),
             Err(error) => {
-                warn!(grant_type, %status, %error, "the token endpoint refused the request")
+                warn!(grant_type, %status, %error, "the token endpoint refused the request");
             }
         }
         result
@@ -389,7 +394,7 @@ mod tests {
         let tokens = parse_token_response(body, NOW).unwrap();
         assert_eq!(tokens.access_token.expose_secret(), "AT");
         assert_eq!(tokens.refresh_token.expose_secret(), "RT");
-        assert_eq!(tokens.expires_in, Some(Duration::from_secs(2_628_000)));
+        assert_eq!(tokens.expires_in, Some(Duration::from_hours(730)));
         assert_eq!(tokens.token_type.as_deref(), Some("bearer"));
     }
 
@@ -405,7 +410,7 @@ mod tests {
 
     #[test]
     fn an_answer_without_tokens_or_with_empty_ones_is_refused() {
-        assert!(parse_token_response(br#"{}"#, NOW).is_err());
+        assert!(parse_token_response(br"{}", NOW).is_err());
         assert!(parse_token_response(br#"{"accessToken":"","refreshToken":"x"}"#, NOW).is_err());
         assert!(parse_token_response(b"<html>", NOW).is_err());
     }

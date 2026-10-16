@@ -146,12 +146,10 @@ impl CallbackListener {
                     continue;
                 }
             };
-            let head = match tokio::time::timeout(READ_TIMEOUT, read_head(&mut stream)).await {
-                Ok(Some(head)) => head,
-                _ => {
-                    respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
-                    continue;
-                }
+            let Ok(Some(head)) = tokio::time::timeout(READ_TIMEOUT, read_head(&mut stream)).await
+            else {
+                respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
+                continue;
             };
             match parse_redirect(&head, expected_state) {
                 Redirect::Code(code) => {
@@ -190,7 +188,7 @@ async fn read_head(stream: &mut TcpStream) -> Option<String> {
         if read == 0 {
             break;
         }
-        buffer.extend_from_slice(&chunk[..read]);
+        buffer.extend_from_slice(chunk.get(..read).unwrap_or_default());
         if buffer.windows(4).any(|w| w == b"\r\n\r\n") || buffer.len() >= MAX_REQUEST_BYTES {
             break;
         }
@@ -203,9 +201,13 @@ async fn respond(stream: &mut TcpStream, status: &str, page: &str) {
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{page}",
         page.len()
     );
-    // The browser may have gone; nothing to do about it.
-    let _ = stream.write_all(response.as_bytes()).await;
-    let _ = stream.shutdown().await;
+    // The browser may have gone: nothing more to do about it than to say so.
+    if let Err(error) = stream.write_all(response.as_bytes()).await {
+        tracing::debug!(%error, "the browser went away before the answer was written");
+    }
+    if let Err(error) = stream.shutdown().await {
+        tracing::debug!(%error, "the connection from the browser did not close cleanly");
+    }
 }
 
 /// What one request to the listener means.
@@ -301,7 +303,7 @@ mod tests {
             "s1",
         ) {
             Redirect::Denied(text) => {
-                assert!(text.contains("access_denied") && text.contains("No"))
+                assert!(text.contains("access_denied") && text.contains("No"));
             }
             other => panic!("{other:?}"),
         }

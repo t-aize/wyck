@@ -127,7 +127,7 @@ impl SessionConfig {
             connection,
             credentials,
             account_id,
-            refresh_margin: Duration::from_secs(24 * 3600),
+            refresh_margin: Duration::from_hours(24),
             backoff: Backoff::default(),
             min_refresh_wait: Duration::from_secs(60),
             stable_after: Duration::from_secs(30),
@@ -222,7 +222,9 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 impl Shared {
     fn emit(&self, event: SessionEvent) {
         // Nobody listening is fine.
-        let _ = self.events.send(event);
+        if self.events.send(event).is_err() {
+            tracing::trace!("a session event had no one to hear it");
+        }
     }
 
     fn set_state(&self, state: SessionState) {
@@ -365,8 +367,10 @@ impl Session {
     pub async fn stop(&self) {
         self.shared.stop.send_replace(true);
         let task = lock(&self.task).take();
-        if let Some(task) = task {
-            let _ = task.await;
+        if let Some(task) = task
+            && let Err(error) = task.await
+        {
+            tracing::warn!(%error, "the session task did not end cleanly");
         }
     }
 
