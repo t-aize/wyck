@@ -97,8 +97,7 @@ pub fn init(cx: &mut App) {
 
 pub fn state(cx: &App) -> UpdateState {
     cx.try_global::<Service>()
-        .map(|service| service.state.clone())
-        .unwrap_or(UpdateState::Disabled)
+        .map_or(UpdateState::Disabled, |service| service.state.clone())
 }
 
 pub fn observe<T: 'static>(
@@ -151,7 +150,7 @@ pub fn check(cx: &mut App, announce: Option<fn(&str, &mut App)>) {
             Ok(None) => set(UpdateState::UpToDate, None, cx),
             Err(error) => {
                 let message = error.to_string();
-                set(UpdateState::Failed { message }, None, cx)
+                set(UpdateState::Failed { message }, None, cx);
             }
         });
     })
@@ -236,11 +235,14 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
             let made = cx
                 .background_executor()
                 .spawn(async move {
-                    paths.backups().snapshot_before_update(
-                        Some(&scripts),
-                        VERSION,
-                        &chrono::Local::now().to_rfc3339(),
-                    )
+                    #[expect(
+                        clippy::disallowed_methods,
+                        reason = "wall-clock read, to be routed through an injectable clock"
+                    )]
+                    let stamp = chrono::Local::now().to_rfc3339();
+                    paths
+                        .backups()
+                        .snapshot_before_update(Some(&scripts), VERSION, &stamp)
                 })
                 .await;
             match made {
@@ -283,9 +285,8 @@ where
 }
 
 fn automatic_install_supported() -> bool {
-    let in_app_bundle = std::env::current_exe()
-        .ok()
-        .is_some_and(|path| path.ancestors().any(is_app_bundle));
+    let in_app_bundle =
+        std::env::current_exe().is_ok_and(|path| path.ancestors().any(is_app_bundle));
     supports_automatic_install(
         std::env::consts::OS,
         std::env::var_os("APPIMAGE").is_some(),
@@ -320,7 +321,7 @@ mod tests {
             for (content_type, body) in bodies {
                 let (mut stream, _) = listener.accept().unwrap();
                 let mut request = [0_u8; 2048];
-                let _ = stream.read(&mut request);
+                assert_ne!(stream.read(&mut request).unwrap(), 0, "a request came");
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
@@ -406,7 +407,7 @@ mod tests {
             for body in [manifest.to_string(), "not an update".to_owned()] {
                 let (mut stream, _) = listener.accept().unwrap();
                 let mut request = [0_u8; 2048];
-                let _ = stream.read(&mut request);
+                assert_ne!(stream.read(&mut request).unwrap(), 0, "a request came");
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

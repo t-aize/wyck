@@ -23,6 +23,10 @@ impl ConfigTokenStore {
 /// expires; the session wants how long it lasts and when it was received, so the pair is treated
 /// as received now.
 pub(crate) fn to_token_set(stored: OpenApiTokens) -> TokenSet {
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "wall-clock read, to be routed through an injectable clock"
+    )]
     let now = SystemTime::now();
     TokenSet {
         access_token: stored.access_token,
@@ -66,6 +70,10 @@ mod tests {
 
     #[test]
     fn a_token_pair_goes_to_the_store_and_back() {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "test: the token's life is counted from the real now that `to_token_set` reads"
+        )]
         let now = SystemTime::now();
         let tokens = TokenSet {
             access_token: SecretString::from("access"),
@@ -89,6 +97,10 @@ mod tests {
         let stored = OpenApiTokens {
             access_token: SecretString::from("a"),
             refresh_token: SecretString::from("r"),
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "test: a moment a minute before the real now that `to_token_set` reads"
+            )]
             expires_at: Some(SystemTime::now() - Duration::from_secs(60)),
         };
         assert_eq!(to_token_set(stored).expires_in, Some(Duration::ZERO));

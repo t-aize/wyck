@@ -6,6 +6,10 @@ pub mod load;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The current time in Unix milliseconds.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "wall-clock read, to be routed through an injectable clock"
+)]
 pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

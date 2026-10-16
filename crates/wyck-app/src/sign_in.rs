@@ -12,6 +12,7 @@ mod consent;
 pub mod rules;
 pub(crate) mod state;
 
+use crate::lost::lost;
 use std::sync::Arc;
 
 use gpui::{Context, EventEmitter, Task};
@@ -196,7 +197,10 @@ impl SignIn {
                 }
                 None => None,
             };
-            let _ = this.update(cx, |this, cx| this.finish_restore(saved, cx));
+            lost(
+                "sign_in: restore",
+                this.update(cx, |this, cx| this.finish_restore(saved, cx)),
+            );
         }));
     }
 
@@ -388,25 +392,28 @@ impl SignIn {
                 Ok(Err(error)) => Some(Failure::AuthorizeFailed(error.to_string())),
                 Err(_) => Some(Failure::Other("the background runtime stopped".into())),
             };
-            let _ = this.update(cx, |this, cx| {
-                if this.attempt != attempt {
-                    return;
-                }
-                if let Some(failure) = failure {
-                    this.state.fail(failure);
-                    cx.notify();
-                    return;
-                }
-                this.finish(
-                    credentials,
-                    environment,
-                    remember,
-                    &account,
-                    label,
-                    tokens,
-                    cx,
-                );
-            });
+            lost(
+                "sign_in: authorize",
+                this.update(cx, |this, cx| {
+                    if this.attempt != attempt {
+                        return;
+                    }
+                    if let Some(failure) = failure {
+                        this.state.fail(failure);
+                        cx.notify();
+                        return;
+                    }
+                    this.finish(
+                        credentials,
+                        environment,
+                        remember,
+                        &account,
+                        label,
+                        tokens,
+                        cx,
+                    );
+                }),
+            );
         }));
     }
 

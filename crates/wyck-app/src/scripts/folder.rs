@@ -185,11 +185,11 @@ impl Library {
 
     /// Every indicator read so far, by id.
     pub(crate) fn entries(&self) -> Vec<Arc<Entry>> {
-        self.known.values().map(|k| k.entry.clone()).collect()
+        self.known.values().map(|k| Arc::clone(&k.entry)).collect()
     }
 
     pub(crate) fn get(&self, id: &str) -> Option<Arc<Entry>> {
-        self.known.get(id).map(|k| k.entry.clone())
+        self.known.get(id).map(|k| Arc::clone(&k.entry))
     }
 
     /// Where the file of `id` is (or would be).
@@ -304,11 +304,12 @@ impl Library {
     ///
     /// When `id` is unknown or the copy cannot be written.
     pub fn duplicate(&mut self, id: &str) -> Result<String, LibraryError> {
-        let source = self
-            .get(id)
-            .ok_or_else(|| LibraryError::Missing(id.to_owned()))?
-            .source
-            .clone();
+        let source = Arc::clone(
+            &self
+                .get(id)
+                .ok_or_else(|| LibraryError::Missing(id.to_owned()))?
+                .source,
+        );
         let (folder, name) = match id.rsplit_once('/') {
             Some((folder, name)) => (Some(folder), name),
             None => (None, id),
@@ -357,6 +358,10 @@ impl Library {
         let from = self.path_of(id);
         let trash = self.dir.join(TRASH);
         std::fs::create_dir_all(&trash).map_err(io_error(&trash))?;
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
@@ -645,7 +650,7 @@ mod tests {
         let (_guard, mut library) = library();
         std::fs::write(
             library.path_of("Big"),
-            vec![b'a'; (MAX_FILE_BYTES + 1) as usize],
+            vec![b'a'; usize::try_from(MAX_FILE_BYTES + 1).unwrap_or(usize::MAX)],
         )
         .unwrap();
         library.refresh();

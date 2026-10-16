@@ -27,6 +27,7 @@ use gpui::{Context, EventEmitter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_market::PRICE_SCALE;
 use wyck_trading::TradeSide;
 use wyck_trading::book::AccountBook;
@@ -130,7 +131,7 @@ fn fingerprint(order: &NewOrderReq) -> Fingerprint {
         price: order
             .limit_price
             .or(order.stop_price)
-            .map_or(0, |p| (p * PRICE_SCALE as f64).round() as i64),
+            .map_or(0, |p| f64_to_i64((p * i64_to_f64(PRICE_SCALE)).round())),
     }
 }
 
@@ -298,7 +299,7 @@ impl Account {
     /// The real bid and ask of a symbol.
     pub fn quote(&self, symbol_id: i64) -> (Option<f64>, Option<f64>) {
         let (bid, ask) = self.quotes.get(&symbol_id).copied().unwrap_or((None, None));
-        let real = |raw: Option<i64>| raw.map(|r| r as f64 / PRICE_SCALE as f64);
+        let real = |raw: Option<i64>| raw.map(|r| i64_to_f64(r) / i64_to_f64(PRICE_SCALE));
         (real(bid), real(ask))
     }
 

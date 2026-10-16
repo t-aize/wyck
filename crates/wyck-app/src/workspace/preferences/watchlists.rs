@@ -200,7 +200,7 @@ mod tests {
 
         lists.delete_list(0);
         lists.delete_list(0);
-        assert!(lists.lists.is_empty());
+        assert_eq!(lists.lists, [] as [Watchlist; 0]);
     }
 
     #[test]

@@ -18,6 +18,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use wyck_core::math::u64_to_f64;
 
 use gpui::App;
 use tracing::{info, warn};
@@ -66,6 +67,10 @@ fn prepare() -> Option<AppPaths> {
     let mut paths = AppPaths::discover().ok()?;
     let mut startup = Startup::default();
     if paths.config_dir().join(relocate::PENDING).exists() {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "wall-clock read, to be routed through an injectable clock"
+        )]
         let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
         startup.applied = relocate::apply_pending(&paths, &stamp);
         paths = AppPaths::discover().ok()?;
@@ -74,7 +79,8 @@ fn prepare() -> Option<AppPaths> {
         startup.legacy_indicators = Some(folder);
         paths = AppPaths::discover().ok()?;
     }
-    let _ = STARTUP.set(startup);
+    // `prepare` runs once, inside the `get_or_init` of `PATHS`: nothing is set before it.
+    STARTUP.get_or_init(|| startup);
     Some(paths)
 }
 
@@ -383,8 +389,10 @@ fn stage_cloud_in(paths: &AppPaths, root: &Path) -> Result<Vec<Step>, PlanError>
 
 /// Forgets the move that waits.
 pub fn cancel_staged() {
-    if let Some(paths) = app_paths() {
-        let _ = relocate::cancel(paths);
+    if let Some(paths) = app_paths()
+        && let Err(error) = relocate::cancel(paths)
+    {
+        warn!(%error, "could not forget the move that waits");
     }
 }
 
@@ -455,8 +463,8 @@ pub fn reveal(path: &Path, cx: &mut App) {
 fn size(bytes: u64) -> String {
     match bytes {
         0..1024 => format!("{bytes} B"),
-        1024..1_048_576 => format!("{:.0} KB", bytes as f64 / 1024.0),
-        _ => format!("{:.1} MB", bytes as f64 / 1_048_576.0),
+        1024..1_048_576 => format!("{:.0} KB", u64_to_f64(bytes) / 1024.0),
+        _ => format!("{:.1} MB", u64_to_f64(bytes) / 1_048_576.0),
     }
 }
 

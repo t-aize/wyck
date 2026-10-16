@@ -6,6 +6,7 @@
 //! timeframe the rule names (the bars are loaded here, because no chart may be showing that
 //! symbol) and amends the order when the stop is off by half a pip or more.
 
+use crate::lost::lost;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
@@ -47,19 +48,21 @@ pub(super) struct Following {
     released: HashSet<i64>,
 }
 
+/// One working order whose stop the rule on the ATR may move.
+struct Job {
+    id: i64,
+    symbol: i64,
+    timeframe: Timeframe,
+    rule: wyck_trading::follow::AtrFollow,
+    order: Tracked,
+}
+
 impl Account {
     /// Looks at the working orders that carry a rule on the ATR and amends the ones whose stop
     /// is no longer where the ATR puts it. Cheap when there is none.
     pub(super) fn follow_atr(&mut self, cx: &mut Context<Self>) {
         if self.status != Status::Ready {
             return;
-        }
-        struct Job {
-            id: i64,
-            symbol: i64,
-            timeframe: Timeframe,
-            rule: wyck_trading::follow::AtrFollow,
-            order: Tracked,
         }
         let jobs: Vec<Job> = self
             .book
@@ -129,7 +132,7 @@ impl Account {
                 Step::Keep => {}
                 Step::Release => {
                     self.following.released.insert(job.id);
-                    Account::tell(
+                    Self::tell(
                         Notice::new(
                             Tone::Info,
                             "ATR following stopped",
@@ -172,22 +175,25 @@ impl Account {
                 load::initial(&session, symbol, timeframe, now_ms()).await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                this.following.loading.remove(&key);
-                if let Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) = flatten(result) {
-                    this.following.failed.remove(&key);
-                    this.following.bars.insert(
-                        key,
-                        AtrBars {
-                            bars,
-                            loaded_ms: now_ms(),
-                        },
-                    );
-                    this.follow_atr(cx);
-                } else {
-                    this.following.failed.insert(key, Instant::now());
-                }
-            });
+            lost(
+                "account/follow: load_atr_bars",
+                this.update(cx, |this, cx| {
+                    this.following.loading.remove(&key);
+                    if let Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) = flatten(result) {
+                        this.following.failed.remove(&key);
+                        this.following.bars.insert(
+                            key,
+                            AtrBars {
+                                bars,
+                                loaded_ms: now_ms(),
+                            },
+                        );
+                        this.follow_atr(cx);
+                    } else {
+                        this.following.failed.insert(key, Instant::now());
+                    }
+                }),
+            );
         })
         .detach();
     }

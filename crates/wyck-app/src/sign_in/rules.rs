@@ -129,7 +129,7 @@ mod tests {
         let mut account: TraderAccount = serde_json::from_value(serde_json::json!({
             "ctidTraderAccountId": 99,
             "isLive": true,
-            "traderLogin": 1234567,
+            "traderLogin": 1_234_567,
             "brokerTitleShort": "Pepperstone",
         }))
         .unwrap();

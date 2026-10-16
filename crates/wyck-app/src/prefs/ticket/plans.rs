@@ -1,6 +1,7 @@
 //! The setups of the ticket saved under a name, and the time stop they carry.
 
 use serde::{Deserialize, Serialize};
+use wyck_core::math::{f64_to_u32, i64_to_f64};
 
 use super::Span;
 use wyck_trading::math::{Offset, SizeMode};
@@ -31,8 +32,8 @@ impl Default for TimeStopPrefs {
 impl TimeStopPrefs {
     /// The time in minutes, at least one and at most a year.
     pub fn minutes(&self) -> u32 {
-        let minutes = (self.amount * self.span.millis() as f64 / 60_000.0).round();
-        minutes.clamp(1.0, f64::from(MAX_TIME_STOP_MINUTES)) as u32
+        let minutes = (self.amount * i64_to_f64(self.span.millis()) / 60_000.0).round();
+        f64_to_u32(minutes.clamp(1.0, f64::from(MAX_TIME_STOP_MINUTES)))
     }
 
     /// The rule the label of an order carries, when the time stop is on.
@@ -50,7 +51,7 @@ impl TimeStopPrefs {
         }
         // Whole numbers of the span: the field takes no decimals.
         let most =
-            (f64::from(MAX_TIME_STOP_MINUTES) * 60_000.0 / self.span.millis() as f64).floor();
+            (f64::from(MAX_TIME_STOP_MINUTES) * 60_000.0 / i64_to_f64(self.span.millis())).floor();
         self.amount = self.amount.round().clamp(1.0, most.max(1.0));
         self
     }

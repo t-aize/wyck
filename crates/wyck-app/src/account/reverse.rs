@@ -1,6 +1,7 @@
 //! Reversing a position: the order that opens the other way waits for the close to be final.
 
 use super::{Account, Busy, Notice, REVERSE_FINAL_WAIT, REVERSE_RECHECK, Tone};
+use crate::lost::lost;
 
 use crate::broker::trading::NewOrderReq;
 use gpui::Context;
@@ -102,37 +103,43 @@ impl Account {
     pub(super) fn watch_reverse(position_id: i64, started: Instant, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(REVERSE_RECHECK).await;
-            let _ = this.update(cx, |this, cx| {
-                if this
-                    .reversals
-                    .0
-                    .get(&position_id)
-                    .is_some_and(|pending| pending.started == started)
-                {
-                    this.on_ready(cx);
-                }
-            });
+            lost(
+                "account/reverse: watch_reverse",
+                this.update(cx, |this, cx| {
+                    if this
+                        .reversals
+                        .0
+                        .get(&position_id)
+                        .is_some_and(|pending| pending.started == started)
+                    {
+                        this.on_ready(cx);
+                    }
+                }),
+            );
             cx.background_executor().timer(REVERSE_FINAL_WAIT).await;
-            let _ = this.update(cx, |this, cx| {
-                if this
-                    .reversals
-                    .0
-                    .get(&position_id)
-                    .is_some_and(|pending| pending.started == started)
-                {
-                    this.reversals.0.remove(&position_id);
-                    Account::tell(
-                        Notice::new(
-                            Tone::Warning,
-                            "Reverse stopped",
-                            "The position's closure was not confirmed.",
-                        )
-                        .hint(Some("Check the account before trying again.".to_owned())),
-                        cx,
-                    );
-                    cx.notify();
-                }
-            });
+            lost(
+                "account/reverse: watch_reverse",
+                this.update(cx, |this, cx| {
+                    if this
+                        .reversals
+                        .0
+                        .get(&position_id)
+                        .is_some_and(|pending| pending.started == started)
+                    {
+                        this.reversals.0.remove(&position_id);
+                        Self::tell(
+                            Notice::new(
+                                Tone::Warning,
+                                "Reverse stopped",
+                                "The position's closure was not confirmed.",
+                            )
+                            .hint(Some("Check the account before trying again.".to_owned())),
+                            cx,
+                        );
+                        cx.notify();
+                    }
+                }),
+            );
         })
         .detach();
     }
@@ -153,7 +160,7 @@ impl Account {
         if let Verdict::Block(reason) =
             self.assess(&NewOrderReq::market(symbol, side, volume), false)
         {
-            Account::tell(
+            Self::tell(
                 Notice::new(
                     Tone::Warning,
                     "Reverse blocked by your safety settings",

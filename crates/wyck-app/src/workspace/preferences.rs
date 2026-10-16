@@ -5,6 +5,7 @@ pub(crate) mod watchlists;
 use super::layouts::{self, LayoutKey};
 use crate::prefs::panel::PanelPrefs;
 use crate::prefs::ticket::TicketPrefs;
+use crate::shortcuts::ShortcutPrefs;
 use serde::{Deserialize, Serialize};
 use wyck_chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
 use wyck_chart::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
@@ -58,6 +59,7 @@ impl Default for UsageLimits {
 }
 
 impl UsageLimits {
+    #[must_use]
     pub fn normalized(mut self) -> Self {
         self.studies_per_chart = self.studies_per_chart.clamp(1, MAX_STUDIES);
         self.alerts = self.alerts.clamp(1, MAX_SAVED_ALERTS);
@@ -81,6 +83,10 @@ impl Default for LayoutPref {
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "saved document: six independent links of the charts, one switch each, named in the file"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinksPref {
     /// Every chart shows the same symbol.
@@ -169,6 +175,10 @@ pub struct ChartState {
     pub symbol: Option<String>,
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "saved document: each switch of the preferences is its own named key in the file"
+)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Preferences {
     #[serde(default = "schema_version")]
@@ -242,7 +252,7 @@ pub struct Preferences {
     pub saved_colors: Vec<u32>,
     /// The keyboard shortcuts the user changed (see `ui::shell::keymap` for the defaults).
     #[serde(default)]
-    pub shortcuts: crate::shortcuts::ShortcutPrefs,
+    pub shortcuts: ShortcutPrefs,
 }
 
 fn default_panel_height() -> f32 {
@@ -308,7 +318,7 @@ impl Default for Preferences {
             favorites_labels: false,
             favorites_place: [0.0, 0.0],
             saved_colors: Vec::new(),
-            shortcuts: Default::default(),
+            shortcuts: ShortcutPrefs::default(),
         }
     }
 }
@@ -372,7 +382,12 @@ impl Preferences {
             }
         }
         while self.charts.len() < count {
-            let timeframe = NEW_CHART_TIMEFRAMES[self.charts.len() % NEW_CHART_TIMEFRAMES.len()];
+            let timeframe = NEW_CHART_TIMEFRAMES
+                .iter()
+                .cycle()
+                .nth(self.charts.len())
+                .copied()
+                .unwrap_or_default();
             self.charts.push(ChartPref {
                 timeframe: timeframe.to_owned(),
                 ..ChartPref::default()
@@ -727,7 +742,7 @@ mod tests {
         assert!(prefs.magnet && prefs.ticket_open);
         assert!(!prefs.keep_drawing);
         assert_eq!(prefs.panel_height, 280.0);
-        assert_eq!(prefs.saved_colors, vec![16711680, 65280]);
+        assert_eq!(prefs.saved_colors, vec![16_711_680, 65280]);
     }
 
     #[test]

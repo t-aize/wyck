@@ -419,8 +419,8 @@ mod tests {
             Failure::SessionExpired,
             Failure::Other("x".into()),
         ] {
-            assert!(!failure.title().is_empty());
-            assert!(!failure.message().is_empty());
+            assert_ne!(failure.title(), "");
+            assert_ne!(failure.message(), "");
         }
     }
 }

@@ -6,6 +6,7 @@ use super::{
 };
 use crate::broker::trading::NewOrderReq;
 use crate::broker::{Error as ApiError, Event, Result as ApiResult};
+use crate::lost::lost;
 use crate::system::runtime;
 use gpui::Context;
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ impl Account {
     pub(super) fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
         F: FnOnce(crate::broker::trading::TradingClient) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = ApiResult<wyck_trading::ExecutionEvent>> + Send + 'static,
+        Fut: Future<Output = ApiResult<wyck_trading::ExecutionEvent>> + Send + 'static,
     {
         if !self.busy.insert(busy) {
             return;
@@ -34,13 +35,13 @@ impl Account {
         // the call, so it says so and reads the account.
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(CALL_TIMEOUT).await;
-            let _ = this.update(cx, |this, cx| {
+            lost("account/orders: trade", this.update(cx, |this, cx| {
                 if this.calls.get(&busy) == Some(&seq) {
                     this.calls.remove(&busy);
                     this.busy.remove(&busy);
                     this.uncertain = true;
                     this.queue.clear();
-                    Account::tell(
+                    Self::tell(
                         Notice::new(
                             Tone::Warning,
                             "No answer from the server",
@@ -55,7 +56,7 @@ impl Account {
                     this.on_ready(cx);
                     cx.notify();
                 }
-            });
+            }));
         })
         .detach();
         let session = self.session.clone();
@@ -65,62 +66,65 @@ impl Account {
                 call(client.account(session.account_id()).trading()).await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                // A call that was given up on has nothing to release: a newer one may hold it.
-                if this.calls.get(&busy) == Some(&seq) {
-                    this.calls.remove(&busy);
-                    this.busy.remove(&busy);
-                }
-                match flatten(result) {
-                    // The first execution event answers the request and goes only to it; the
-                    // ones after it (a fill after the acceptance) come on the event stream.
-                    Ok(event) => {
-                        let reverse_order = match busy {
-                            Busy::Closing(id) => this.reversals.acknowledged(
-                                id,
-                                event.kind(),
-                                event.order.as_ref().map(|o| o.order_id),
-                            ),
-                            _ => None,
-                        };
-                        this.on_event(&Event::Execution(Box::new(event)), cx);
-                        if let Some(order) = reverse_order {
-                            this.market(order.symbol, order.buy, order.volume, cx);
+            lost(
+                "account/orders: trade",
+                this.update(cx, |this, cx| {
+                    // A call that was given up on has nothing to release: a newer one may hold it.
+                    if this.calls.get(&busy) == Some(&seq) {
+                        this.calls.remove(&busy);
+                        this.busy.remove(&busy);
+                    }
+                    match flatten(result) {
+                        // The first execution event answers the request and goes only to it; the
+                        // ones after it (a fill after the acceptance) come on the event stream.
+                        Ok(event) => {
+                            let reverse_order = match busy {
+                                Busy::Closing(id) => this.reversals.acknowledged(
+                                    id,
+                                    event.kind(),
+                                    event.order.as_ref().map(|o| o.order_id),
+                                ),
+                                _ => None,
+                            };
+                            this.on_event(&Event::Execution(Box::new(event)), cx);
+                            if let Some(order) = reverse_order {
+                                this.market(order.symbol, order.buy, order.volume, cx);
+                            }
+                            if let Busy::Closing(id) = busy
+                                && let Some(pending) = this.reversals.0.get(&id)
+                            {
+                                Self::watch_reverse(id, pending.started, cx);
+                            }
+                            if busy == Busy::Placing {
+                                this.send_next(cx);
+                            }
                         }
-                        if let Busy::Closing(id) = busy
-                            && let Some(pending) = this.reversals.0.get(&id)
-                        {
-                            Account::watch_reverse(id, pending.started, cx);
-                        }
-                        if busy == Busy::Placing {
-                            this.send_next(cx);
+                        Err(error) => {
+                            if let Busy::Closing(id) = busy {
+                                this.reversals.0.remove(&id);
+                            }
+                            if busy == Busy::Placing {
+                                this.drop_queue(cx);
+                            }
+                            let reason = describe(&error);
+                            let title = match busy {
+                                Busy::Placing => "The order was not sent",
+                                Busy::Closing(_) => "The position was not closed",
+                                Busy::Cancelling(_) => "The order was not cancelled",
+                                Busy::Amending(_) => "The change was not applied",
+                            };
+                            Self::tell(
+                                Notice::new(Tone::Error, title, reason.message)
+                                    .hint(reason.hint)
+                                    .details(error.to_string()),
+                                cx,
+                            );
+                            this.on_ready(cx);
                         }
                     }
-                    Err(error) => {
-                        if let Busy::Closing(id) = busy {
-                            this.reversals.0.remove(&id);
-                        }
-                        if busy == Busy::Placing {
-                            this.drop_queue(cx);
-                        }
-                        let reason = describe(&error);
-                        let title = match busy {
-                            Busy::Placing => "The order was not sent",
-                            Busy::Closing(_) => "The position was not closed",
-                            Busy::Cancelling(_) => "The order was not cancelled",
-                            Busy::Amending(_) => "The change was not applied",
-                        };
-                        Account::tell(
-                            Notice::new(Tone::Error, title, reason.message)
-                                .hint(reason.hint)
-                                .details(error.to_string()),
-                            cx,
-                        );
-                        this.on_ready(cx);
-                    }
-                }
-                cx.notify();
-            });
+                    cx.notify();
+                }),
+            );
         })
         .detach();
     }
@@ -150,17 +154,17 @@ impl Account {
     ) {
         order.label.get_or_insert_with(|| "wyck".into());
         if let Err(error) = order.validate() {
-            Account::tell(Notice::incomplete(&error), cx);
+            Self::tell(Notice::incomplete(&error), cx);
             return;
         }
         if let Verdict::Block(reason) = self.assess(&order, one_click) {
-            Account::tell(Notice::blocked(reason), cx);
+            Self::tell(Notice::blocked(reason), cx);
             return;
         }
         let now = crate::market_data::now_ms();
         let fingerprint = fingerprint(&order);
         if self.busy.contains(&Busy::Placing) || self.duplicates.is_repeat(fingerprint, now) {
-            Account::tell(Notice::repeated(), cx);
+            Self::tell(Notice::repeated(), cx);
             return;
         }
         self.count_sent(now);
@@ -172,20 +176,20 @@ impl Account {
     /// What the safety checks say about the orders of a plan together: the side that sends the
     /// most is checked with its volumes added up (an OCO pair fills on one side only).
     pub fn assess_batch(&self, orders: &[NewOrderReq], one_click: bool) -> Verdict {
-        let mut totals: Vec<(i32, i64, usize)> = Vec::new();
-        for (index, order) in orders.iter().enumerate() {
+        let mut totals: Vec<(i32, i64, &NewOrderReq)> = Vec::new();
+        for order in orders {
             match totals
                 .iter_mut()
                 .find(|(side, _, _)| *side == order.trade_side)
             {
                 Some(entry) => entry.1 += order.volume,
-                None => totals.push((order.trade_side, order.volume, index)),
+                None => totals.push((order.trade_side, order.volume, order)),
             }
         }
         let Some(&(_, volume, first)) = totals.iter().max_by_key(|(_, volume, _)| *volume) else {
             return Verdict::Ok;
         };
-        let mut probe = orders[first].clone();
+        let mut probe = first.clone();
         probe.volume = volume;
         self.assess(&probe, one_click)
     }
@@ -204,22 +208,25 @@ impl Account {
             }
             return;
         }
+        let Some(first) = orders.first() else {
+            return;
+        };
         for order in &orders {
             if let Err(error) = order.validate() {
-                Account::tell(Notice::incomplete(&error), cx);
+                Self::tell(Notice::incomplete(&error), cx);
                 return;
             }
         }
         if let Verdict::Block(reason) = self.assess_batch(&orders, one_click) {
-            Account::tell(Notice::blocked(reason), cx);
+            Self::tell(Notice::blocked(reason), cx);
             return;
         }
         let now = crate::market_data::now_ms();
         if self.busy.contains(&Busy::Placing)
             || !self.queue.is_empty()
-            || self.duplicates.is_repeat(fingerprint(&orders[0]), now)
+            || self.duplicates.is_repeat(fingerprint(first), now)
         {
-            Account::tell(Notice::repeated(), cx);
+            Self::tell(Notice::repeated(), cx);
             return;
         }
         self.count_sent(now);
@@ -247,7 +254,7 @@ impl Account {
         let left = self.queue.len();
         self.queue.clear();
         if left > 0 {
-            Account::tell(
+            Self::tell(
                 Notice::new(
                     Tone::Warning,
                     "The rest of the plan was not sent",
@@ -350,7 +357,7 @@ impl Account {
         for (id, rule, symbol) in due {
             self.time_stops.insert(id, Instant::now());
             let name = self.book.name(symbol);
-            Account::tell(
+            Self::tell(
                 Notice::new(
                     Tone::Info,
                     "Time stop",
@@ -405,7 +412,7 @@ impl Account {
                 if cancels == 1 { "" } else { "s" }
             ));
         }
-        Account::tell(
+        Self::tell(
             Notice::new(
                 Tone::Info,
                 "Plan caught up",

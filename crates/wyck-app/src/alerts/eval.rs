@@ -2,6 +2,7 @@
 //! broker, no clock. The engine ([`super::Alerts`]) gathers the numbers (a price, the plot of an
 //! indicator, the level of a drawing) and asks these.
 
+use wyck_core::math::{Series as _, i64_to_f64};
 use wyck_drawings::model::Point;
 use wyck_drawings::model::tool::Tool;
 
@@ -131,21 +132,21 @@ pub(crate) fn judge_bars(
     let closed = trigger == Trigger::OncePerBarClose || condition == Condition::ChangesDirection;
     let at = if closed { n - 2 } else { n - 1 };
     let reading = |i: usize| Reading {
-        value: value[i],
-        level: level[i],
+        value: value.at(i),
+        level: level.at(i),
         upper,
     };
     let now = reading(at);
-    let bar = times[at];
+    let bar = times.get(at).copied()?;
     let mut hit = if condition == Condition::ChangesDirection {
-        direction_changed(value[at - 2], value[at - 1], value[at])
+        direction_changed(value.at(at - 2), value.at(at - 1), value.at(at))
     } else {
         let before = if closed { Some(reading(at - 1)) } else { last };
         before.is_some_and(|before| fired(condition, &before, &now))
     };
     if closed {
         // The bar closed when the next one opened.
-        hit &= bar_key != Some(bar) && times[at + 1] >= created_at;
+        hit &= bar_key != Some(bar) && times.get(at + 1).is_some_and(|&next| next >= created_at);
     } else if trigger == Trigger::OncePerBar {
         hit &= bar_key != Some(bar);
     }
@@ -175,8 +176,8 @@ pub(crate) fn drawing_level(tool: Tool, points: &[Point], time: i64) -> Option<(
                 Tool::Ray => time >= a.t,
                 _ => true,
             };
-            let slope = (second.p - first.p) / (second.t - first.t) as f64;
-            inside.then(|| (first.p + slope * (time - first.t) as f64, None))
+            let slope = (second.p - first.p) / i64_to_f64(second.t - first.t);
+            inside.then(|| (first.p + slope * i64_to_f64(time - first.t), None))
         }
         Tool::Rectangle => {
             let b = b?;
