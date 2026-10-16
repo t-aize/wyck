@@ -12,6 +12,7 @@ use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
 use wyck_app::lost::lost;
 use wyck_chart::ScaleMode;
+use wyck_core::math::i64_to_f64;
 use wyck_market::{PRICE_SCALE, format_price};
 use wyck_ui_chart::chart;
 use wyck_ui_kit::icon::IconName;
@@ -42,7 +43,7 @@ impl Dashboard {
                 )
                 .child(
                     div()
-                        .max_w(px(wyck_ui_kit::tokens::measure::note()))
+                        .max_w(px(tokens::measure::note()))
                         .text_center()
                         .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())
@@ -51,11 +52,11 @@ impl Dashboard {
                 .child(
                     div()
                         .pt_2()
-                        .w(px(wyck_ui_kit::tokens::measure::action()))
+                        .w(px(tokens::measure::action()))
                         .child(button::primary(
                             "sign-in-again",
-                            wyck_ui_kit::button::Fill::Accent,
-                            wyck_ui_kit::button::Size::Md,
+                            button::Fill::Accent,
+                            button::Size::Md,
                             "Sign in again",
                             cx.listener(|_this, _event, _window, cx| {
                                 cx.emit(DashboardEvent::SignInAgain);
@@ -146,15 +147,20 @@ impl Render for Dashboard {
             this.step_timeframe(false, cx);
         }))
         .on_action(cx.listener(|this, _: &ToggleMagnet, _window, cx| {
-            this.multi.update(cx, |multi, cx| multi.toggle_magnet(cx));
+            this.multi
+                .update(cx, wyck_ui_chart::multichart::MultiChart::toggle_magnet);
         }))
         .on_action(cx.listener(|this, _: &ToggleKeepDrawing, _window, cx| {
-            this.multi
-                .update(cx, |multi, cx| multi.toggle_keep_drawing(cx));
+            this.multi.update(
+                cx,
+                wyck_ui_chart::multichart::MultiChart::toggle_keep_drawing,
+            );
         }))
         .on_action(cx.listener(|this, _: &ToggleFavoritesBar, _window, cx| {
-            this.multi
-                .update(cx, |multi, cx| multi.toggle_favorites_bar(cx));
+            this.multi.update(
+                cx,
+                wyck_ui_chart::multichart::MultiChart::toggle_favorites_bar,
+            );
         }))
         .on_action(cx.listener(|this, _: &CancelAllOrders, window, cx| {
             this.ask_cancel_all(window, cx);
@@ -166,7 +172,7 @@ impl Render for Dashboard {
             this.on_active_chart(cx, |chart, cx| chart.toggle_scale(ScaleMode::Percent, cx));
         }))
         .on_action(cx.listener(|this, _: &ToggleGrid, _window, cx| {
-            this.on_active_chart(cx, |chart, cx| chart.toggle_grid(cx));
+            this.on_active_chart(cx, chart::Chart::toggle_grid);
         }))
         .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
             this.toggle_editor(cx);
@@ -193,10 +199,18 @@ impl Render for Dashboard {
             // Escape gives up a drawing in progress before it closes anything else.
             let nothing_open = this.picker.is_none() && this.open_menu.is_none();
             // A menu of a chart (the time zone) closes before anything else.
-            if nothing_open && this.multi.update(cx, |multi, cx| multi.close_menus(cx)) {
+            if nothing_open
+                && this
+                    .multi
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::close_menus)
+            {
                 return;
             }
-            if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
+            if nothing_open
+                && this
+                    .multi
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::cancel_drawing)
+            {
                 // The field that had the keyboard may be gone with the selection.
                 window.focus(&this.focus_handle, cx);
                 return;
@@ -204,12 +218,16 @@ impl Render for Dashboard {
             this.close_overlays(window, cx);
         }))
         .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
-            this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
+            this.multi
+                .update(cx, wyck_ui_chart::multichart::MultiChart::delete_drawing);
             window.focus(&this.focus_handle, cx);
         }))
         .on_action(cx.listener(|this, _: &chart::FinishDrawing, _window, cx| {
             // Only an arrow path ends on Enter: for anything else the key goes on.
-            if !this.multi.update(cx, |multi, cx| multi.finish_drawing(cx)) {
+            if !this
+                .multi
+                .update(cx, wyck_ui_chart::multichart::MultiChart::finish_drawing)
+            {
                 cx.propagate();
             }
         }))
@@ -251,15 +269,17 @@ impl Render for Dashboard {
                 .update(cx, |multi, cx| multi.pick_favorite(8, cx));
         }))
         .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
-            this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
+            this.multi
+                .update(cx, wyck_ui_chart::multichart::MultiChart::undo_drawing);
         }))
         .on_action(cx.listener(|this, _: &chart::RedoDrawing, _window, cx| {
-            this.multi.update(cx, |multi, cx| multi.redo_drawing(cx));
+            this.multi
+                .update(cx, wyck_ui_chart::multichart::MultiChart::redo_drawing);
         }))
         .on_action(
             cx.listener(|this, _: &chart::DuplicateDrawing, _window, cx| {
                 this.multi
-                    .update(cx, |multi, cx| multi.duplicate_drawing(cx));
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::duplicate_drawing);
             }),
         )
         .on_action(cx.listener(|this, _: &chart::ChartPanBack, window, cx| {
@@ -287,11 +307,11 @@ impl Render for Dashboard {
             this.on_active_chart(cx, |chart, cx| chart.zoom_keys(false, cx));
         }))
         .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
-            this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
+            this.on_active_chart(cx, chart::Chart::jump_to_latest);
         }))
         .on_action(
             cx.listener(|this, _: &chart::ChartResetScale, _window, cx| {
-                this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
+                this.on_active_chart(cx, chart::Chart::reset_price_scale);
             }),
         )
         .on_action(cx.listener(|this, _: &chart::ChartAddAlert, _window, cx| {
@@ -299,12 +319,14 @@ impl Render for Dashboard {
         }))
         .on_action(
             cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.picture(cx));
+                this.multi
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::picture);
             }),
         )
         .on_action(
             cx.listener(|this, _: &chart::ChartScreenshotAll, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.picture_all(cx));
+                this.multi
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::picture_all);
             }),
         )
         .on_action(
@@ -348,7 +370,8 @@ pub(super) fn quote_text(
 ) -> Option<super::details::Live> {
     let bid = quote.bid?;
     let spread = quote.ask.map(|ask| {
-        let pips = (ask - bid) as f64 / PRICE_SCALE as f64 / wyck_market::pip_size(pip_position);
+        let pips =
+            i64_to_f64(ask - bid) / i64_to_f64(PRICE_SCALE) / wyck_market::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

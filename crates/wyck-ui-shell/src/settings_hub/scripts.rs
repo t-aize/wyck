@@ -8,7 +8,7 @@ use gpui::prelude::*;
 use wyck_ui_kit::prelude::Disableable;
 
 impl SettingsHub {
-    pub(super) fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn indicators_page(cx: &mut Context<Self>) -> AnyElement {
         let prefs = indicators::prefs(cx);
         let dir = indicators::dir(cx);
         let default_dir = indicators::default_dir(cx);
@@ -135,7 +135,9 @@ impl SettingsHub {
                     &budgets,
                     budget_index,
                     move |choice, _window, cx| {
-                        indicators::update_prefs(cx, |p| p.budget = prefs::Budget::ALL[choice]);
+                        if let Some(&budget) = prefs::Budget::ALL.get(choice) {
+                            indicators::update_prefs(cx, |p| p.budget = budget);
+                        }
                     },
                 ),
             ),

@@ -18,9 +18,16 @@ use wyck_ui_kit::input::{self, InputEvent, InputState};
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::{anim, button, controls, field, icon, layout, theme, tokens};
 
-gpui::actions!(wyck_sign_in, [Dismiss]);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod action {
+    gpui::actions!(wyck_sign_in, [Dismiss]);
+}
+pub(crate) use action::*;
 
-pub struct SignInGate {
+pub(crate) struct SignInGate {
     sign_in: Entity<SignIn>,
     client_id: Entity<InputState>,
     client_secret: Entity<InputState>,
@@ -36,7 +43,11 @@ pub struct SignInGate {
 
 impl SignInGate {
     /// A modal for `sign_in`.
-    pub fn new(sign_in: Entity<SignIn>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub(crate) fn new(
+        sign_in: Entity<SignIn>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let client_id =
             cx.new(|cx| InputState::new(window, cx).placeholder("e.g. 3492_oXQnP7vLk9fZ2mR8bQwT"));
         let client_secret = cx.new(|cx| {
@@ -73,7 +84,12 @@ impl SignInGate {
 
     /// Fills the form from the saved sign-in, when there is one. The secret is filled too only
     /// when `with_secret` is set, for a session that ended and has to be consented again.
-    pub fn prefill(&mut self, with_secret: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn prefill(
+        &mut self,
+        with_secret: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (id, secret, environment) = {
             let sign_in = self.sign_in.read(cx);
             (
@@ -127,7 +143,7 @@ impl SignInGate {
     fn dismiss(&mut self, cx: &mut Context<Self>) {
         let busy = self.sign_in.read(cx).state().is_busy();
         if busy {
-            self.sign_in.update(cx, |sign_in, cx| sign_in.cancel(cx));
+            self.sign_in.update(cx, SignIn::cancel);
         } else {
             self.shakes += 1;
             cx.notify();
@@ -145,25 +161,19 @@ impl SignInGate {
                 "up" => self
                     .sign_in
                     .update(cx, |s, cx| s.choose(selected.saturating_sub(1), cx)),
-                "enter" => self.sign_in.update(cx, |s, cx| s.connect_chosen(cx)),
+                "enter" => self.sign_in.update(cx, SignIn::connect_chosen),
                 _ => {}
             }
         }
     }
 
-    fn heading(
-        &self,
-        name: IconName,
-        title: &'static str,
-        subtitle: &'static str,
-    ) -> impl IntoElement {
+    fn heading(name: IconName, title: &'static str, subtitle: &'static str) -> impl IntoElement {
         let tile = layout::icon_tile(name, 48., 22., theme::accent_selected(), theme::fg());
-        self.heading_with(tile.into_any_element(), title, subtitle)
+        Self::heading_with(tile.into_any_element(), title, subtitle)
     }
 
     /// The heading of a step with `leading` before its title.
     fn heading_with(
-        &self,
         leading: gpui::AnyElement,
         title: &'static str,
         subtitle: &'static str,
@@ -196,7 +206,7 @@ impl SignInGate {
             )
     }
 
-    fn waiting_line(&self, id: &'static str, text: impl Into<SharedString>) -> impl IntoElement {
+    fn waiting_line(id: &'static str, text: impl Into<SharedString>) -> impl IntoElement {
         div()
             .flex()
             .items_center()
@@ -210,14 +220,17 @@ impl SignInGate {
             .child(text.into())
     }
 
-    fn restoring(&self) -> gpui::AnyElement {
+    fn restoring() -> gpui::AnyElement {
         div()
             .flex()
             .flex_col()
             .items_center()
             .gap_4()
             .py_6()
-            .child(self.waiting_line("gate-restore-spin", "Restoring your session"))
+            .child(Self::waiting_line(
+                "gate-restore-spin",
+                "Restoring your session",
+            ))
             .into_any_element()
     }
 
@@ -253,7 +266,7 @@ impl SignInGate {
             .flex()
             .flex_col()
             .gap_4()
-            .child(self.heading_with(
+            .child(Self::heading_with(
                 layout::brand_mark(52.).into_any_element(),
                 "Sign in to cTrader",
                 "Use your own cTrader Open API application. Wyck keeps the sign-in on this device only.",
@@ -355,7 +368,7 @@ impl SignInGate {
             .child(
                 button::primary(
                     "gate-submit",
-wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
+button::Fill::Accent, button::Size::Lg,
                     submit_label,
                     cx.listener(|this, _, _window, cx| this.submit(cx)),
                 )
@@ -375,19 +388,19 @@ wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
             .into_any_element()
     }
 
-    fn waiting_browser(&self, url: String, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn waiting_browser(url: String, cx: &mut Context<Self>) -> gpui::AnyElement {
         let open = url.clone();
         let copy = url;
         div()
             .flex()
             .flex_col()
             .gap_4()
-            .child(self.heading(
+            .child(Self::heading(
                 IconName::Globe,
                 "Finish this in your browser",
                 "We opened cTrader's sign-in page. Allow access there; Wyck picks it up here by itself.",
             ))
-            .child(self.waiting_line("gate-wait-spin", "Waiting for cTrader..."))
+            .child(Self::waiting_line("gate-wait-spin", "Waiting for cTrader..."))
             .child(
                 button::outlined("gate-reopen")
                     .icon(IconName::ExternalLink)
@@ -411,7 +424,6 @@ wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
     }
 
     fn choosing(
-        &self,
         accounts: &[AccountChoice],
         selected: usize,
         cx: &mut Context<Self>,
@@ -451,7 +463,7 @@ wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
             .flex()
             .flex_col()
             .gap_4()
-            .child(self.heading(
+            .child(Self::heading(
                 IconName::Wallet,
                 "Choose a trading account",
                 "These accounts fit the environment you chose. Pick the one to trade on.",
@@ -460,11 +472,11 @@ wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
             .child(
                 button::primary(
                     "gate-connect-account",
-                    wyck_ui_kit::button::Fill::Accent,
-                    wyck_ui_kit::button::Size::Lg,
+                    button::Fill::Accent,
+                    button::Size::Lg,
                     "Connect this account",
                     cx.listener(|this, _, _window, cx| {
-                        this.sign_in.update(cx, |s, cx| s.connect_chosen(cx));
+                        this.sign_in.update(cx, SignIn::connect_chosen);
                     }),
                 )
                 .icon(IconName::PlugZap),
@@ -479,14 +491,17 @@ wyck_ui_kit::button::Fill::Accent, wyck_ui_kit::button::Size::Lg,
             .into_any_element()
     }
 
-    fn authorizing(&self, label: &str) -> gpui::AnyElement {
+    fn authorizing(label: &str) -> gpui::AnyElement {
         div()
             .flex()
             .flex_col()
             .items_center()
             .gap_4()
             .py_6()
-            .child(self.waiting_line("gate-authorize-spin", format!("Connecting {label}")))
+            .child(Self::waiting_line(
+                "gate-authorize-spin",
+                format!("Connecting {label}"),
+            ))
             .into_any_element()
     }
 }
@@ -509,12 +524,14 @@ impl Render for SignInGate {
             )
         };
         let body = match phase {
-            Phase::Restoring => self.restoring(),
+            Phase::Restoring => Self::restoring(),
             Phase::Editing => self.form(failure.as_ref(), failures, false, cx),
             Phase::Verifying => self.form(failure.as_ref(), failures, busy, cx),
-            Phase::WaitingBrowser { url } => self.waiting_browser(url, cx),
-            Phase::ChoosingAccount { accounts, selected } => self.choosing(&accounts, selected, cx),
-            Phase::Authorizing { label } => self.authorizing(&label),
+            Phase::WaitingBrowser { url } => Self::waiting_browser(url, cx),
+            Phase::ChoosingAccount { accounts, selected } => {
+                Self::choosing(&accounts, selected, cx)
+            }
+            Phase::Authorizing { label } => Self::authorizing(&label),
             Phase::Connected => div().into_any_element(),
         };
         let card = layout::card().max_w_full().child(body);

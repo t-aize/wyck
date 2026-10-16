@@ -12,6 +12,7 @@ use wyck_app::lost::lost;
 use wyck_app::storage::backup::Contents;
 use wyck_app::storage::backup::store::BackupStore;
 use wyck_app::storage::scripts::ScriptStore;
+use wyck_core::math::u64_to_f64;
 use wyck_ui_kit::prelude::Disableable;
 
 /// The most copies the page lists.
@@ -79,8 +80,8 @@ pub(super) fn list_copies() -> Vec<BackupEntry> {
 fn size(bytes: u64) -> String {
     match bytes {
         0..1024 => format!("{bytes} B"),
-        1024..1_048_576 => format!("{:.0} KB", bytes as f64 / 1024.0),
-        _ => format!("{:.1} MB", bytes as f64 / 1_048_576.0),
+        1024..1_048_576 => format!("{:.0} KB", u64_to_f64(bytes) / 1024.0),
+        _ => format!("{:.1} MB", u64_to_f64(bytes) / 1_048_576.0),
     }
 }
 
@@ -161,7 +162,7 @@ impl SettingsHub {
                         wyck_ui_kit::button::quiet("backup-cancel")
                             .label("Cancel the import")
                             .on_click(move |_, _window, cx| {
-                                cancel.update(cx, |e, cx| e.cancel_import(cx));
+                                cancel.update(cx, Self::cancel_import);
                             }),
                     ),
             );
@@ -207,7 +208,7 @@ impl SettingsHub {
                 .label("Save a copy")
                 .on_click({
                     let this = cx.entity();
-                    move |_, _window, cx| this.update(cx, |hub, cx| hub.save_copy(cx))
+                    move |_, _window, cx| this.update(cx, Self::save_copy)
                 }),
         )];
         for (index, entry) in self.copies.iter().take(LISTED_COPIES).enumerate() {
@@ -279,7 +280,7 @@ impl SettingsHub {
                             "Reset everything?",
                             "This puts the appearance, layout, charts, drawings, watchlists, favorites and alerts of every account back to how they are on a fresh install. A copy of what is removed is kept in the backups folder. Wyck restarts right after. Your indicator scripts and your sign-in stay exactly as they are.",
                             move |_window, cx| {
-                                reset.update(cx, |hub, cx| hub.reset_all(cx));
+                                reset.update(cx, Self::reset_all);
                             },
                         );
                     }),
@@ -370,8 +371,10 @@ impl SettingsHub {
     }
 
     pub(super) fn cancel_import(&mut self, cx: &mut Context<Self>) {
-        if let Some(dir) = wyck_app::app_paths() {
-            let _ = backup::staged::cancel_import(dir);
+        if let Some(dir) = wyck_app::app_paths()
+            && let Err(error) = backup::staged::cancel_import(dir)
+        {
+            tracing::warn!(%error, "could not cancel the import");
         }
         self.waiting = None;
         self.say(true, "The import is cancelled. Nothing was changed.", cx);

@@ -195,7 +195,7 @@ impl Render for AlertEditor {
             ),
         )];
         if condition.needs_level() {
-            if let Some(id) = drawing {
+            if drawing.is_some() {
                 let level_this = cx.entity();
                 when.push(form::field(
                     "Compared with",
@@ -214,7 +214,6 @@ impl Render for AlertEditor {
                         },
                     ),
                 ));
-                let _ = id;
             } else {
                 let unit = match &self.draft.source {
                     Source::Spread { .. } => Some("In pips"),
@@ -363,7 +362,6 @@ impl Render for AlertEditor {
         ];
 
         // What it did before.
-        let digits = self.digits;
         let history: Vec<gpui::AnyElement> = self
             .alerts
             .read(cx)
@@ -383,7 +381,6 @@ impl Render for AlertEditor {
                 )
             })
             .collect();
-        let _ = digits;
 
         let mut body = form::page()
             .child(form::group(IconName::Eye, "Watch", watch))

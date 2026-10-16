@@ -92,9 +92,8 @@ zeroize = "1.9.1"
 # ---------------------------------------------------------------------------------------------
 # Lints
 #
-# The rules every crate that opts in with `[lints] workspace = true` follows. `wyck`, the crate
-# the others are being taken out of, keeps the short list it had until it is empty (see its
-# manifest); each crate that leaves it follows this one in full and must pass without a warning.
+# The rules every crate follows: each one opts in with `[lints] workspace = true` (`cargo xtask
+# deps` checks it) and must pass without a warning.
 #
 # CI runs `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, so a
 # `warn` here blocks a merge just like a `deny`; the difference is only how loud it is locally.

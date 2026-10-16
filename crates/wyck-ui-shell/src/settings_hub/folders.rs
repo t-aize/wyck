@@ -14,14 +14,15 @@ use wyck_app::locations::{self, Row};
 use wyck_app::lost::lost;
 use wyck_app::storage::locations::Kind;
 use wyck_app::storage::relocate::{PlanError, Step};
+use wyck_core::math::u64_to_f64;
 use wyck_ui_kit::prelude::Disableable;
 
 /// A size in bytes as a few characters.
 fn size(bytes: u64) -> String {
     match bytes {
         0..1024 => format!("{bytes} B"),
-        1024..1_048_576 => format!("{:.0} KB", bytes as f64 / 1024.0),
-        _ => format!("{:.1} MB", bytes as f64 / 1_048_576.0),
+        1024..1_048_576 => format!("{:.0} KB", u64_to_f64(bytes) / 1024.0),
+        _ => format!("{:.1} MB", u64_to_f64(bytes) / 1_048_576.0),
     }
 }
 
@@ -43,7 +44,7 @@ impl SettingsHub {
             "This is the installed app. A development build keeps its own folders and never uses these."
         }))];
         for (index, row) in overview.rows.iter().enumerate() {
-            rows.extend(self.folder_row(index, row, cx));
+            rows.extend(Self::folder_row(index, row, cx));
         }
         if let Some(paths) = wyck_app::app_paths() {
             let config = paths.config_dir().to_path_buf();
@@ -97,7 +98,7 @@ impl SettingsHub {
                 .icon(IconName::FolderOpen)
                 .label("Choose another folder...")
                 .on_click(move |_, _window, cx| {
-                    this.update(cx, |hub, cx| hub.choose_cloud_root(cx));
+                    this.update(cx, |_, cx| Self::choose_cloud_root(cx));
                 }),
         );
         cloud_rows.push(form::block(buttons));
@@ -148,14 +149,14 @@ impl SettingsHub {
                             .icon(IconName::RefreshCw)
                             .label("Restart now")
                             .on_click(move |_, _window, cx| {
-                                restart.update(cx, |hub, cx| hub.restart_for_folders(cx));
+                                restart.update(cx, Self::restart_for_folders);
                             }),
                     )
                     .child(
                         wyck_ui_kit::button::quiet("folders-cancel")
                             .label("Cancel the move")
                             .on_click(move |_, _window, cx| {
-                                cancel.update(cx, |hub, cx| hub.cancel_folders(cx));
+                                cancel.update(cx, Self::cancel_folders);
                             }),
                     ),
             );
@@ -298,7 +299,7 @@ impl SettingsHub {
     }
 
     /// The row of one kind: where it is, and what can be done about it.
-    fn folder_row(&self, index: usize, row: &Row, cx: &mut Context<Self>) -> Vec<AnyElement> {
+    fn folder_row(index: usize, row: &Row, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let kind = row.kind;
         let (choose, reset, open) = (cx.entity(), cx.entity(), cx.entity());
         let place = if row.custom {
@@ -320,7 +321,7 @@ impl SettingsHub {
                                 .icon(IconName::FolderOpen)
                                 .label("Change...")
                                 .on_click(move |_, _window, cx| {
-                                    choose.update(cx, |hub, cx| hub.choose_folder(kind, cx));
+                                    choose.update(cx, |_, cx| Self::choose_folder(kind, cx));
                                 }),
                         )
                         .child(
@@ -399,7 +400,7 @@ impl SettingsHub {
     }
 
     /// Asks for a folder, then puts the move of `kind` there aside.
-    fn choose_folder(&mut self, kind: Kind, cx: &mut Context<Self>) {
+    fn choose_folder(kind: Kind, cx: &mut Context<Self>) {
         let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: false,
             directories: true,
@@ -428,7 +429,7 @@ impl SettingsHub {
     }
 
     /// Asks for the folder a cloud service keeps in step, then puts the move of everything aside.
-    fn choose_cloud_root(&mut self, cx: &mut Context<Self>) {
+    fn choose_cloud_root(cx: &mut Context<Self>) {
         let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: false,
             directories: true,

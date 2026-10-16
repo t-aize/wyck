@@ -61,9 +61,9 @@ afresh.
 ## Layout
 
 A Cargo workspace (see the root `Cargo.toml`): one crate per area in `crates/`, and `xtask` for the
-commands of the project (`cargo xtask check`). The screens are still in one crate, `crates/wyck`;
-[docs/PLAN.md](docs/PLAN.md) tracks where that stands. A crate only depends on the ones above it in
-this table, and `cargo xtask deps` checks it:
+commands of the project (`cargo xtask check`). A crate only depends on the ones above it in this
+table, and `cargo xtask deps` checks it ([docs/PLAN.md](docs/PLAN.md) tracks the rest of the
+restructuring):
 
 | Crate | Owns |
 |---|---|
@@ -74,7 +74,10 @@ this table, and `cargo xtask deps` checks it:
 | `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
 | `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
 | `wyck-ui-kit` | The widget kit: controls, menus, dialogs, colors, the font and the symbol marks |
-| `wyck` | The window, the dashboard and the screens; `src/main.rs` only starts the app |
+| `wyck-ui-chart` | The price chart and the screen that arranges several of them |
+| `wyck-ui-trading`, `wyck-ui-editor` | The order ticket and the account panel; the indicator script editor |
+| `wyck-ui-shell` | The frame of the window: dashboard, settings, sign-in gate, keyboard shortcuts |
+| `wyck` | The program: `src/main.rs` starts the logs, the saved data and the window |
 
 Every control, menu, dialog and color comes from the widget kit. The Open API client is described
 in the rustdoc of `wyck-ctrader` (`cargo doc -p wyck-ctrader --open`).

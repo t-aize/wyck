@@ -128,7 +128,7 @@ impl Dashboard {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
-                            .w(px(wyck_ui_kit::tokens::height::tiny()))
+                            .w(px(tokens::height::tiny()))
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(count.to_string()),
@@ -147,7 +147,8 @@ impl Dashboard {
             .text_color(theme::muted_fg())
             .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
             .on_click(cx.listener(|this, _event, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.reset_splits(cx));
+                this.multi
+                    .update(cx, wyck_ui_chart::multichart::MultiChart::reset_splits);
             }))
             .child("Make the charts equal again (or double click a line between them)");
         let several = self.multi.read(cx).chart_count() > 1;
@@ -167,7 +168,8 @@ impl Dashboard {
                 .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
                 .on_click(cx.listener(|this, _event, _window, cx| {
                     this.close_menus();
-                    this.multi.update(cx, |multi, cx| multi.picture_all(cx));
+                    this.multi
+                        .update(cx, wyck_ui_chart::multichart::MultiChart::picture_all);
                     cx.notify();
                 }))
                 .child(wyck_ui_kit::icon::tinted(

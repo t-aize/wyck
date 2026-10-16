@@ -18,16 +18,16 @@ use wyck_ui_kit::input::InputState;
 /// The key being waited for: which action, and which of its keys (`None` adds one).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Capture {
-    pub id: &'static str,
-    pub slot: Option<usize>,
+    pub(crate) id: &'static str,
+    pub(crate) slot: Option<usize>,
 }
 
 /// A combination waiting for the user to say whether it is taken from the action that has it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Swap {
-    pub capture: Capture,
-    pub keys: String,
-    pub from: &'static str,
+    pub(crate) capture: Capture,
+    pub(crate) keys: String,
+    pub(crate) from: &'static str,
 }
 
 fn mac() -> bool {
@@ -115,7 +115,9 @@ impl SettingsHub {
                     .icon(IconName::RotateCcw)
                     .label("Reset all")
                     .on_click(move |_, _, cx| {
-                        this.update(cx, |hub, cx| hub.edit_shortcuts(cx, |p| p.reset_all()));
+                        this.update(cx, |hub, cx| {
+                            hub.edit_shortcuts(cx, wyck_app::shortcuts::ShortcutPrefs::reset_all);
+                        });
                     }),
             );
         }
@@ -134,7 +136,7 @@ impl SettingsHub {
                 }
                 match def.kind {
                     Kind::Custom => rows.push(self.shortcut_row(def, &keys, &prefs, cx)),
-                    Kind::Fixed => rows.push(self.fixed_row(def, &shown_keys)),
+                    Kind::Fixed => rows.push(Self::fixed_row(def, &shown_keys)),
                 }
                 if def.kind == Kind::Custom {
                     rows.extend(self.row_notes(def, &shared, cx));
@@ -157,7 +159,7 @@ impl SettingsHub {
                 let this = cx.entity();
                 button::icon(
                     SharedString::from(format!("shortcuts-reset-{group:?}")),
-                    wyck_ui_kit::button::Size::Md,
+                    button::Size::Md,
                     IconName::RotateCcw,
                     "Back to the defaults of this group",
                 )
@@ -250,7 +252,7 @@ impl SettingsHub {
     }
 
     /// A row for a key the app cannot change: the keys, a lock.
-    fn fixed_row(&self, def: &Def, keys: &[String]) -> AnyElement {
+    fn fixed_row(def: &Def, keys: &[String]) -> AnyElement {
         let mut chips = div().flex().flex_row().items_center().gap_1();
         for key in keys {
             chips = chips.child(chip(key.clone()));
@@ -336,7 +338,7 @@ impl SettingsHub {
                         button::accent("shortcuts-swap-take")
                             .label("Take it")
                             .on_click(move |_, _, cx| {
-                                take.update(cx, |hub, cx| hub.take_swap(cx));
+                                take.update(cx, Self::take_swap);
                             }),
                     )
                     .child(
@@ -421,7 +423,7 @@ impl SettingsHub {
             controls = controls.child(
                 button::icon(
                     SharedString::from(format!("shortcut-{id}-clear")),
-                    wyck_ui_kit::button::Size::Md,
+                    button::Size::Md,
                     IconName::Eraser,
                     "Leave without a key",
                 )
@@ -432,7 +434,7 @@ impl SettingsHub {
                 }),
             );
         }
-        let reset = this.clone();
+        let reset = this;
         form::Row::new(def.label)
             .reset(prefs.is_changed(id), move |_, cx| {
                 reset.update(cx, |hub, cx| hub.edit_shortcuts(cx, |p| p.reset(id)));
@@ -476,10 +478,10 @@ impl SettingsHub {
         let Some(chord) = Chord::from_event(held, &keystroke.key, mac()) else {
             return;
         };
-        self.assign(capture, chord, cx);
+        self.assign(capture, &chord, cx);
     }
 
-    fn assign(&mut self, capture: Capture, chord: Chord, cx: &mut Context<Self>) {
+    fn assign(&mut self, capture: Capture, chord: &Chord, cx: &mut Context<Self>) {
         let Some(def) = keymap::def(capture.id) else {
             self.capturing = None;
             return;
@@ -563,9 +565,9 @@ impl SettingsHub {
         keys: String,
     ) {
         let mut list = prefs.keys_of(def.id, def.keys);
-        match slot {
-            Some(slot) if slot < list.len() => list[slot] = keys,
-            _ => list.push(keys),
+        match slot.and_then(|slot| list.get_mut(slot)) {
+            Some(existing) => *existing = keys,
+            None => list.push(keys),
         }
         list.dedup();
         prefs.set(def.id, list, def.keys);

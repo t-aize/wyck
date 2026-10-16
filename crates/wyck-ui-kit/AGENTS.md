@@ -7,7 +7,8 @@ a change made here reaches every screen at once. No domain, no network, no files
 
 Depends on: `wyck-core`, `gpui`, `gpui-kit` (the component library it restyles), `rust-embed`,
 `unicode-segmentation`, `tracing`.
-Used by: `wyck` (every screen).
+Used by: every screen crate (`wyck-ui-chart`, `wyck-ui-trading`, `wyck-ui-editor`, `wyck-ui-shell`) and
+`wyck`, which starts the app with `application`, `init` and `Root`.
 
 ## Module map
 
@@ -23,12 +24,13 @@ All the modules are public: a screen names them (`button::primary`, `tokens::tex
 | `form`, `layout`, `confirm` | The frame of a settings panel and of a dialog, groups of labelled rows, page blocks (cards, tiles, banners, badges), the "are you sure" dialog with its tone. |
 | `modal`, `menu` (with `menu::parts`), `toast` | The one modal window; menus on a right click or under a button; corner notices. |
 | `color_picker`, `font_picker`, `text_input` | The color panel; the list of installed fonts; the single-line input with its IME handling (copied from gpui's own example). |
+| `application`, `init`, `Root` (the crate root) | The entry points of the component library, re-exported so that the program starts the app without naming `gpui-kit`: the application, its initialisation and the root view every window is wrapped in. |
 | `anim`, `focus`, `hints`, `window_bar`, `prelude` | Motion helpers; keyboard access for hand-drawn controls (`Keyboard::keyboard`); the keys of the actions for tooltips; the fallback window bar; the gpui-kit traits a screen may use. |
 
 ## Invariants and traps
 
 - **No color literal outside `theme`, `color_picker` and the brand colors of the symbol marks** (a
-  file of the dashboard). The test `no_inline_colors` (in `wyck`, which holds the screens) fails on
+  file of the dashboard). The test `no_inline_colors` (in `wyck`, which sees every screen crate) fails on
   a `0xRRGGBB` anywhere else. A screen reads `theme::` values.
 - **A screen never configures a gpui-kit component itself.** Sizes and variants (`Sizable`,
   `ButtonVariants`) stay out of `prelude` on purpose: the kit picks them.

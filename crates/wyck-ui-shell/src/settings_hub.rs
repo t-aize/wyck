@@ -19,6 +19,7 @@ use wyck_app::system::build_info::{BuildMode, VERSION};
 use wyck_app::updates;
 use wyck_app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use wyck_chart::MAX_STUDIES;
+use wyck_core::math::{count_f64, f64_to_usize};
 use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 use wyck_ui_chart::multichart::MultiChart;
 use wyck_ui_kit::{
@@ -33,9 +34,9 @@ mod about;
 
 /// Tells the user an update can be installed from the settings.
 pub fn announce_update(version: &str, cx: &mut App) {
-    wyck_ui_kit::toast::show(
+    toast::show(
         cx,
-        wyck_ui_kit::toast::Kind::Info,
+        toast::Kind::Info,
         "Wyck update available",
         format!("Version {version} can be installed from Settings > About."),
     );
@@ -66,7 +67,7 @@ mod scripts;
 mod shortcuts;
 
 /// Opens the settings.
-pub fn open(
+pub(crate) fn open(
     workspace: Entity<Workspace>,
     multi: Entity<MultiChart>,
     window: &mut Window,
@@ -76,7 +77,7 @@ pub fn open(
 }
 
 /// Opens the settings on a page.
-pub fn open_at(
+pub(crate) fn open_at(
     workspace: Entity<Workspace>,
     multi: Entity<MultiChart>,
     page: Page,
@@ -96,7 +97,7 @@ pub fn open_at(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Page {
+pub(crate) enum Page {
     Interface,
     Charts,
     Indicators,
@@ -175,7 +176,7 @@ struct SettingsHub {
     /// The list of fonts, once it was opened.
     font_picker: Option<Entity<FontPicker>>,
     font_open: bool,
-    _font_subscription: Option<Subscription>,
+    font_subscription: Option<Subscription>,
     notice: Option<Notice>,
     /// The shortcut waiting for its new keys, and the last thing said about one.
     capturing: Option<shortcuts::Capture>,
@@ -211,27 +212,27 @@ impl SettingsHub {
         let study_limit = cx.new(|cx| {
             number::state(
                 number::Kind::Count,
-                limits.studies_per_chart as f64,
+                count_f64(limits.studies_per_chart),
                 window,
                 cx,
             )
             .min(1.0)
-            .max(MAX_STUDIES as f64)
+            .max(count_f64(MAX_STUDIES))
         });
         let alert_limit = cx.new(|cx| {
-            number::state(number::Kind::Count, limits.alerts as f64, window, cx)
+            number::state(number::Kind::Count, count_f64(limits.alerts), window, cx)
                 .min(1.0)
-                .max(MAX_SAVED_ALERTS as f64)
+                .max(count_f64(MAX_SAVED_ALERTS))
         });
         let drawing_limit = cx.new(|cx| {
             number::state(
                 number::Kind::Count,
-                limits.drawings_per_symbol as f64,
+                count_f64(limits.drawings_per_symbol),
                 window,
                 cx,
             )
             .min(1.0)
-            .max(MAX_DRAWINGS_PER_SYMBOL as f64)
+            .max(count_f64(MAX_DRAWINGS_PER_SYMBOL))
         });
         let mut subscriptions = vec![
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
@@ -275,7 +276,7 @@ impl SettingsHub {
             risk_inputs,
             font_picker: None,
             font_open: false,
-            _font_subscription: None,
+            font_subscription: None,
             notice: None,
             capturing: None,
             shortcut_note: None,
@@ -295,9 +296,9 @@ impl SettingsHub {
     fn set_usage_limit(&self, kind: UsageLimitKind, value: f64, cx: &mut Context<Self>) {
         let mut limits: UsageLimits = self.workspace.read(cx).preferences().limits;
         match kind {
-            UsageLimitKind::Indicators => limits.studies_per_chart = value as usize,
-            UsageLimitKind::Alerts => limits.alerts = value as usize,
-            UsageLimitKind::Drawings => limits.drawings_per_symbol = value as usize,
+            UsageLimitKind::Indicators => limits.studies_per_chart = f64_to_usize(value),
+            UsageLimitKind::Alerts => limits.alerts = f64_to_usize(value),
+            UsageLimitKind::Drawings => limits.drawings_per_symbol = f64_to_usize(value),
         }
         let limits = limits.normalized();
         self.workspace.update(cx, |workspace, cx| {
@@ -325,8 +326,7 @@ impl SettingsHub {
         cx: &mut Context<Self>,
         set: impl Fn(&mut appearance::Appearance, u32) + Clone + 'static,
     ) -> AnyElement {
-        let (toggle, choose) = (cx.entity(), cx.entity());
-        let _ = &choose;
+        let toggle = cx.entity();
         controls::color_swatch(
             SharedString::from(id.to_owned()),
             color,
@@ -363,7 +363,7 @@ impl Render for SettingsHub {
         let body = match self.page {
             Page::Interface => self.interface_page(cx),
             Page::Charts => self.charts_page(cx),
-            Page::Indicators => self.indicators_page(cx),
+            Page::Indicators => Self::indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
             Page::Shortcuts => self.shortcuts_page(cx),
             Page::Alerts => self.alerts_page(cx),
@@ -391,7 +391,9 @@ impl Render for SettingsHub {
             &tabs,
             active,
             move |index, _window, cx| {
-                let page = Page::ALL[index];
+                let Some(&page) = Page::ALL.get(index) else {
+                    return;
+                };
                 this.update(cx, |e, cx| {
                     e.page = page;
                     e.pick = None;

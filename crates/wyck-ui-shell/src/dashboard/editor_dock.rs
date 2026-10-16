@@ -130,13 +130,13 @@ impl Dashboard {
                     div()
                         .id("editor-resize")
                         .flex_none()
-                        .w(px(wyck_ui_kit::tokens::splitter()))
+                        .w(px(tokens::splitter()))
                         .h_full()
                         .cursor_col_resize()
                         .bg(if dragging {
                             theme::accent_alpha(0.5)
                         } else {
-                            gpui::rgba(0x00000000)
+                            gpui::rgba(0x0000_0000)
                         })
                         .hover(|s| s.bg(theme::accent_alpha(0.5)))
                         .on_mouse_down(
@@ -190,21 +190,20 @@ impl Dashboard {
         let menu = Menu::new("header-indicators-menu", window, cx);
         let toggle = menu.clone();
         let entity = cx.entity();
-        let run =
-            |label: &'static str,
-             icon: IconName,
-             hint: Option<gpui::SharedString>,
-             action: fn(&mut Dashboard, &mut Window, &mut Context<Dashboard>)| {
-                let (entity, menu) = (entity.clone(), menu.clone());
-                let mut entry = Entry::new(label).icon(icon).on_click(move |window, cx| {
-                    menu.close(cx);
-                    entity.update(cx, |dashboard, cx| action(dashboard, window, cx));
-                });
-                if let Some(hint) = hint {
-                    entry = entry.hint(hint);
-                }
-                Item::from(entry)
-            };
+        let run = |label: &'static str,
+                   icon: IconName,
+                   hint: Option<gpui::SharedString>,
+                   action: fn(&mut Self, &mut Window, &mut Context<Self>)| {
+            let (entity, menu) = (entity.clone(), menu.clone());
+            let mut entry = Entry::new(label).icon(icon).on_click(move |window, cx| {
+                menu.close(cx);
+                entity.update(cx, |dashboard, cx| action(dashboard, window, cx));
+            });
+            if let Some(hint) = hint {
+                entry = entry.hint(hint);
+            }
+            Item::from(entry)
+        };
         let items = wyck_ui_kit::menu::sections([
             wyck_ui_kit::menu::Section::new(
                 "Editor",
@@ -224,7 +223,7 @@ impl Dashboard {
                         None,
                         |d, window, cx| {
                             d.with_editor(window, cx, |editor, window, cx| {
-                                editor.ask_new(0, window, cx)
+                                editor.ask_new(0, window, cx);
                             });
                         },
                     ),
@@ -292,9 +291,9 @@ impl Dashboard {
             .children(unsaved.then(|| {
                 div()
                     .absolute()
-                    .top(px(wyck_ui_kit::tokens::space::xs()))
-                    .right(px(wyck_ui_kit::tokens::space::xs()))
-                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
+                    .top(px(tokens::space::xs()))
+                    .right(px(tokens::space::xs()))
+                    .size(px(tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())
             }))

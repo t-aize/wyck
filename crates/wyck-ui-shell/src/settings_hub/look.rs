@@ -9,6 +9,9 @@ use super::{
 use gpui::prelude::*;
 use wyck_ui_kit::prelude::Disableable;
 
+/// The sizes of the interface on offer, in percent.
+const SCALES: [u32; 6] = [90, 100, 115, 130, 150, 160];
+
 impl SettingsHub {
     pub(super) fn interface_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let a = appearance::get(cx);
@@ -28,7 +31,6 @@ impl SettingsHub {
         );
 
         // The size of the text and the controls.
-        const SCALES: [u32; 6] = [90, 100, 115, 130, 150, 160];
         let labels: Vec<String> = SCALES.iter().map(|s| format!("{s}%")).collect();
         let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
         let scale_index = SCALES.iter().position(|s| *s == a.ui_scale).unwrap_or(1);
@@ -43,7 +45,9 @@ impl SettingsHub {
                     &label_refs,
                     scale_index,
                     |choice, _window, cx| {
-                        appearance::update(cx, |a| a.ui_scale = SCALES[choice]);
+                        if let Some(&scale) = SCALES.get(choice) {
+                            appearance::update(cx, |a| a.ui_scale = scale);
+                        }
                     },
                 ),
             )],

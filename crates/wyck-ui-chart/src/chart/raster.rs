@@ -13,9 +13,11 @@ use tiny_skia::{
 use wyck_chart::Hsla;
 use wyck_chart::{fitted_origin, fitted_size};
 
-use wyck_chart::{Align, Cmd};
+use wyck_chart::Cmd;
 use wyck_core::math::{f32_to_i32, f32_to_u32};
 use wyck_ui_kit::assets;
+
+use super::paint::aligned;
 
 /// A clip rectangle, in logical pixels.
 #[derive(Debug, Clone, Copy)]
@@ -501,14 +503,6 @@ fn channel(value: f32) -> u8 {
     u8::try_from(f32_to_u32(value.round().clamp(0.0, 255.0))).unwrap_or(u8::MAX)
 }
 
-fn aligned(x: f32, width: f32, align: Align) -> f32 {
-    match align {
-        Align::Left => x,
-        Align::Center => x - width / 2.0,
-        Align::Right => x - width,
-    }
-}
-
 /// Why a picture of a chart could not be made.
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum RasterError {
@@ -634,6 +628,7 @@ pub(crate) fn compose_png(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_chart::Align;
     use wyck_core::math::{f64_to_i64, i64_to_f64};
     use wyck_drawings::look::Face;
 

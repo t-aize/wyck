@@ -8,9 +8,10 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Selectable;
 
 use super::marks;
-pub mod figures;
-pub mod timeframes;
+pub(crate) mod figures;
+pub(crate) mod timeframes;
 use super::{Conn, Dashboard, MenuKind, Tick};
+use wyck_core::math::count_f32;
 use wyck_ui_kit::{anim, icon, layout, theme, tokens};
 
 /// The widest the subtitle of the symbol grows before it is cut.
@@ -22,6 +23,10 @@ const CUSTOM_TIMEFRAME_WIDTH: f32 = 78.0;
 
 /// Which parts of the bar the window is wide enough for.
 #[derive(Clone, Copy)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per part of the bar that can be left out"
+)]
 struct Fit {
     chart_labels: bool,
     ask: bool,
@@ -46,7 +51,7 @@ impl Dashboard {
             equity: width >= 1_240.0,
             subtitle: width >= 1_360.0,
         };
-        let divider = || wyck_ui_kit::layout::rule_v().h(px(tokens::height::compact()));
+        let divider = || layout::rule_v().h(px(tokens::height::compact()));
         div()
             .flex_none()
             .w_full()
@@ -68,7 +73,7 @@ impl Dashboard {
             .child(self.indicators_button(window, cx))
             .child(self.panel_toggles(cx))
             .child(self.account_pill(fit, cx))
-            .child(self.fullscreen_button(window))
+            .child(Self::fullscreen_button(window))
     }
 
     /// The symbol: its tile, ticker and name. It is a button that opens the picker.
@@ -114,7 +119,7 @@ impl Dashboard {
             .flex_row()
             .items_center()
             .gap_3()
-            .pl(px(wyck_ui_kit::tokens::space::sm()))
+            .pl(px(tokens::space::sm()))
             .pr_3()
             .border_r_1()
             .border_color(theme::border_hairline())
@@ -178,7 +183,7 @@ impl Dashboard {
         // with a new symbol, or a price that gains a digit), the digits are all as wide, and the
         // arrow has its place whether it shows or not.
         let digits = || FontFeatures(Arc::new(vec![("tnum".into(), 1)]));
-        let chars = |text: &str| text.chars().count() as f32;
+        let chars = |text: &str| count_f32(text.chars().count());
         let bid_w = chars(&bid) * 10.5;
         let side_chars = ask
             .as_deref()
@@ -324,7 +329,7 @@ impl Dashboard {
         div()
             .id("account-pill")
             .flex_none()
-            .h(px(wyck_ui_kit::tokens::height::large()))
+            .h(px(tokens::height::large()))
             .flex()
             .flex_row()
             .items_center()
@@ -369,7 +374,7 @@ impl Dashboard {
             .child(icon::tinted(IconName::ChevronDown, 13., theme::muted_fg()))
     }
 
-    fn fullscreen_button(&self, window: &mut Window) -> impl IntoElement {
+    fn fullscreen_button(window: &mut Window) -> impl IntoElement {
         let fullscreen = window.is_fullscreen();
         wyck_ui_kit::button::quiet("toggle-fullscreen")
             .icon(if fullscreen {

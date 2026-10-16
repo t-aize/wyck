@@ -124,7 +124,7 @@ pub(super) fn symbol_row(
         )
         .child(
             div()
-                .w(px(wyck_ui_kit::tokens::space::lg()))
+                .w(px(tokens::space::lg()))
                 .flex_none()
                 .children(active.then(|| icon::tinted(IconName::Check, 16., theme::accent()))),
         );

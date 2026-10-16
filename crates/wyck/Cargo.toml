@@ -13,10 +13,6 @@ categories = ["finance", "gui"]
 description = "Desktop trading terminal for cTrader."
 default-run = "wyck"
 
-[lib]
-name = "wyck"
-path = "src/lib.rs"
-
 [[bin]]
 name = "wyck"
 path = "src/main.rs"
@@ -60,10 +56,10 @@ depends = [
 [dependencies]
 chrono.workspace = true
 gpui.workspace = true
-gpui-kit.workspace = true
 tracing.workspace = true
 wyck-app.workspace = true
 wyck-clock.workspace = true
+wyck-core.workspace = true
 wyck-platform.workspace = true
 wyck-storage.workspace = true
 wyck-ui-editor.workspace = true
@@ -76,11 +72,5 @@ tempfile.workspace = true
 [target.'cfg(windows)'.build-dependencies]
 winresource.workspace = true
 
-# The code that is not in a crate of its own yet keeps this short list. A crate taken out of this
-# one follows the full `[workspace.lints]` instead.
-[lints.rust]
-unsafe_code = "forbid"
-
-[lints.clippy]
-unwrap_used = "deny"
-expect_used = "deny"
+[lints]
+workspace = true

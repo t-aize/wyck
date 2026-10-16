@@ -16,7 +16,6 @@ use wyck_ui_kit::{icon, modal, number, theme, tokens};
 pub(super) struct AlertEditor {
     pub(super) alerts: Entity<Alerts>,
     pub(super) id: u64,
-    pub(super) digits: u32,
     /// The alert as it is being edited: what it watches, its condition and trigger.
     pub(super) draft: Alert,
     pub(super) price: Entity<InputState>,
@@ -64,7 +63,6 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
     let editor = cx.new(|cx| AlertEditor {
         alerts,
         id,
-        digits,
         price: cx.new(|cx| {
             InputState::new(window, cx).default_value(if alert.source.is_indicator() {
                 format!("{}", alert.price)

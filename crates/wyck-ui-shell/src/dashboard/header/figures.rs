@@ -85,7 +85,7 @@ impl Dashboard {
             )
             .child(self.menu_figures(cx))
             .child(
-                wyck_ui_kit::button::outlined("open-settings")
+                button::outlined("open-settings")
                     .w_full()
                     .icon(IconName::Settings)
                     .label(gpui::SharedString::from(format!("Settings {}", wyck_ui_kit::hints::suffix("open_settings"))))
@@ -100,7 +100,7 @@ impl Dashboard {
                         );
                     })),
             )
-            .child(wyck_ui_kit::layout::rule_h())
+            .child(layout::rule_h())
             .child(
                 div()
                     .text_size(px(tokens::text::body()))
@@ -113,7 +113,7 @@ impl Dashboard {
             .child(
                 button::primary(
                     "disconnect-account",
-wyck_ui_kit::button::Fill::Danger, wyck_ui_kit::button::Size::Md,
+button::Fill::Danger, button::Size::Md,
                     "Disconnect",
                     cx.listener(|this, _event, window, cx| {
                         this.close_menus();

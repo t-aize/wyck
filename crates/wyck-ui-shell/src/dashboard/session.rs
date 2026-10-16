@@ -30,7 +30,7 @@ impl Dashboard {
     }
 
     /// Stops the session: no more reconnects, and the connection closes.
-    pub fn stop(&self) {
+    pub(crate) fn stop(&self) {
         let session = self.session.clone();
         runtime::spawn(async move { session.stop().await });
     }
@@ -52,7 +52,7 @@ impl Dashboard {
                             break;
                         }
                     }
-                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Lagged(_)) => {}
                     Err(RecvError::Closed) => break,
                 }
             }
@@ -66,10 +66,10 @@ impl Dashboard {
             SessionEvent::Data(Event::Spot(spot)) => {
                 self.multi.update(cx, |multi, cx| multi.on_spot(&spot, cx));
                 self.alerts.update(cx, |alerts, cx| {
-                    alerts.on_spot(spot.symbol_id, spot.bid, spot.ask, cx)
+                    alerts.on_spot(spot.symbol_id, spot.bid, spot.ask, cx);
                 });
                 self.trading.update(cx, |account, cx| {
-                    account.on_event(&Event::Spot(spot.clone()), cx)
+                    account.on_event(&Event::Spot(spot.clone()), cx);
                 });
                 self.apply_spot(Spot::from(&spot), cx);
             }
@@ -93,8 +93,10 @@ impl Dashboard {
 
     pub(super) fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.conn = Conn::Ready;
-        self.multi.update(cx, |multi, cx| multi.on_ready(cx));
-        self.trading.update(cx, |account, cx| account.on_ready(cx));
+        self.multi
+            .update(cx, wyck_ui_chart::multichart::MultiChart::on_ready);
+        self.trading
+            .update(cx, wyck_app::account::Account::on_ready);
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -113,14 +115,14 @@ impl Dashboard {
                 let categories = market.symbol_categories().await?;
                 let classes = market.asset_classes().await?;
                 let assets = market.assets().await?;
-                Ok::<_, ApiError>(Catalog::build(symbols, categories, classes, assets))
+                Ok::<_, ApiError>(Catalog::build(symbols, &categories, &classes, &assets))
             })
             .await;
             lost(
                 "session: load_catalog",
                 this.update(cx, |this, cx| {
                     match loaded {
-                        Ok(Ok(catalog)) => this.catalog_loaded(Arc::new(catalog), cx),
+                        Ok(Ok(catalog)) => this.catalog_loaded(&Arc::new(catalog), cx),
                         Ok(Err(error)) => {
                             tracing::warn!(%error, "could not load the symbol list");
                             this.catalog = Load::Failed(error.to_string().into());
@@ -139,7 +141,7 @@ impl Dashboard {
         .detach();
     }
 
-    pub(super) fn catalog_loaded(&mut self, catalog: Arc<Catalog>, cx: &mut Context<Self>) {
+    pub(super) fn catalog_loaded(&mut self, catalog: &Arc<Catalog>, cx: &mut Context<Self>) {
         let remembered = self
             .initial_symbol
             .take()
@@ -147,7 +149,7 @@ impl Dashboard {
         let start = remembered
             .or_else(|| catalog.by_name("EURUSD").cloned())
             .or_else(|| catalog.entry(0).cloned());
-        self.catalog = Load::Ready(catalog.clone());
+        self.catalog = Load::Ready(Arc::clone(catalog));
         let entries: Vec<&Entry> = (0..catalog.total())
             .filter_map(|i| catalog.entry(i))
             .collect();
@@ -161,7 +163,7 @@ impl Dashboard {
             .filter_map(|e| Some((e.id, e.quote_asset?)))
             .collect();
         self.trading.update(cx, |account, cx| {
-            account.set_symbols(names, quotes, quote_assets, cx)
+            account.set_symbols(names, quotes, quote_assets, cx);
         });
         let ids = entries
             .iter()
@@ -190,7 +192,7 @@ impl Dashboard {
 
     /// Shows `entry` on the chart the picker was opened for (every chart when the symbol is
     /// linked), and (when the user picked it) tells the app to remember it.
-    pub(super) fn select(&mut self, entry: Entry, remember: bool, cx: &mut Context<Self>) {
+    pub(super) fn select(&mut self, entry: &Entry, remember: bool, cx: &mut Context<Self>) {
         let target = self
             .picker_target
             .take()
@@ -198,7 +200,7 @@ impl Dashboard {
         if remember {
             cx.emit(DashboardEvent::SymbolChosen(entry.name.clone()));
         }
-        let symbol = self.symbol_ref(&entry);
+        let symbol = self.symbol_ref(entry);
         self.multi
             .update(cx, |multi, cx| multi.set_symbol(target, &symbol, cx));
         self.ensure_details(entry.id, cx);
@@ -255,7 +257,7 @@ impl Dashboard {
                         this.details
                             .insert(id, super::details::Detail::Ready(symbol));
                         this.multi.update(cx, |multi, cx| {
-                            multi.set_quote_details(id, digits, pip_position, cx)
+                            multi.set_quote_details(id, digits, pip_position, cx);
                         });
                         this.refresh_active(cx);
                     }

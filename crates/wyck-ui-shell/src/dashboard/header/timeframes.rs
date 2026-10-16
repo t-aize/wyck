@@ -163,7 +163,6 @@ impl Dashboard {
 
     /// A timeframe of the menu with its star, and a cross for one the user added.
     pub(super) fn menu_chip(
-        &self,
         timeframe: Timeframe,
         current: Timeframe,
         favorite: bool,
@@ -245,8 +244,7 @@ impl Dashboard {
                 .copied()
                 .map(|timeframe| {
                     let favorite = prefs.is_favorite_timeframe(timeframe);
-                    self.menu_chip(timeframe, current, favorite, false, cx)
-                        .into_any_element()
+                    Self::menu_chip(timeframe, current, favorite, false, cx).into_any_element()
                 })
                 .collect();
             card = card.child(section(title, chips));
@@ -257,8 +255,7 @@ impl Dashboard {
             .into_iter()
             .map(|timeframe| {
                 let favorite = prefs.is_favorite_timeframe(timeframe);
-                self.menu_chip(timeframe, current, favorite, true, cx)
-                    .into_any_element()
+                Self::menu_chip(timeframe, current, favorite, true, cx).into_any_element()
             })
             .collect();
         let mut units = div().flex().flex_row().gap_1();
@@ -268,7 +265,7 @@ impl Dashboard {
                 div()
                     .id(SharedString::from(format!("tf-unit-{}", unit.label())))
                     .h(px(tokens::height::compact()))
-                    .w(px(wyck_ui_kit::tokens::height::compact()))
+                    .w(px(tokens::height::compact()))
                     .flex()
                     .items_center()
                     .justify_center()

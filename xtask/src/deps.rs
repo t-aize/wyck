@@ -23,9 +23,6 @@ struct Layer {
     internal: &'static [&'static str],
     /// External crates it must not depend on, whatever the kind of dependency.
     forbidden: &'static [&'static str],
-    /// Keeps a table of lints of its own instead of `[lints] workspace = true`. Only for the crate
-    /// the others are being taken out of.
-    own_lints: bool,
 }
 
 /// External crates the domain crates (no screen, no file, no network) must not use.
@@ -89,37 +86,31 @@ const LAYERS: &[Layer] = &[
         name: "wyck-clock",
         internal: &[],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-core",
         internal: &[],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-market",
         internal: &["wyck-core"],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-trading",
         internal: &["wyck-core", "wyck-market"],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-drawings",
         internal: &["wyck-core", "wyck-trading"],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-indicators",
         internal: &["wyck-core", "wyck-drawings", "wyck-market"],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-chart",
@@ -130,7 +121,6 @@ const LAYERS: &[Layer] = &[
             "wyck-market",
         ],
         forbidden: NOT_IN_THE_DOMAIN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-ctrader",
@@ -149,7 +139,6 @@ const LAYERS: &[Layer] = &[
             "tracing-appender",
             "tracing-subscriber",
         ],
-        own_lints: false,
     },
     Layer {
         name: "wyck-platform",
@@ -168,7 +157,6 @@ const LAYERS: &[Layer] = &[
             "tiny-skia",
             "tokio-tungstenite",
         ],
-        own_lints: false,
     },
     Layer {
         name: "wyck-storage",
@@ -186,7 +174,6 @@ const LAYERS: &[Layer] = &[
             "tokio",
             "tokio-tungstenite",
         ],
-        own_lints: false,
     },
     Layer {
         name: "wyck-app",
@@ -203,7 +190,6 @@ const LAYERS: &[Layer] = &[
             "wyck-trading",
         ],
         forbidden: &["ab_glyph", "gpui-kit", "tiny-skia", "tokio-tungstenite"],
-        own_lints: false,
     },
     Layer {
         name: "wyck-ui-editor",
@@ -215,7 +201,6 @@ const LAYERS: &[Layer] = &[
             "wyck-ui-kit",
         ],
         forbidden: NOT_IN_A_SCREEN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-ui-kit",
@@ -234,7 +219,6 @@ const LAYERS: &[Layer] = &[
             "tracing-appender",
             "tracing-subscriber",
         ],
-        own_lints: false,
     },
     Layer {
         name: "wyck-ui-chart",
@@ -249,7 +233,6 @@ const LAYERS: &[Layer] = &[
             "wyck-ui-kit",
         ],
         forbidden: NOT_IN_A_SCREEN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-ui-shell",
@@ -268,7 +251,6 @@ const LAYERS: &[Layer] = &[
             "wyck-ui-trading",
         ],
         forbidden: NOT_IN_A_SCREEN,
-        own_lints: false,
     },
     Layer {
         name: "wyck-ui-trading",
@@ -284,27 +266,25 @@ const LAYERS: &[Layer] = &[
             "wyck-ui-kit",
         ],
         forbidden: NOT_IN_A_SCREEN,
-        own_lints: false,
     },
     Layer {
         name: "wyck",
         internal: &[
             "wyck-app",
             "wyck-clock",
+            "wyck-core",
             "wyck-platform",
             "wyck-storage",
             "wyck-ui-editor",
             "wyck-ui-kit",
             "wyck-ui-shell",
         ],
-        forbidden: &[],
-        own_lints: true,
+        forbidden: NOT_IN_A_SCREEN,
     },
     Layer {
         name: "xtask",
         internal: &["wyck-clock"],
         forbidden: &["gpui", "gpui-kit", "tokio", "reqwest", "keyring"],
-        own_lints: false,
     },
 ];
 
@@ -425,7 +405,7 @@ fn check_workspace(root: &Table, members: &[Manifest], layers: &[Layer]) -> Vec<
             ));
             continue;
         };
-        problems.extend(check_metadata(member, layer));
+        problems.extend(check_metadata(member));
         problems.extend(check_dependencies(member, layer, &names, &mut used));
     }
 
@@ -453,7 +433,7 @@ fn check_workspace(root: &Table, members: &[Manifest], layers: &[Layer]) -> Vec<
 }
 
 /// `field.workspace = true` for the shared package metadata, and the lints of the root.
-fn check_metadata(member: &Manifest, layer: &Layer) -> Vec<String> {
+fn check_metadata(member: &Manifest) -> Vec<String> {
     let mut problems = Vec::new();
     let package = member.table.get("package");
     for field in INHERITED_FIELDS {
@@ -464,7 +444,7 @@ fn check_metadata(member: &Manifest, layer: &Layer) -> Vec<String> {
             ));
         }
     }
-    if !layer.own_lints && !inherits(member.table.get("lints")) {
+    if !inherits(member.table.get("lints")) {
         problems.push(format!(
             "{}: it must have `[lints] workspace = true`",
             member.path
@@ -580,7 +560,6 @@ mod tests {
             name,
             internal,
             forbidden: &[],
-            own_lints: false,
         }
     }
 

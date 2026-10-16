@@ -18,9 +18,9 @@ mod lists;
 mod marks;
 mod notice;
 mod picker;
-pub mod session;
+pub(crate) mod session;
 mod trade;
-pub mod view;
+pub(crate) mod view;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
@@ -45,50 +45,57 @@ use wyck_ui_kit::toast;
 use wyck_ui_trading::panel::AccountPanel;
 use wyck_ui_trading::ticket::OrderTicket;
 
-gpui::actions!(
-    wyck_dashboard,
-    [
-        OpenPicker,
-        OpenSettings,
-        ClosePicker,
-        PickerUp,
-        PickerDown,
-        PickerPageUp,
-        PickerPageDown,
-        PickerConfirm,
-        ToggleIndicatorEditor,
-        CloseAllPositions,
-        ToggleKillSwitch,
-        TicketBuy,
-        TicketSell,
-        TicketSend,
-        OpenShortcuts,
-        ToggleTicket,
-        ToggleAccountPanel,
-        ToggleFullscreen,
-        NextChart,
-        PreviousChart,
-        NextTimeframe,
-        PreviousTimeframe,
-        ToggleMagnet,
-        ToggleKeepDrawing,
-        ToggleFavoritesBar,
-        CancelAllOrders,
-        ToggleLogScale,
-        TogglePercentScale,
-        ToggleGrid,
-    ]
-);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod action {
+    gpui::actions!(
+        wyck_dashboard,
+        [
+            OpenPicker,
+            OpenSettings,
+            ClosePicker,
+            PickerUp,
+            PickerDown,
+            PickerPageUp,
+            PickerPageDown,
+            PickerConfirm,
+            ToggleIndicatorEditor,
+            CloseAllPositions,
+            ToggleKillSwitch,
+            TicketBuy,
+            TicketSell,
+            TicketSend,
+            OpenShortcuts,
+            ToggleTicket,
+            ToggleAccountPanel,
+            ToggleFullscreen,
+            NextChart,
+            PreviousChart,
+            NextTimeframe,
+            PreviousTimeframe,
+            ToggleMagnet,
+            ToggleKeepDrawing,
+            ToggleFavoritesBar,
+            CancelAllOrders,
+            ToggleLogScale,
+            TogglePercentScale,
+            ToggleGrid,
+        ]
+    );
+}
+pub(crate) use action::*;
 
 /// Who the dashboard is connected as.
 #[derive(Clone)]
-pub struct AccountInfo {
-    pub label: SharedString,
-    pub is_live: bool,
+pub(crate) struct AccountInfo {
+    pub(crate) label: SharedString,
+    pub(crate) is_live: bool,
 }
 
 /// What the rest of the app has to act on.
-pub enum DashboardEvent {
+pub(crate) enum DashboardEvent {
     /// The user picked another symbol; remember it for the next start.
     SymbolChosen(String),
     /// The user asked to disconnect this account and forget its sign-in.
@@ -171,7 +178,11 @@ impl Dashboard {
     }
 }
 
-pub struct Dashboard {
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own piece of window state (focused, list requested, ...)"
+)]
+pub(crate) struct Dashboard {
     session: Session,
     /// Every price and live bar subscription goes through it.
     hub: Rc<LiveHub>,
@@ -234,14 +245,14 @@ pub struct Dashboard {
 }
 
 impl Dashboard {
-    pub fn new(
+    pub(crate) fn new(
         session: Session,
         account: AccountInfo,
         initial_symbol: Option<String>,
-        documents: Documents,
+        documents: &Documents,
         cx: &mut Context<Self>,
     ) -> Self {
-        let workspace = cx.new(|cx| Workspace::new(&documents, cx));
+        let workspace = cx.new(|cx| Workspace::new(documents, cx));
         // The colors saved in the color panel live with the preferences.
         wyck_ui_kit::color_picker::connect(
             workspace.read(cx).preferences().saved_colors.clone(),
@@ -267,7 +278,7 @@ impl Dashboard {
         let trading = cx.new(|cx| {
             Account::new(
                 session.clone(),
-                hub.clone(),
+                Rc::<LiveHub>::clone(&hub),
                 Mode::from_live(account.is_live),
                 cx,
             )
@@ -281,21 +292,21 @@ impl Dashboard {
         let alerts = cx.new(|cx| {
             Alerts::new(
                 documents.account.clone(),
-                hub.clone(),
+                Rc::<LiveHub>::clone(&hub),
                 session.clone(),
                 drawings.clone(),
                 cx,
             )
         });
         cx.subscribe(&alerts, |this, _alerts, event, cx| {
-            this.on_alert_event(event, cx)
+            this.on_alert_event(event, cx);
         })
         .detach();
         let panel_prefs = workspace.read(cx).preferences().account_panel;
         let panel =
             cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), panel_prefs, cx));
         cx.subscribe(&panel, |this, _panel, event, cx| {
-            this.on_panel_event(event, cx)
+            this.on_panel_event(event, cx);
         })
         .detach();
         // The lines on the charts follow the account and the alerts.
@@ -312,7 +323,7 @@ impl Dashboard {
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),
-                hub.clone(),
+                Rc::<LiveHub>::clone(&hub),
                 workspace.clone(),
                 drawings,
                 cx,
@@ -391,8 +402,7 @@ impl Dashboard {
         .on_action(
             cx.listener(|this, _: &chart::SelectAllDrawings, window, cx| {
                 if this.multi.read(cx).has_chart_focus(window) {
-                    this.multi
-                        .update(cx, |multi, cx| multi.select_all_drawings(cx));
+                    this.multi.update(cx, MultiChart::select_all_drawings);
                 } else {
                     cx.propagate();
                 }
@@ -424,7 +434,7 @@ impl Dashboard {
         }))
         .on_action(cx.listener(|this, _: &chart::ToolHorizontal, _window, cx| {
             this.multi.update(cx, |multi, cx| {
-                multi.pick_tool_key(Tool::HorizontalLine, cx)
+                multi.pick_tool_key(Tool::HorizontalLine, cx);
             });
         }))
         .on_action(cx.listener(|this, _: &chart::ToolVertical, _window, cx| {
@@ -433,7 +443,7 @@ impl Dashboard {
         }))
         .on_action(cx.listener(|this, _: &chart::ToolFib, _window, cx| {
             this.multi.update(cx, |multi, cx| {
-                multi.pick_tool_key(Tool::FibRetracement, cx)
+                multi.pick_tool_key(Tool::FibRetracement, cx);
             });
         }))
         .on_action(cx.listener(|this, _: &chart::ToolRectangle, _window, cx| {

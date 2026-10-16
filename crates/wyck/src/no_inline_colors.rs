@@ -18,18 +18,15 @@ const ALLOWED: &[&str] = &[
 /// transparent one used as a placeholder.
 fn has_color(line: &str) -> bool {
     let code = line.split("//").next().unwrap_or("");
-    let mut rest = code;
-    while let Some(at) = rest.find("0x") {
-        let digits: String = rest[at + 2..]
+    code.match_indices("0x").any(|(at, _)| {
+        let digits: String = code
+            .get(at + 2..)
+            .unwrap_or_default()
             .chars()
-            .take_while(|c| c.is_ascii_hexdigit())
+            .take_while(char::is_ascii_hexdigit)
             .collect();
-        if (digits.len() == 6 || digits.len() == 8) && digits != "00000000" {
-            return true;
-        }
-        rest = &rest[at + 2..];
-    }
-    false
+        (digits.len() == 6 || digits.len() == 8) && digits != "00000000"
+    })
 }
 
 #[test]

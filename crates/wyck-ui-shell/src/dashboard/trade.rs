@@ -6,8 +6,8 @@
 //! Some of those need the window (a confirmation, a field of the ticket), which a chart event does
 //! not carry: they wait in [`Pending`] for the next render.
 
-pub mod layout;
-pub mod price_alerts;
+pub(crate) mod layout;
+pub(crate) mod price_alerts;
 
 use super::Dashboard;
 use gpui::prelude::*;
@@ -360,7 +360,7 @@ impl Dashboard {
         };
         if let Some(entry) = entry {
             self.picker_target = None;
-            self.select(entry, false, cx);
+            self.select(&entry, false, cx);
         }
     }
 
@@ -430,7 +430,7 @@ impl Dashboard {
                     .get(&position)
                     .and_then(|p| p.take_profit);
                 account.update(cx, |a, cx| {
-                    a.protect_position(position, Some(price), tp, cx)
+                    a.protect_position(position, Some(price), tp, cx);
                 });
             }
             LineId::TakeProfit(position) => {
@@ -441,7 +441,7 @@ impl Dashboard {
                     .get(&position)
                     .and_then(|p| p.stop_loss);
                 account.update(cx, |a, cx| {
-                    a.protect_position(position, sl, Some(price), cx)
+                    a.protect_position(position, sl, Some(price), cx);
                 });
             }
             LineId::Position(_) => {}

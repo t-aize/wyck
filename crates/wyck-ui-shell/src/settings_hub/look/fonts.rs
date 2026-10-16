@@ -23,7 +23,7 @@ impl SettingsHub {
             let current = appearance::font(cx).to_string();
             let picker =
                 cx.new(|cx| FontPicker::new(Some(current), appearance::DEFAULT_FONT, window, cx));
-            self._font_subscription = Some(cx.subscribe(
+            self.font_subscription = Some(cx.subscribe(
                 &picker,
                 |_this, _picker, event: &FontChosen, cx| {
                     let name = event
@@ -57,7 +57,7 @@ impl SettingsHub {
         )];
         if let Some(picker) = self.font_picker.as_ref().filter(|_| self.font_open) {
             picker.update(cx, |picker, cx| {
-                picker.set_current(Some(a.font.clone()), cx)
+                picker.set_current(Some(a.font.clone()), cx);
             });
             rows.push(form::block(picker.clone()));
         }
@@ -65,7 +65,7 @@ impl SettingsHub {
     }
 
     /// A small drawing of candles in the colors in force, to see a change before leaving.
-    pub(in crate::settings_hub) fn candle_preview(&self) -> AnyElement {
+    pub(in crate::settings_hub) fn candle_preview() -> AnyElement {
         let c = theme::colors();
         // (rising, body height, wick above, wick below)
         let shape: [(bool, f32, f32, f32); 16] = [

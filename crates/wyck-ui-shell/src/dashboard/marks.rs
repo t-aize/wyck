@@ -15,7 +15,7 @@ use wyck_ui_kit::assets::has_mark;
 
 /// One round picture.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Mark {
+pub(crate) enum Mark {
     /// A country's round flag, by its code.
     Flag(&'static str),
     /// A ready-made colored round logo (a coin).
@@ -32,9 +32,9 @@ pub enum Mark {
 
 /// The picture of a symbol: one mark, or two overlapped (the second one smaller, at the corner).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Icon {
-    pub primary: Mark,
-    pub secondary: Option<Mark>,
+pub(crate) struct Icon {
+    pub(crate) primary: Mark,
+    pub(crate) secondary: Option<Mark>,
 }
 
 impl Icon {
@@ -101,12 +101,11 @@ fn currency_mark(code: &str) -> Mark {
 /// The two currencies of a six-letter ticker such as `EURUSD`.
 fn split_pair(ticker: &str) -> Option<(String, String)> {
     let ticker = ticker.trim();
-    (ticker.len() == 6 && ticker.chars().all(|c| c.is_ascii_alphabetic())).then(|| {
-        (
-            ticker[..3].to_ascii_uppercase(),
-            ticker[3..].to_ascii_uppercase(),
-        )
-    })
+    if ticker.len() != 6 || !ticker.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    let (base, quote) = ticker.split_at_checked(3)?;
+    Some((base.to_ascii_uppercase(), quote.to_ascii_uppercase()))
 }
 
 /// The leading letters of a ticker, upper-cased: `US2000.cash` gives `US`, `N25.cash` gives `N`.
@@ -140,29 +139,29 @@ fn metal(ticker: &str) -> Option<Mark> {
     let root = ticker.split('.').next()?;
     let code = root.get(..3).unwrap_or(root);
     let (symbol, color) = match code {
-        "XAU" => ("Au", 0xE0B23A),
-        "XAG" => ("Ag", 0xC5CBD3),
-        "XCU" => ("Cu", 0xC9733D),
-        "XPD" => ("Pd", 0x9FB3C8),
-        "XPT" => ("Pt", 0xD8DEE6),
-        "XAL" => ("Al", 0xBCC7D1),
-        "XNI" => ("Ni", 0xA7B9A1),
-        "XZN" => ("Zn", 0x9CAFC0),
-        "XPB" => ("Pb", 0x8591A0),
-        "XSN" => ("Sn", 0xBAC6D0),
+        "XAU" => ("Au", 0x00E0_B23A),
+        "XAG" => ("Ag", 0x00C5_CBD3),
+        "XCU" => ("Cu", 0x00C9_733D),
+        "XPD" => ("Pd", 0x009F_B3C8),
+        "XPT" => ("Pt", 0x00D8_DEE6),
+        "XAL" => ("Al", 0x00BC_C7D1),
+        "XNI" => ("Ni", 0x00A7_B9A1),
+        "XZN" => ("Zn", 0x009C_AFC0),
+        "XPB" => ("Pb", 0x0085_91A0),
+        "XSN" => ("Sn", 0x00BA_C6D0),
         _ => match root {
-            "GOLD" => ("Au", 0xE0B23A),
-            "SILVER" => ("Ag", 0xC5CBD3),
-            "COPPER" | "HGCOPPER" => ("Cu", 0xC9733D),
-            "PLATINUM" => ("Pt", 0xD8DEE6),
-            "PALLADIUM" => ("Pd", 0x9FB3C8),
-            "ALUMINUM" | "ALUMINIUM" => ("Al", 0xBCC7D1),
-            "NICKEL" => ("Ni", 0xA7B9A1),
-            "ZINC" => ("Zn", 0x9CAFC0),
-            "LEAD" => ("Pb", 0x8591A0),
-            "TIN" => ("Sn", 0xBAC6D0),
-            "IRON" | "IRONORE" => ("Fe", 0xA96848),
-            "URANIUM" => ("U", 0x93A849),
+            "GOLD" => ("Au", 0x00E0_B23A),
+            "SILVER" => ("Ag", 0x00C5_CBD3),
+            "COPPER" | "HGCOPPER" => ("Cu", 0x00C9_733D),
+            "PLATINUM" => ("Pt", 0x00D8_DEE6),
+            "PALLADIUM" => ("Pd", 0x009F_B3C8),
+            "ALUMINUM" | "ALUMINIUM" => ("Al", 0x00BC_C7D1),
+            "NICKEL" => ("Ni", 0x00A7_B9A1),
+            "ZINC" => ("Zn", 0x009C_AFC0),
+            "LEAD" => ("Pb", 0x0085_91A0),
+            "TIN" => ("Sn", 0x00BA_C6D0),
+            "IRON" | "IRONORE" => ("Fe", 0x00A9_6848),
+            "URANIUM" => ("U", 0x0093_A849),
             _ => return None,
         },
     };
@@ -210,7 +209,7 @@ fn crypto_slug(ticker: &str) -> Option<&'static str> {
 fn crypto(ticker: &str) -> Mark {
     let letters = || Mark::Letters {
         text: leading_letters(ticker).chars().take(3).collect(),
-        color: 0xF7931A,
+        color: 0x00F7_931A,
     };
     let Some(slug) = crypto_slug(ticker) else {
         return letters();
@@ -221,8 +220,8 @@ fn crypto(ticker: &str) -> Mark {
     }
     // A few coins only have the one-color logo of Simple Icons.
     let mono = match slug {
-        "hbar" => Some(("hedera", 0x222222)),
-        "near" => Some(("near", 0x000000)),
+        "hbar" => Some(("hedera", 0x0022_2222)),
+        "near" => Some(("near", 0x0000_0000)),
         _ => None,
     };
     match mono {
@@ -237,103 +236,102 @@ fn crypto(ticker: &str) -> Mark {
 /// A company's logo file and brand color, by the ticker the broker lists it under.
 fn company(ticker: &str) -> Option<(&'static str, u32)> {
     Some(match ticker {
-        "MMM" => ("3m", 0xD71920),
-        "AAPL" => ("apple", 0x000000),
-        "ABNB" => ("airbnb", 0xFF5A5F),
-        "ABT" => ("abbott", 0x008CBA),
-        "ABBV" => ("abbvie", 0x071D49),
-        "ADSGN" => ("adidas", 0x000000),
-        "ADSK" => ("autodesk", 0x000000),
-        "AIRF" => ("airfrance", 0x002157),
-        "AIR" => ("airbus", 0x0054A6),
-        "AMD" => ("amd", 0xED1C24),
-        "AMZN" => ("amazon", 0xFF9900),
-        "ARM" => ("arm", 0x0091BD),
-        "AVGO" => ("broadcom", 0xE31837),
-        "AXP" => ("americanexpress", 0x2E77BC),
-        "BA" => ("boeing", 0x1D439C),
-        "BABA" => ("alibabadotcom", 0xFF6A00),
-        "BAC" => ("bankofamerica", 0x012169),
-        "BARC" => ("barclays", 0x00AEEF),
-        "BIDU" => ("baidu", 0x2932E1),
-        "BILI" => ("bilibili", 0x00A1D6),
-        "BKNG" => ("bookingdotcom", 0x003580),
-        "BMW" => ("bmw", 0x0066B1),
-        "CAT" => ("caterpillar", 0xFFCD11),
-        "CSCO" => ("cisco", 0x1BA0D7),
-        "DAL" => ("delta", 0xC8102E),
-        "DDOG" => ("datadog", 0x632CA6),
-        "DE" => ("johndeere", 0x367C2B),
-        "DBKGN" => ("deutschebank", 0x0018A8),
-        "DELL" => ("dell", 0x007DB8),
-        "ERIC" => ("ericsson", 0x0082F0),
-        "FDX" => ("fedex", 0x4D148C),
-        "GE" => ("generalelectric", 0x0870D8),
-        "GM" => ("generalmotors", 0x0170CE),
-        "GOOG" => ("google", 0x4285F4),
-        "GOOGL" => ("google", 0x4285F4),
-        "GS" => ("goldmansachs", 0x7399C6),
-        "HMC" => ("honda", 0xCC0000),
-        "HPQ" => ("hp", 0x0096D6),
-        "HSBC" => ("hsbc", 0xDB0011),
-        "IBM" => ("ibm", 0x0F62FE),
-        "INTC" => ("intel", 0x0071C5),
-        "INTU" => ("intuit", 0x236CFF),
-        "KO" => ("cocacola", 0xD00013),
-        "LNVGY" => ("lenovo", 0xE2231A),
-        "LHA" => ("lufthansa", 0x05164D),
-        "MA" => ("mastercard", 0xEB001B),
-        "MBG" => ("mercedes", 0x000000),
-        "MCD" => ("mcdonalds", 0xFBC817),
-        "MDB" => ("mongodb", 0x47A248),
-        "META" => ("meta", 0x0467DF),
-        "MSFT" => ("microsoft", 0x0078D4),
-        "MSTR" => ("microstrategy", 0xD9232E),
-        "NET" => ("cloudflare", 0xF38020),
-        "NFLX" => ("netflix", 0xE50914),
-        "NKE" => ("nike", 0x111111),
-        "NOK" => ("nokia", 0x005AFF),
-        "NVDA" => ("nvidia", 0x76B900),
-        "P911" => ("porsche", 0x000000),
-        "PINS" => ("pinterest", 0xBD081C),
-        "PLTR" => ("palantir", 0x101113),
-        "PYPL" => ("paypal", 0x003087),
-        "QCOM" => ("qualcomm", 0x3253DC),
-        "RACE" => ("ferrari", 0xD40000),
-        "RBLX" => ("roblox", 0x111111),
-        "RDDT" => ("reddit", 0xFF4500),
-        "RMS" => ("hermes", 0xF37021),
-        "RNO" => ("renault", 0xFFCC33),
-        "RYA" | "RYAAY" => ("ryanair", 0x073590),
-        "RYCEY" => ("rollsroyce", 0x10069F),
-        "SAP" => ("sap", 0x0FA6D4),
-        "SBUX" => ("starbucks", 0x006241),
-        "SHEL" => ("shell", 0xFFD500),
-        "SIEGN" => ("siemens", 0x009999),
-        "SSNLF" => ("samsung", 0x1428A0),
-        "SHOP" => ("shopify", 0x7AB55C),
-        "SNAP" => ("snapchat", 0xFFFC00),
-        "SNOW" => ("snowflake", 0x29B5E8),
-        "SONY" => ("sony", 0x000000),
-        "SPCX" => ("spacex", 0x000000),
-        "SPOT" => ("spotify", 0x1DB954),
-        "TCEHY" => ("tencenthy", 0x0052D9),
-        "TEAM" => ("atlassian", 0x0052CC),
-        "TGT" => ("target", 0xCC0000),
-        "TM" => ("toyota", 0xEB0A1E),
-        "TSLA" => ("tesla", 0xCC0000),
-        "UBER" => ("uber", 0x000000),
-        "UBI" => ("ubisoft", 0x000000),
-        "U" => ("unity", 0x000000),
-        "UL" | "UNA" => ("unilever", 0x1F36C7),
-        "UPS" => ("ups", 0x6B4006),
-        "V" => ("visa", 0x1A1F71),
-        "VOWG_P" => ("volkswagen", 0x151F5D),
-        "VOLVB" | "VOLV_B" => ("volvo", 0x003057),
-        "WFC" => ("wellsfargo", 0xD71E28),
-        "WMT" => ("walmart", 0x0071CE),
-        "XIACY" => ("xiaomi", 0xFF6900),
-        "ZM" => ("zoom", 0x0B5CFF),
+        "MMM" => ("3m", 0x00D7_1920),
+        "AAPL" => ("apple", 0x0000_0000),
+        "ABNB" => ("airbnb", 0x00FF_5A5F),
+        "ABT" => ("abbott", 0x0000_8CBA),
+        "ABBV" => ("abbvie", 0x0007_1D49),
+        "ADSGN" => ("adidas", 0x0000_0000),
+        "ADSK" => ("autodesk", 0x0000_0000),
+        "AIRF" => ("airfrance", 0x0000_2157),
+        "AIR" => ("airbus", 0x0000_54A6),
+        "AMD" => ("amd", 0x00ED_1C24),
+        "AMZN" => ("amazon", 0x00FF_9900),
+        "ARM" => ("arm", 0x0000_91BD),
+        "AVGO" => ("broadcom", 0x00E3_1837),
+        "AXP" => ("americanexpress", 0x002E_77BC),
+        "BA" => ("boeing", 0x001D_439C),
+        "BABA" => ("alibabadotcom", 0x00FF_6A00),
+        "BAC" => ("bankofamerica", 0x0001_2169),
+        "BARC" => ("barclays", 0x0000_AEEF),
+        "BIDU" => ("baidu", 0x0029_32E1),
+        "BILI" => ("bilibili", 0x0000_A1D6),
+        "BKNG" => ("bookingdotcom", 0x0000_3580),
+        "BMW" => ("bmw", 0x0000_66B1),
+        "CAT" => ("caterpillar", 0x00FF_CD11),
+        "CSCO" => ("cisco", 0x001B_A0D7),
+        "DAL" => ("delta", 0x00C8_102E),
+        "DDOG" => ("datadog", 0x0063_2CA6),
+        "DE" => ("johndeere", 0x0036_7C2B),
+        "DBKGN" => ("deutschebank", 0x0000_18A8),
+        "DELL" => ("dell", 0x0000_7DB8),
+        "ERIC" => ("ericsson", 0x0000_82F0),
+        "FDX" => ("fedex", 0x004D_148C),
+        "GE" => ("generalelectric", 0x0008_70D8),
+        "GM" => ("generalmotors", 0x0001_70CE),
+        "GOOG" | "GOOGL" => ("google", 0x0042_85F4),
+        "GS" => ("goldmansachs", 0x0073_99C6),
+        "HMC" => ("honda", 0x00CC_0000),
+        "HPQ" => ("hp", 0x0000_96D6),
+        "HSBC" => ("hsbc", 0x00DB_0011),
+        "IBM" => ("ibm", 0x000F_62FE),
+        "INTC" => ("intel", 0x0000_71C5),
+        "INTU" => ("intuit", 0x0023_6CFF),
+        "KO" => ("cocacola", 0x00D0_0013),
+        "LNVGY" => ("lenovo", 0x00E2_231A),
+        "LHA" => ("lufthansa", 0x0005_164D),
+        "MA" => ("mastercard", 0x00EB_001B),
+        "MBG" => ("mercedes", 0x0000_0000),
+        "MCD" => ("mcdonalds", 0x00FB_C817),
+        "MDB" => ("mongodb", 0x0047_A248),
+        "META" => ("meta", 0x0004_67DF),
+        "MSFT" => ("microsoft", 0x0000_78D4),
+        "MSTR" => ("microstrategy", 0x00D9_232E),
+        "NET" => ("cloudflare", 0x00F3_8020),
+        "NFLX" => ("netflix", 0x00E5_0914),
+        "NKE" => ("nike", 0x0011_1111),
+        "NOK" => ("nokia", 0x0000_5AFF),
+        "NVDA" => ("nvidia", 0x0076_B900),
+        "P911" => ("porsche", 0x0000_0000),
+        "PINS" => ("pinterest", 0x00BD_081C),
+        "PLTR" => ("palantir", 0x0010_1113),
+        "PYPL" => ("paypal", 0x0000_3087),
+        "QCOM" => ("qualcomm", 0x0032_53DC),
+        "RACE" => ("ferrari", 0x00D4_0000),
+        "RBLX" => ("roblox", 0x0011_1111),
+        "RDDT" => ("reddit", 0x00FF_4500),
+        "RMS" => ("hermes", 0x00F3_7021),
+        "RNO" => ("renault", 0x00FF_CC33),
+        "RYA" | "RYAAY" => ("ryanair", 0x0007_3590),
+        "RYCEY" => ("rollsroyce", 0x0010_069F),
+        "SAP" => ("sap", 0x000F_A6D4),
+        "SBUX" => ("starbucks", 0x0000_6241),
+        "SHEL" => ("shell", 0x00FF_D500),
+        "SIEGN" => ("siemens", 0x0000_9999),
+        "SSNLF" => ("samsung", 0x0014_28A0),
+        "SHOP" => ("shopify", 0x007A_B55C),
+        "SNAP" => ("snapchat", 0x00FF_FC00),
+        "SNOW" => ("snowflake", 0x0029_B5E8),
+        "SONY" => ("sony", 0x0000_0000),
+        "SPCX" => ("spacex", 0x0000_0000),
+        "SPOT" => ("spotify", 0x001D_B954),
+        "TCEHY" => ("tencenthy", 0x0000_52D9),
+        "TEAM" => ("atlassian", 0x0000_52CC),
+        "TGT" => ("target", 0x00CC_0000),
+        "TM" => ("toyota", 0x00EB_0A1E),
+        "TSLA" => ("tesla", 0x00CC_0000),
+        "UBER" => ("uber", 0x0000_0000),
+        "UBI" => ("ubisoft", 0x0000_0000),
+        "U" => ("unity", 0x0000_0000),
+        "UL" | "UNA" => ("unilever", 0x001F_36C7),
+        "UPS" => ("ups", 0x006B_4006),
+        "V" => ("visa", 0x001A_1F71),
+        "VOWG_P" => ("volkswagen", 0x0015_1F5D),
+        "VOLVB" | "VOLV_B" => ("volvo", 0x0000_3057),
+        "WFC" => ("wellsfargo", 0x00D7_1E28),
+        "WMT" => ("walmart", 0x0000_71CE),
+        "XIACY" => ("xiaomi", 0x00FF_6900),
+        "ZM" => ("zoom", 0x000B_5CFF),
         _ => return None,
     })
 }
@@ -362,41 +360,47 @@ fn commodity(ticker: &str) -> Option<(Class, Mark)> {
     let root = ticker.trim().split('.').next()?.to_ascii_uppercase();
     let (class, icon, color) = match root.as_str() {
         "USOIL" | "WTI" | "WTICOUSD" | "XTIUSD" | "CL" | "CRUDEOIL" => {
-            (Class::Energies, IconName::Droplet, 0x64748B)
+            (Class::Energies, IconName::Droplet, 0x0064_748B)
         }
         "UKOIL" | "BRENT" | "BRN" | "XBRUSD" | "BRENT_OIL" => {
-            (Class::Energies, IconName::Droplet, 0x94A3B8)
+            (Class::Energies, IconName::Droplet, 0x0094_A3B8)
         }
         "NATGAS" | "NGAS" | "NATURALGAS" | "NG" | "XNGUSD" => {
-            (Class::Energies, IconName::Flame, 0x60A5FA)
+            (Class::Energies, IconName::Flame, 0x0060_A5FA)
         }
-        "HEATOIL" | "HEATINGOIL" | "HO" => (Class::Energies, IconName::Flame, 0xFF8A4C),
-        "GASOLINE" | "RBOB" | "RB" => (Class::Energies, IconName::Fuel, 0xF59E0B),
-        "COAL" => (Class::Energies, IconName::Pickaxe, 0x71717A),
-        "ELECTRICITY" | "POWER" => (Class::Energies, IconName::Zap, 0xFACC15),
-        "COCOA" | "CC" => (Class::Commodities, IconName::Cookie, 0x9A6B4B),
-        "COFFEE" | "KC" => (Class::Commodities, IconName::Coffee, 0xB07A56),
-        "CORN" | "MAIZE" | "ZC" => (Class::Commodities, IconName::Wheat, 0xF2C94C),
-        "COTTON" | "CT" => (Class::Commodities, IconName::Shirt, 0xC7D2FE),
-        "SOYBEAN" | "SOYBEANS" | "SOY" | "ZS" => (Class::Commodities, IconName::Bean, 0x9BC53D),
-        "SOYMEAL" | "SOYOIL" => (Class::Commodities, IconName::Bean, 0x88A83B),
-        "SUGAR" | "SB" => (Class::Commodities, IconName::Candy, 0xF9A8D4),
-        "WHEAT" | "ZW" => (Class::Commodities, IconName::Wheat, 0xE3B04B),
-        "RICE" | "ZR" | "OATS" | "ZO" | "BARLEY" => (Class::Commodities, IconName::Wheat, 0xD8B36A),
-        "ORANGE" | "ORANGEJUICE" | "OJ" => (Class::Commodities, IconName::Citrus, 0xF97316),
-        "LUMBER" | "WOOD" | "LB" => (Class::Commodities, IconName::TreePine, 0x9A683F),
+        "HEATOIL" | "HEATINGOIL" | "HO" => (Class::Energies, IconName::Flame, 0x00FF_8A4C),
+        "GASOLINE" | "RBOB" | "RB" => (Class::Energies, IconName::Fuel, 0x00F5_9E0B),
+        "COAL" => (Class::Energies, IconName::Pickaxe, 0x0071_717A),
+        "ELECTRICITY" | "POWER" => (Class::Energies, IconName::Zap, 0x00FA_CC15),
+        "COCOA" | "CC" => (Class::Commodities, IconName::Cookie, 0x009A_6B4B),
+        "COFFEE" | "KC" => (Class::Commodities, IconName::Coffee, 0x00B0_7A56),
+        "CORN" | "MAIZE" | "ZC" => (Class::Commodities, IconName::Wheat, 0x00F2_C94C),
+        "COTTON" | "CT" => (Class::Commodities, IconName::Shirt, 0x00C7_D2FE),
+        "SOYBEAN" | "SOYBEANS" | "SOY" | "ZS" => (Class::Commodities, IconName::Bean, 0x009B_C53D),
+        "SOYMEAL" | "SOYOIL" => (Class::Commodities, IconName::Bean, 0x0088_A83B),
+        "SUGAR" | "SB" => (Class::Commodities, IconName::Candy, 0x00F9_A8D4),
+        "WHEAT" | "ZW" => (Class::Commodities, IconName::Wheat, 0x00E3_B04B),
+        "RICE" | "ZR" | "OATS" | "ZO" | "BARLEY" => {
+            (Class::Commodities, IconName::Wheat, 0x00D8_B36A)
+        }
+        "ORANGE" | "ORANGEJUICE" | "OJ" => (Class::Commodities, IconName::Citrus, 0x00F9_7316),
+        "LUMBER" | "WOOD" | "LB" => (Class::Commodities, IconName::TreePine, 0x009A_683F),
         "CATTLE" | "LIVECATTLE" | "LE" | "FEEDERCATTLE" | "GF" => {
-            (Class::Commodities, IconName::Beef, 0xB76E55)
+            (Class::Commodities, IconName::Beef, 0x00B7_6E55)
         }
-        "LEANHOGS" | "HOGS" | "HE" => (Class::Commodities, IconName::Ham, 0xEAA0A0),
-        "MILK" | "DAIRY" => (Class::Commodities, IconName::Milk, 0xCBD5E1),
-        "PALMOIL" | "CANOLA" | "RAPESEED" => (Class::Commodities, IconName::Leaf, 0x84A642),
-        "RUBBER" => (Class::Commodities, IconName::TreePine, 0xA88964),
+        "LEANHOGS" | "HOGS" | "HE" => (Class::Commodities, IconName::Ham, 0x00EA_A0A0),
+        "MILK" | "DAIRY" => (Class::Commodities, IconName::Milk, 0x00CB_D5E1),
+        "PALMOIL" | "CANOLA" | "RAPESEED" => (Class::Commodities, IconName::Leaf, 0x0084_A642),
+        "RUBBER" => (Class::Commodities, IconName::TreePine, 0x00A8_8964),
         _ => return None,
     };
     Some((class, Mark::Glyph { icon, color }))
 }
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the ticker is upper-cased above and these are the broker's own suffixes, not file extensions"
+)]
 pub(super) fn known_physical_class(ticker: &str) -> Option<Class> {
     if metal(ticker).is_some() {
         Some(Class::Metals)
@@ -411,12 +415,17 @@ pub(super) fn known_physical_class(ticker: &str) -> Option<Class> {
 }
 
 /// The picture of a symbol, from what the broker says about it.
-pub fn icon_for(ticker: &str, class: Class, base: Option<&str>, quote: Option<&str>) -> Icon {
+pub(crate) fn icon_for(
+    ticker: &str,
+    class: Class,
+    base: Option<&str>,
+    quote: Option<&str>,
+) -> Icon {
     let quote_flag = || quote.and_then(currency_flag).map(Mark::Flag);
     let fallback = || {
         Icon::single(Mark::Glyph {
             icon: class.icon(),
-            color: 0xA1A1A1,
+            color: 0x00A1_A1A1,
         })
     };
     match class {
@@ -434,12 +443,12 @@ pub fn icon_for(ticker: &str, class: Class, base: Option<&str>, quote: Option<&s
         Class::Metals => metal(ticker).map_or_else(fallback, |m| Icon::with(m, quote_flag())),
         Class::Crypto => Icon::with(crypto(ticker), quote_flag()),
         Class::Shares => Icon::with(share(ticker), quote_flag()),
-        Class::Indices => index_flag(ticker)
-            .map(|code| Icon::single(Mark::Flag(code)))
-            .unwrap_or_else(fallback),
-        Class::Energies | Class::Commodities => commodity(ticker)
-            .map(|(_, mark)| Icon::single(mark))
-            .unwrap_or_else(fallback),
+        Class::Indices => {
+            index_flag(ticker).map_or_else(fallback, |code| Icon::single(Mark::Flag(code)))
+        }
+        Class::Energies | Class::Commodities => {
+            commodity(ticker).map_or_else(fallback, |(_, mark)| Icon::single(mark))
+        }
         Class::Bonds | Class::Other => fallback(),
     }
 }
@@ -447,12 +456,19 @@ pub fn icon_for(ticker: &str, class: Class, base: Option<&str>, quote: Option<&s
 /// A stable, readable color for letters that stand for something with no picture.
 fn hashed_color(text: &str) -> u32 {
     const COLORS: [u32; 8] = [
-        0x7C86FF, 0x38BDF8, 0x34D399, 0xFBBF24, 0xFB7185, 0xC084FC, 0xF97316, 0x2DD4BF,
+        0x007C_86FF,
+        0x0038_BDF8,
+        0x0034_D399,
+        0x00FB_BF24,
+        0x00FB_7185,
+        0x00C0_84FC,
+        0x00F9_7316,
+        0x002D_D4BF,
     ];
     let sum = text
         .bytes()
         .fold(0usize, |a, b| a.wrapping_add(usize::from(b)));
-    COLORS[sum % COLORS.len()]
+    COLORS.get(sum % COLORS.len()).copied().unwrap_or_default()
 }
 
 /// Whether a brand color is too dark to show on the app's dark background.
@@ -491,9 +507,9 @@ fn render_mark(mark: &Mark, diameter: f32) -> AnyElement {
         Mark::Brand { path, color } => {
             // A dark logo goes on a light disc, so it stays visible on the dark interface.
             let (background, glyph) = if is_dark(*color) {
-                (rgb(0xF4F4F5), rgb(*color))
+                (rgb(0x00F4_F4F5), rgb(*color))
             } else {
-                (rgb(*color), rgb(0xFFFFFF))
+                (rgb(*color), rgb(0x00FF_FFFF))
             };
             disc()
                 .bg(background)
@@ -510,7 +526,7 @@ fn render_mark(mark: &Mark, diameter: f32) -> AnyElement {
             .bg(rgb(*color))
             .text_size(px(diameter * 0.42))
             .font_weight(FontWeight::BOLD)
-            .text_color(rgb(0x2B2100))
+            .text_color(rgb(0x002B_2100))
             .child(*symbol)
             .into_any_element(),
         Mark::Glyph { icon, color } => disc()
@@ -535,7 +551,7 @@ fn render_mark(mark: &Mark, diameter: f32) -> AnyElement {
 
 /// The icon in a square of `size` pixels. A second mark is drawn smaller at the bottom right, ringed
 /// in `ring` (the color behind the icon) so it reads as laid over the first.
-pub fn render(icon: &Icon, size: f32, ring: Rgba) -> AnyElement {
+pub(crate) fn render(icon: &Icon, size: f32, ring: Rgba) -> AnyElement {
     let Some(secondary) = &icon.secondary else {
         return div()
             .flex()
@@ -679,9 +695,9 @@ mod tests {
 
     #[test]
     fn dark_brand_colors_are_recognized() {
-        assert!(is_dark(0x000000));
-        assert!(is_dark(0x111111));
-        assert!(!is_dark(0xFF9900));
+        assert!(is_dark(0x0000_0000));
+        assert!(is_dark(0x0011_1111));
+        assert!(!is_dark(0x00FF_9900));
     }
 
     #[test]

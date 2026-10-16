@@ -27,3 +27,7 @@ pub mod theme;
 pub mod toast;
 pub mod tokens;
 pub mod window_bar;
+
+// The entry points of the component library, so that the program starts the app without naming it.
+pub use gpui_kit::component::Root;
+pub use gpui_kit::{application, init};

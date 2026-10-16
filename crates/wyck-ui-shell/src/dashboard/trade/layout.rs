@@ -39,7 +39,7 @@ impl Dashboard {
                 .bg(if ticket_dragging {
                     theme::accent_alpha(0.4)
                 } else {
-                    gpui::rgba(0x00000000)
+                    gpui::rgba(0x0000_0000)
                 })
                 .hover(|s| s.bg(theme::accent_alpha(0.4)))
                 .child(wyck_ui_kit::layout::rule_v().h_full())

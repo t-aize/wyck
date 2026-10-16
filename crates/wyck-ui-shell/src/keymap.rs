@@ -1,9 +1,9 @@
 //! Every keyboard shortcut of the app: the ones the user can change, the ones that are fixed, and
 //! the keys that screens handle by hand.
 //!
-//! The table [`DEFS`] is the one place where a binding is declared, whether it can be changed
-//! ([`Kind::Custom`]) or not ([`Kind::Fixed`]: the keys of a text field, of a dialog, of the symbol
-//! picker). [`HANDLED`] lists the keys that a screen reads itself, with no action behind them (the
+//! The table `DEFS` is the one place where a binding is declared, whether it can be changed
+//! (`Kind::Custom`) or not (`Kind::Fixed`: the keys of a text field, of a dialog, of the symbol
+//! picker). `HANDLED` lists the keys that a screen reads itself, with no action behind them (the
 //! arrows of a menu, of the rows of the account panel); `keymap_guard` fails when a file reads keys
 //! by hand without being declared there. The settings page shows all three.
 //!
@@ -34,7 +34,7 @@ const TEXT: &str = "TextInput";
 
 /// How the shortcuts are grouped on the page that edits them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Group {
+pub(crate) enum Group {
     Navigation,
     Trading,
     Chart,
@@ -49,7 +49,7 @@ pub enum Group {
 }
 
 impl Group {
-    pub const ALL: [Self; 8] = [
+    pub(crate) const ALL: [Self; 8] = [
         Self::Navigation,
         Self::Trading,
         Self::Chart,
@@ -60,7 +60,7 @@ impl Group {
         Self::Picker,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Navigation => "Windows and navigation",
             Self::Trading => "Trading",
@@ -76,32 +76,32 @@ impl Group {
 
 /// Whether the user can change the keys of an action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Kind {
+pub(crate) enum Kind {
     Custom,
     Fixed,
 }
 
 /// One action a shortcut can run.
-pub struct Def {
+pub(crate) struct Def {
     /// Written in the preferences, so it never changes.
-    pub id: &'static str,
-    pub label: &'static str,
-    pub group: Group,
+    pub(crate) id: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) group: Group,
     /// The key context the keys work in. Two actions only clash in one context.
-    pub context: &'static str,
+    pub(crate) context: &'static str,
     /// The keys it has until the user changes them. May be none.
-    pub keys: &'static [&'static str],
-    pub kind: Kind,
+    pub(crate) keys: &'static [&'static str],
+    pub(crate) kind: Kind,
     build: fn() -> Box<dyn Action>,
 }
 
 /// Keys a screen reads itself, with no action behind them. Only for the settings page to show.
-pub struct Handled {
-    pub label: &'static str,
-    pub group: Group,
-    pub context: &'static str,
+pub(crate) struct Handled {
+    pub(crate) label: &'static str,
+    pub(crate) group: Group,
+    pub(crate) context: &'static str,
     /// As they are read on a screen.
-    pub keys: &'static [&'static str],
+    pub(crate) keys: &'static [&'static str],
 }
 
 macro_rules! def {
@@ -134,7 +134,7 @@ macro_rules! fixed {
 
 /// Every shortcut the user can change.
 #[rustfmt::skip]
-pub static DEFS: &[Def] = &[
+pub(crate) static DEFS: &[Def] = &[
     // Windows and navigation.
     def!("search_symbol", "Search a symbol", Navigation, DASHBOARD, ["secondary-k"], d::OpenPicker),
     def!("open_settings", "Open the settings", Navigation, DASHBOARD, ["secondary-,"], d::OpenSettings),
@@ -238,7 +238,7 @@ pub static DEFS: &[Def] = &[
 /// The keys that screens read by hand. They are not bound, they are told here so that the settings
 /// page shows every key of the app.
 #[rustfmt::skip]
-pub static HANDLED: &[Handled] = &[
+pub(crate) static HANDLED: &[Handled] = &[
     Handled { label: "Move the focus to the next or previous control", group: Group::Dialogs, context: "Everywhere", keys: &["Tab", "Shift+Tab"] },
     Handled { label: "Press the control that has the focus", group: Group::Dialogs, context: "Everywhere", keys: &["Enter", "Space"] },
     Handled { label: "Close a menu", group: Group::Dialogs, context: "Menus", keys: &["Esc"] },
@@ -254,12 +254,12 @@ fn mac() -> bool {
 }
 
 /// The definition of an action.
-pub fn def(id: &str) -> Option<&'static Def> {
+pub(crate) fn def(id: &str) -> Option<&'static Def> {
     DEFS.iter().find(|def| def.id == id)
 }
 
 /// The actions with the keys they have now.
-pub fn resolved(prefs: &ShortcutPrefs) -> Vec<Resolved> {
+pub(crate) fn resolved(prefs: &ShortcutPrefs) -> Vec<Resolved> {
     DEFS.iter()
         .map(|def| Resolved {
             id: def.id.to_owned(),
@@ -271,7 +271,7 @@ pub fn resolved(prefs: &ShortcutPrefs) -> Vec<Resolved> {
 
 /// The keys an action has now: the user's for one that can be changed, the declared ones for one
 /// that cannot.
-pub fn keys_of(def: &Def, prefs: &ShortcutPrefs) -> Vec<String> {
+pub(crate) fn keys_of(def: &Def, prefs: &ShortcutPrefs) -> Vec<String> {
     match def.kind {
         Kind::Custom => prefs.keys_of(def.id, def.keys),
         Kind::Fixed => def.keys.iter().map(|k| (*k).to_owned()).collect(),
@@ -348,13 +348,13 @@ pub fn apply(prefs: &ShortcutPrefs, cx: &mut App) {
 
 /// A binding of the widget library: not ours, so not changeable, but it works in the app.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LibraryKey {
+pub(crate) struct LibraryKey {
     /// Where it works, or `Everywhere` for a binding with no context.
-    pub context: String,
+    pub(crate) context: String,
     /// As it is read on a screen.
-    pub keys: String,
+    pub(crate) keys: String,
     /// What it does, from the name of the action: `Select up`.
-    pub action: String,
+    pub(crate) action: String,
 }
 
 /// `SelectUp` -> `Select up`, `list::SelectUp` -> `Select up`.
@@ -402,7 +402,7 @@ fn ours() -> HashSet<&'static str> {
 
 /// Every binding the keymap holds that is not in the table, which means the ones of the widget
 /// library, sorted by where they work.
-pub fn library_keys(cx: &App) -> Vec<LibraryKey> {
+pub(crate) fn library_keys(cx: &App) -> Vec<LibraryKey> {
     let ours = ours();
     let keymap = cx.key_bindings();
     let mut found: Vec<LibraryKey> = keymap
@@ -429,16 +429,18 @@ pub fn library_keys(cx: &App) -> Vec<LibraryKey> {
 
 /// The binding of the widget library that works everywhere with `keys`, if there is one: a key
 /// that would be taken from it in every place of the app.
-pub fn reserved_by_library(keys: &str, cx: &App) -> Option<LibraryKey> {
+pub(crate) fn reserved_by_library(keys: &str, cx: &App) -> Option<LibraryKey> {
     let input = Keystroke::parse(keys).ok()?;
     let ours = ours();
     cx.all_bindings_for_input(&[input])
         .into_iter()
         .find(|b| !ours.contains(b.action().name()) && b.predicate().is_none())
-        .map(|b| LibraryKey {
-            context: "Everywhere".to_owned(),
-            keys: pretty(b.keystrokes()[0].inner()),
-            action: humanize(b.action().name()),
+        .and_then(|b| {
+            Some(LibraryKey {
+                context: "Everywhere".to_owned(),
+                keys: pretty(b.keystrokes().first()?.inner()),
+                action: humanize(b.action().name()),
+            })
         })
 }
 

@@ -377,7 +377,8 @@ fn stroke(window: &mut Window, points: &[P], width: f32, color: Hsla, dash: Opti
     }
 }
 
-fn aligned(x: f32, width: f32, align: Align) -> f32 {
+/// The left edge of something `width` wide that sits at `x` with this alignment.
+pub(super) fn aligned(x: f32, width: f32, align: Align) -> f32 {
     match align {
         Align::Left => x,
         Align::Center => x - width / 2.0,

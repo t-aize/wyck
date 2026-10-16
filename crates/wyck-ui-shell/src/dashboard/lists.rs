@@ -36,10 +36,10 @@ impl Scope {
 
 /// The field that names a new list, or renames one.
 pub(super) struct ListEditor {
-    pub input: Entity<TextInput>,
+    pub(crate) input: Entity<TextInput>,
     /// The list being renamed, or `None` for a new one.
-    pub renaming: Option<usize>,
-    pub error: Option<NameError>,
+    pub(crate) renaming: Option<usize>,
+    pub(crate) error: Option<NameError>,
     _observe: Subscription,
 }
 
@@ -213,7 +213,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("rename-list", index as u64),
-                    wyck_ui_kit::button::Size::Md,
+                    button::Size::Md,
                     IconName::Pencil,
                     "Rename the list",
                 )
@@ -225,7 +225,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("delete-list", index as u64),
-                    wyck_ui_kit::button::Size::Md,
+                    button::Size::Md,
                     IconName::Trash,
                     "Delete the list",
                 )
@@ -253,7 +253,7 @@ pub(super) fn list_chips(
                 .gap_2()
                 .child(
                     div()
-                        .w(px(wyck_ui_kit::tokens::field::text()))
+                        .w(px(tokens::field::text()))
                         .child(editor.input.clone()),
                 )
                 .child(
@@ -343,7 +343,7 @@ pub(super) fn membership_panel(
     for (position, (id, title, on, icon, tone)) in rows.into_iter().enumerate() {
         let name = symbol.to_owned();
         let is_favorite = id.0 == "member-favorite";
-        let list_index = id.1 as usize;
+        let list_index = usize::try_from(id.1).unwrap_or(usize::MAX);
         panel = panel.child(
             div()
                 .id(id)

@@ -7,6 +7,7 @@ use gpui::Context;
 use wyck_app::alerts;
 use wyck_app::market_data::now_ms;
 use wyck_app::prefs::panel::Tab;
+use wyck_core::math::i64_to_f64;
 use wyck_market::PRICE_SCALE;
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::toast;
@@ -20,7 +21,7 @@ impl Dashboard {
         for id in symbols {
             self.trading
                 .update(cx, |account, cx| account.ensure_contract(id, cx));
-            let contract = self.trading.read(cx).book.contracts.get(&id).cloned();
+            let contract = self.trading.read(cx).book.contracts.get(&id).copied();
             // Before the answer a contract is a placeholder: it must not hide what is known.
             let Some(contract) = contract.filter(|c| *c != wyck_trading::math::Contract::default())
             else {
@@ -71,7 +72,7 @@ impl Dashboard {
                                 if let Some(alert) = book.get_mut(id) {
                                     alert.active = false;
                                 }
-                            })
+                            });
                         });
                     });
                 }
@@ -175,7 +176,7 @@ impl Dashboard {
         let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
         match seed {
             wyck_ui_chart::chart::events::AlertSeed::Indicator { study, timeframe } => {
-                alert.timeframe = timeframe.clone();
+                alert.timeframe.clone_from(timeframe);
                 let spec = study.kind.spec();
                 if matches!(spec.format, wyck_indicators::spec::ValueFormat::Price) {
                     // An average or a band on the prices: the price crosses it.
@@ -199,7 +200,7 @@ impl Dashboard {
                 zone,
                 timeframe,
             } => {
-                alert.timeframe = timeframe.clone();
+                alert.timeframe.clone_from(timeframe);
                 alert.versus = Some(Source::Drawing { id: *id });
                 alert.condition = if *zone {
                     Condition::EntersZone
@@ -246,6 +247,6 @@ impl Dashboard {
         let Some(bid) = chart.read(cx).quote().0 else {
             return;
         };
-        self.add_alert(&symbol, bid as f64 / PRICE_SCALE as f64, cx);
+        self.add_alert(&symbol, i64_to_f64(bid) / i64_to_f64(PRICE_SCALE), cx);
     }
 }

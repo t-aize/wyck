@@ -21,7 +21,7 @@ use wyck_indicators::custom::library::{Entry as Script, registry};
 use wyck_indicators::custom::templates::TEMPLATES;
 use wyck_indicators::custom::{Problem, Severity};
 use wyck_ui_kit::{
-    controls, icon, layout, menu,
+    icon, layout, menu,
     menu::{Entry, Item, Placement},
     theme, tokens,
 };
@@ -423,7 +423,6 @@ impl Render for IndicatorEditor {
         let reference = self.reference_open.then(|| self.reference(cx));
         let status = self.status_bar(cx);
         let prompt = self.prompt_row(cx);
-        let _ = controls::child_id;
         div()
             .key_context(CONTEXT)
             .track_focus(&self.focus)

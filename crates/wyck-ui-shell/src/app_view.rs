@@ -8,6 +8,7 @@ use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, Subscription, Window, div, px,
 };
+use std::sync::Arc;
 
 use crate::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use crate::locked_frame;
@@ -58,7 +59,7 @@ impl AppView {
                         this.open_session(&sign_in, connection, cx);
                     }
                 });
-                sign_in.update(cx, |sign_in, cx| sign_in.restore(cx));
+                sign_in.update(cx, SignIn::restore);
                 Start::Ready {
                     gate,
                     _subscription: subscription,
@@ -91,7 +92,11 @@ impl AppView {
         // The session's supervisor is a tokio task, so it has to be started inside the runtime.
         let started = {
             let _guard = runtime::handle().enter();
-            Session::start(config, connection.tokens.clone(), connection.store.clone())
+            Session::start(
+                config,
+                connection.tokens.clone(),
+                Arc::clone(&connection.store),
+            )
         };
         let session = match started {
             Ok(session) => session,
@@ -122,14 +127,14 @@ impl AppView {
                 session,
                 account,
                 connection.initial_symbol.clone(),
-                connection.documents.clone(),
+                &connection.documents,
                 cx,
             )
         });
         let profile = connection.profile_id.clone();
         let sign_in = sign_in.clone();
         let subscription = cx.subscribe(&dashboard, move |this, dashboard, event, cx| {
-            this.on_dashboard_event(&sign_in, dashboard, event, cx);
+            this.on_dashboard_event(&sign_in, &dashboard, event, cx);
         });
         self.open = Some(Open {
             view: dashboard,
@@ -142,7 +147,7 @@ impl AppView {
     fn on_dashboard_event(
         &mut self,
         sign_in: &Entity<SignIn>,
-        dashboard: Entity<Dashboard>,
+        dashboard: &Entity<Dashboard>,
         event: &DashboardEvent,
         cx: &mut Context<Self>,
     ) {
@@ -159,7 +164,7 @@ impl AppView {
             DashboardEvent::SignInAgain => {
                 dashboard.read(cx).stop();
                 self.open = None;
-                sign_in.update(cx, |sign_in, cx| sign_in.session_ended(cx));
+                sign_in.update(cx, SignIn::session_ended);
                 self.show_gate_again(true, cx);
             }
         }
@@ -186,7 +191,7 @@ impl AppView {
         });
     }
 
-    fn failed(&self, message: &str) -> AnyElement {
+    fn failed(message: &str) -> AnyElement {
         div()
             .size_full()
             .flex()
@@ -208,8 +213,8 @@ impl AppView {
                     )
                     .child(button::primary(
                         "startup-quit",
-                        wyck_ui_kit::button::Fill::Accent,
-                        wyck_ui_kit::button::Size::Lg,
+                        button::Fill::Accent,
+                        button::Size::Lg,
                         "Quit Wyck",
                         |_, _window, cx| cx.quit(),
                     )),
@@ -228,7 +233,7 @@ impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let content = match (&self.open, &self.start) {
             (Some(open), _) => open.view.clone().into_any_element(),
-            (None, Start::Failed(message)) => self.failed(message),
+            (None, Start::Failed(message)) => Self::failed(message),
             (None, Start::Ready { gate, .. }) => div()
                 .relative()
                 .size_full()

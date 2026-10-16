@@ -9823,13 +9823,13 @@ name = "wyck"
 version = "0.2.1"
 dependencies = [
  "chrono",
- "gpui-kit",
  "gpui-pre",
  "tempfile",
  "tracing",
  "winresource",
  "wyck-app",
  "wyck-clock",
+ "wyck-core",
  "wyck-platform",
  "wyck-storage",
  "wyck-ui-editor",

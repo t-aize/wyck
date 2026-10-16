@@ -15,7 +15,7 @@ use super::marks::{self, Icon};
 
 /// The kind of instrument, as the picker files it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Class {
+pub(crate) enum Class {
     Forex,
     Metals,
     Energies,
@@ -28,7 +28,7 @@ pub enum Class {
 }
 
 impl Class {
-    pub const ALL: [Self; 9] = [
+    pub(crate) const ALL: [Self; 9] = [
         Self::Forex,
         Self::Metals,
         Self::Energies,
@@ -40,7 +40,7 @@ impl Class {
         Self::Other,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Forex => "Forex",
             Self::Metals => "Metals",
@@ -54,7 +54,7 @@ impl Class {
         }
     }
 
-    pub fn icon(self) -> IconName {
+    pub(crate) fn icon(self) -> IconName {
         match self {
             Self::Forex => IconName::ArrowLeftRight,
             Self::Metals => IconName::Gem,
@@ -103,11 +103,15 @@ const CRYPTO: [&str; 12] = [
 ];
 
 /// The class of a ticker the broker did not categorize, when the ticker settles it.
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the ticker is upper-cased above and these are the broker's own suffixes, not file extensions"
+)]
 fn class_from_ticker(name: &str) -> Class {
     let name = name.trim().to_ascii_uppercase();
     let is_pair = name.len() == 6 && name.chars().all(|c| c.is_ascii_alphabetic());
     let (base, quote) = if is_pair {
-        (&name[..3], &name[3..])
+        name.split_at_checked(3).unwrap_or((name.as_str(), ""))
     } else {
         (name.as_str(), "")
     };
@@ -133,37 +137,37 @@ fn class_from_ticker(name: &str) -> Class {
 
 /// One symbol of the account.
 #[derive(Debug, Clone)]
-pub struct Entry {
-    pub id: i64,
-    pub name: String,
-    pub description: String,
-    pub class: Class,
+pub(crate) struct Entry {
+    pub(crate) id: i64,
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) class: Class,
     /// The asset the symbol is bought in, and the one it is priced in, when the broker says.
-    pub base: Option<String>,
-    pub quote: Option<String>,
+    pub(crate) base: Option<String>,
+    pub(crate) quote: Option<String>,
     /// The id of the asset it is priced in.
-    pub quote_asset: Option<i64>,
+    pub(crate) quote_asset: Option<i64>,
     /// Its picture: flags, a logo or a glyph.
-    pub icon: Icon,
+    pub(crate) icon: Icon,
     /// The broker's finer grouping inside the class (`Major Pairs`, `US Shares`...).
-    pub category: Option<String>,
+    pub(crate) category: Option<String>,
     /// Lower-cased name and description, what a search looks through.
     search: String,
 }
 
 #[derive(Debug, Default)]
-pub struct Catalog {
+pub(crate) struct Catalog {
     entries: Vec<Entry>,
 }
 
 impl Catalog {
     /// Builds the catalog from what the broker lists, keeping only the symbols enabled for the
     /// account, ordered by class then ticker.
-    pub fn build(
+    pub(crate) fn build(
         symbols: Vec<LightSymbol>,
-        categories: Vec<SymbolCategory>,
-        classes: Vec<AssetClass>,
-        assets: Vec<Asset>,
+        categories: &[SymbolCategory],
+        classes: &[AssetClass],
+        assets: &[Asset],
     ) -> Self {
         let asset_names: HashMap<i64, &str> = assets
             .iter()
@@ -231,26 +235,26 @@ impl Catalog {
         Self { entries }
     }
 
-    pub fn total(&self) -> usize {
+    pub(crate) fn total(&self) -> usize {
         self.entries.len()
     }
 
-    pub fn entry(&self, index: usize) -> Option<&Entry> {
+    pub(crate) fn entry(&self, index: usize) -> Option<&Entry> {
         self.entries.get(index)
     }
 
-    pub fn by_id(&self, id: i64) -> Option<&Entry> {
+    pub(crate) fn by_id(&self, id: i64) -> Option<&Entry> {
         self.entries.iter().find(|e| e.id == id)
     }
 
-    pub fn by_name(&self, name: &str) -> Option<&Entry> {
+    pub(crate) fn by_name(&self, name: &str) -> Option<&Entry> {
         self.entries
             .iter()
             .find(|e| e.name.eq_ignore_ascii_case(name.trim()))
     }
 
     /// The classes that have at least one symbol, in display order.
-    pub fn classes(&self) -> Vec<Class> {
+    pub(crate) fn classes(&self) -> Vec<Class> {
         Class::ALL
             .into_iter()
             .filter(|class| self.entries.iter().any(|e| e.class == *class))
@@ -259,7 +263,7 @@ impl Catalog {
 
     /// The entries matching `text` (every word must appear in the ticker or the description),
     /// best first, limited to `class` when one is given. With no text: everything in order.
-    pub fn query(&self, text: &str, class: Option<Class>) -> Vec<usize> {
+    pub(crate) fn query(&self, text: &str, class: Option<Class>) -> Vec<usize> {
         let text = text.trim().to_lowercase();
         let words: Vec<&str> = text.split_whitespace().collect();
         let mut hits: Vec<(u8, usize)> = self
@@ -330,11 +334,11 @@ mod tests {
                     hidden
                 },
             ],
-            vec![from_json(
+            &[from_json(
                 json!({ "id": 10, "assetClassId": 1, "name": "US Indices" }),
             )],
-            vec![from_json(json!({ "id": 1, "name": "Indices" }))],
-            vec![
+            &[from_json(json!({ "id": 1, "name": "Indices" }))],
+            &[
                 from_json(json!({ "assetId": 1, "name": "EUR" })),
                 from_json(json!({ "assetId": 2, "name": "USD" })),
             ],
@@ -392,7 +396,7 @@ mod tests {
         // USDJPY has the query as a ticker prefix, EURUSD only in the description.
         assert_eq!(names("usd"), vec!["USDJPY", "EURUSD", "XAUUSD"]);
         assert_eq!(names("dollar yen"), vec!["USDJPY"]);
-        assert!(names("nothing like this").is_empty());
+        assert_eq!(names("nothing like this"), Vec::<&str>::new());
     }
 
     #[test]

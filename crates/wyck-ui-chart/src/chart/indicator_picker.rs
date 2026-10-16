@@ -407,7 +407,7 @@ impl Render for Picker {
             )),
         };
         let this = cx.entity();
-        let (folder, new, editor, done) = (this.clone(), this.clone(), this.clone(), this.clone());
+        let (new, editor, done) = (this.clone(), this.clone(), this.clone());
         let footer = form::footer(
             vec![
                 button::action(
@@ -447,7 +447,6 @@ impl Render for Picker {
                 .into_any_element(),
             ],
         );
-        let _ = folder;
 
         let body = div()
             .flex()

@@ -14,6 +14,7 @@ mod footer;
 mod rows;
 
 use std::ops::Range;
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::prelude::*;
@@ -136,7 +137,7 @@ impl Dashboard {
             .and_then(|index| catalog.entry(*index))
             .cloned();
         if let Some(entry) = entry {
-            self.select(entry, true, cx);
+            self.select(&entry, true, cx);
             self.close_overlays(window, cx);
         }
     }
@@ -151,7 +152,7 @@ impl Dashboard {
         let Load::Ready(catalog) = &self.catalog else {
             return None;
         };
-        let catalog = catalog.clone();
+        let catalog = Arc::clone(catalog);
         let picker = self.picker.as_mut()?;
 
         let text = picker.input.read(cx).text().to_owned();
@@ -196,8 +197,8 @@ impl Dashboard {
         let action = highlighted.as_ref().map(|entry| {
             button::primary(
                 "pick-symbol",
-                wyck_ui_kit::button::Fill::Accent,
-                wyck_ui_kit::button::Size::Md,
+                button::Fill::Accent,
+                button::Size::Md,
                 if is_current {
                     format!("Stay on {}", entry.name)
                 } else {
@@ -308,7 +309,7 @@ impl Dashboard {
                     this.commit_list_editor(window, cx);
                     return;
                 }
-                let row = this.picker.as_ref().map(|p| p.highlighted).unwrap_or(0);
+                let row = this.picker.as_ref().map_or(0, |p| p.highlighted);
                 this.choose(row, window, cx);
             }))
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
@@ -381,7 +382,7 @@ impl Dashboard {
             .flex()
             .justify_center()
             .items_center()
-            .py(px(wyck_ui_kit::tokens::space::xl()))
+            .py(px(tokens::space::xl()))
             .bg(theme::veil())
             .occlude()
             .on_mouse_down(

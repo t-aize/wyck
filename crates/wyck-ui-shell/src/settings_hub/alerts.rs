@@ -50,7 +50,9 @@ impl SettingsHub {
                 "Sound",
                 Some("Played when an alert fires. An alert can choose its own in its window"),
                 controls::chips("alert-sound", &labels, &[chosen], move |index, _w, cx| {
-                    let kind = SoundKind::ALL[index];
+                    let Some(&kind) = SoundKind::ALL.get(index) else {
+                        return;
+                    };
                     pick.update(cx, |w, cx| {
                         w.edit_preferences(cx, |p| p.alert_output.sound = kind);
                     });
@@ -65,7 +67,9 @@ impl SettingsHub {
                     &VOLUMES.map(|(label, _)| label),
                     volume,
                     move |index, _w, cx| {
-                        let value = VOLUMES[index].1;
+                        let Some(value) = VOLUMES.get(index).map(|volume| volume.1) else {
+                            return;
+                        };
                         level.update(cx, |w, cx| {
                             w.edit_preferences(cx, |p| p.alert_output.volume = value);
                         });
@@ -94,7 +98,7 @@ impl SettingsHub {
                     .gap_2()
                     .children(file_name.map(|name| {
                         div()
-                            .max_w(px(wyck_ui_kit::tokens::measure::caption()))
+                            .max_w(px(tokens::measure::caption()))
                             .truncate()
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
@@ -146,7 +150,7 @@ impl SettingsHub {
                     move |on, _w, cx| {
                         background.update(cx, |w, cx| {
                             w.edit_preferences(cx, |p| {
-                                p.alert_output.notify_in_background_only = on
+                                p.alert_output.notify_in_background_only = on;
                             });
                         });
                     },

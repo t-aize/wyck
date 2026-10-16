@@ -42,13 +42,13 @@ impl SettingsHub {
                     }))
                     .child(
                         div()
-                            .size(px(wyck_ui_kit::tokens::swatch::small()))
+                            .size(px(tokens::swatch::small()))
                             .rounded_sm()
                             .bg(rgb(up)),
                     )
                     .child(
                         div()
-                            .size(px(wyck_ui_kit::tokens::swatch::small()))
+                            .size(px(tokens::swatch::small()))
                             .rounded_sm()
                             .bg(rgb(down)),
                     )
@@ -83,7 +83,7 @@ impl SettingsHub {
             IconName::ChartCandlestick,
             "Candles",
             [
-                form::block(self.candle_preview()),
+                form::block(Self::candle_preview()),
                 form::block(sets),
                 form::field(
                     "Rising candle",
@@ -93,7 +93,7 @@ impl SettingsHub {
                             a.candle_up = Some(c);
                         }),
                         reset("settings-up-reset", a.candle_up.is_some(), |a| {
-                            a.candle_up = None
+                            a.candle_up = None;
                         }),
                     ),
                 ),

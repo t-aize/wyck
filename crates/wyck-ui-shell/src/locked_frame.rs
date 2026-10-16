@@ -22,7 +22,7 @@ fn rows(count: usize) -> Div {
 }
 
 /// The header, a rail of tools, a chart area, a watchlist and a panel below, as blocks.
-pub fn render() -> impl IntoElement {
+pub(crate) fn render() -> impl IntoElement {
     let header = div()
         .flex()
         .flex_none()
@@ -58,10 +58,10 @@ pub fn render() -> impl IntoElement {
         .flex_1()
         .min_w_0()
         .child(div().flex().items_end().flex_1().gap_2().p_6().children(
-            [8, 14, 10, 18, 12, 20, 16, 24, 14, 22, 18, 26].map(|h| {
+            [8_u8, 14, 10, 18, 12, 20, 16, 24, 14, 22, 18, 26].map(|h| {
                 div()
                     .flex_1()
-                    .h(px(tokens::space::xl() * h as f32 / 4.0))
+                    .h(px(tokens::space::xl() * f32::from(h) / 4.0))
                     .rounded_sm()
                     .bg(theme::border_subtle())
             }),

@@ -3,6 +3,7 @@
 
 use super::{AnyElement, Context, IconName, SettingsHub, controls, div, form, number, tokens};
 use gpui::prelude::*;
+use wyck_core::math::f64_to_u32;
 use wyck_trading::guard::RiskPrefs;
 
 /// One number of the safety limits.
@@ -69,11 +70,11 @@ impl RiskField {
             Self::LotsPerOrder => risk.max_lots_per_order = value,
             Self::LotsPerSymbol => risk.max_lots_per_symbol = value,
             Self::OneClickLots => risk.one_click_max_lots = value,
-            Self::OpenPositions => risk.max_open_positions = value as u32,
+            Self::OpenPositions => risk.max_open_positions = f64_to_u32(value),
             Self::DailyLoss => risk.max_daily_loss = value,
             Self::DailyLossShare => risk.max_daily_loss_pct = value,
-            Self::DailyTrades => risk.max_daily_trades = value as u32,
-            Self::Cooldown => risk.cooldown_minutes = value as u32,
+            Self::DailyTrades => risk.max_daily_trades = f64_to_u32(value),
+            Self::Cooldown => risk.cooldown_minutes = f64_to_u32(value),
             Self::Spread => risk.max_spread_pips = value,
             Self::Collar => risk.price_collar_pct = value,
         }

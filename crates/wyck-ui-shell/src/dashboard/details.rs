@@ -9,6 +9,7 @@ use wyck_ui_kit::icon::IconName;
 
 use super::catalog::{Class, Entry};
 use super::marks;
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_ui_kit::{anim, icon, layout, theme, tokens};
 
 /// Where the details of one symbol stand.
@@ -47,9 +48,9 @@ fn units_label(hundredths: i64) -> String {
 fn volume(hundredths: i64, lot_size: Option<i64>) -> String {
     match lot_size.filter(|lot| *lot > 0) {
         Some(lot) => {
-            let lots = hundredths as f64 / lot as f64;
+            let lots = i64_to_f64(hundredths) / i64_to_f64(lot);
             let text = if lots >= 1000.0 {
-                wyck_core::format::grouped(lots.round() as i64)
+                wyck_core::format::grouped(f64_to_i64(lots.round()))
             } else {
                 wyck_core::format::trim(lots, 4)
             };
@@ -155,23 +156,23 @@ fn row(label: &'static str, value: String, divider: bool) -> Div {
 /// What the sheet shows.
 pub(super) struct Sheet<'a> {
     /// The symbol under the highlight (`None` when the search matches nothing).
-    pub entry: Option<&'a Entry>,
-    pub detail: Option<&'a Detail>,
+    pub(crate) entry: Option<&'a Entry>,
+    pub(crate) detail: Option<&'a Detail>,
     /// Live prices, when there are some for this symbol.
-    pub live: Option<Live>,
+    pub(crate) live: Option<Live>,
     /// Whether this is the symbol the dashboard is on.
-    pub is_current: bool,
+    pub(crate) is_current: bool,
     /// The button that chooses the symbol, pinned at the bottom.
-    pub action: Option<AnyElement>,
+    pub(crate) action: Option<AnyElement>,
     /// The panel that puts the symbol in favorites and watchlists.
-    pub lists: Option<AnyElement>,
-    pub epoch: u64,
+    pub(crate) lists: Option<AnyElement>,
+    pub(crate) epoch: u64,
 }
 
 pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
     let pane = div()
         .flex_none()
-        .w(px(wyck_ui_kit::tokens::measure::card()))
+        .w(px(tokens::measure::card()))
         .h_full()
         .flex()
         .flex_col()

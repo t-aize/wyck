@@ -1,9 +1,9 @@
-//! The frame around the features: the window root, the sign-in modal, the dashboard and the
-//! settings.
+//! The frame of the Wyck window: the root view that shows the sign-in gate or the dashboard, the
+//! dashboard that lays out the screens, the settings and the keyboard shortcuts.
 
 pub mod app_view;
-pub mod dashboard;
+mod dashboard;
 pub mod keymap;
-pub mod locked_frame;
+mod locked_frame;
 pub mod settings_hub;
-pub mod sign_in_gate;
+mod sign_in_gate;
