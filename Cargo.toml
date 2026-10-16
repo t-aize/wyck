@@ -14,7 +14,8 @@ default-members = ["crates/*"]
 [workspace.package]
 version = "0.2.1"
 edition = "2024"
-rust-version = "1.98"
+# Keep in sync with `rust-toolchain.toml`. With resolver 3 this also steers dependency resolution.
+rust-version = "1.99"
 license = "Apache-2.0"
 authors = ["t-aize"]
 repository = "https://github.com/t-aize/wyck"
@@ -83,47 +84,116 @@ uuid = "1.28.0"
 winresource = "0.1"
 zeroize = "1.9.1"
 
+# ---------------------------------------------------------------------------------------------
+# Lints
+#
 # The rules every crate that opts in with `[lints] workspace = true` follows. `wyck`, the crate
 # the others are being taken out of, keeps the short list it had until it is empty (see its
 # manifest); each crate that leaves it follows this one in full and must pass without a warning.
+#
+# CI runs `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, so a
+# `warn` here blocks a merge just like a `deny`; the difference is only how loud it is locally.
+#
+# A crate that opts in cannot add lint levels of its own in its manifest. A crate-wide exception
+# is written in source instead: `#![expect(clippy::print_stdout, reason = "...")]`.
+# ---------------------------------------------------------------------------------------------
 [workspace.lints.rust]
 unsafe_code = "forbid"
 # A `pub` item no other crate can reach should be `pub(crate)`: then `dead_code` can see it.
 unreachable_pub = "warn"
+# A dropped `Result` or future is how an order error gets lost.
+unused_must_use = "deny"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+redundant_lifetimes = "warn"
+trivial_numeric_casts = "warn"
+unused_import_braces = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "warn"
+bare_urls = "warn"
+invalid_html_tags = "warn"
 
 [workspace.lints.clippy]
-# No `unwrap` or `expect` outside tests (clippy.toml lets tests keep them), and no leftovers.
+# Base: all of `pedantic` as warnings. Every lint below is applied on top of it, which is why
+# the group has a lower priority. The `cargo` group is left out on purpose: `cargo-deny` (see
+# `deny.toml`) already checks duplicate versions, licenses and sources.
+pedantic = { level = "warn", priority = -1 }
+# Pedantic lints that cost more than they bring in this code base.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+too_many_lines = "allow"
+similar_names = "allow"
+
+# No panics and no lost results. `clippy.toml` lets tests keep `unwrap`, `expect` and `panic`.
 unwrap_used = "deny"
 expect_used = "deny"
-dbg_macro = "deny"
+panic = "deny"
 todo = "deny"
 unimplemented = "deny"
+dbg_macro = "deny"
+let_underscore_must_use = "deny"
+let_underscore_future = "deny"
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+mem_forget = "deny"
+unreachable = "warn"
+panic_in_result_fn = "warn"
+
+# Data coming from the network is never trusted: no unchecked indexing or slicing.
+indexing_slicing = "warn"
+string_slice = "warn"
+
 # The app reports through `tracing`; printing is for examples and tools, which opt out.
 print_stdout = "warn"
 print_stderr = "warn"
 exit = "warn"
-# Every `allow` says why, and `expect` fails when the lint it silenced goes away.
+# Every exception says why, and `expect` fails once the lint it silenced goes away.
 allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
+# Make shared ownership and field additions explicit.
+clone_on_ref_ptr = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+
 # Redundancy and waste.
 match_same_arms = "warn"
 redundant_clone = "warn"
+needless_collect = "warn"
+branches_sharing_code = "warn"
+collection_is_never_read = "warn"
+use_self = "warn"
+trait_duplication_in_bounds = "warn"
 needless_pass_by_value = "warn"
 unused_self = "warn"
 unnecessary_wraps = "warn"
 assigning_clones = "warn"
 unused_async = "warn"
+
 # Likely mistakes.
 suspicious_operation_groupings = "warn"
 case_sensitive_file_extension_comparisons = "warn"
 used_underscore_binding = "warn"
 derive_partial_eq_without_eq = "warn"
+significant_drop_in_scrutinee = "warn"
 
+# Numbers. Stricter money rules (no float arithmetic, no unchecked integer arithmetic) are not
+# enabled here because chart code needs both; see the audit notes in the migration prompt.
+lossy_float_literal = "warn"
+float_cmp_const = "warn"
+
+# ---------------------------------------------------------------------------------------------
+# Profiles
+# ---------------------------------------------------------------------------------------------
 [profile.release]
-lto = true
+lto = "fat"
 codegen-units = 1
-strip = true
+# Keep function names so a crash log has a readable backtrace; drop the bulky debug info.
+strip = "debuginfo"
 panic = "unwind"
+# Integer overflow wraps silently in release by default. For prices, volumes and PnL it must not.
+overflow-checks = true
 
 # Line tables are enough to read a backtrace, and they keep the test binaries (each links the
 # whole library) from filling the disk.

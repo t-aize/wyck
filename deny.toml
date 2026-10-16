@@ -1,46 +1,54 @@
-# cargo-deny configuration. Run with `cargo deny check`.
-# Reference: https://embarkstudios.github.io/cargo-deny/
+# cargo-deny configuration: known vulnerabilities, licenses, duplicate crates and sources.
+# Run it with `cargo deny check` (CI does, through `cargo xtask ci`).
 
 [graph]
 all-features = true
+# The platforms the app ships on; dependencies used only elsewhere are not checked.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
 
 [advisories]
-# Known vulnerabilities and yanked crates fail the check.
+# A yanked version is a version its author withdrew; do not ship it.
 yanked = "deny"
-# Unmaintained notices are only enforced for direct dependencies. The ones in the graph today
-# (instant, paste, rustls-pemfile, rustybuzz, ttf-parser) are pulled in by gpui and cannot be
-# swapped from here.
-unmaintained = "workspace"
+# Add an advisory here only with a comment giving its id, why it does not apply or cannot be
+# fixed yet, and a date to look at it again. Prefer upgrading the dependency.
+ignore = []
 
 [licenses]
-confidence-threshold = 0.9
+confidence-threshold = 0.93
+# Permissive licenses only. A copyleft license (GPL, AGPL, LGPL) is never added without a
+# decision from the maintainer.
 allow = [
-  "0BSD",
-  "Apache-2.0",
-  "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
-  "BSL-1.0",
-  "CC0-1.0",
-  "ISC",
-  "MIT",
-  "MIT-0",
-  "MPL-2.0",
-  "Unicode-3.0",
-  "Unlicense",
-  "Zlib",
-  "bzip2-1.0.6",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
 ]
 
 [bans]
-# Several graphics and windowing crates pull in two majors of the same crate; that is not
-# something this project can fix, so it is reported and not denied.
+# Two versions of one crate bloat the binary and double the surface to audit.
 multiple-versions = "warn"
+# `*` requirements are not reproducible; path dependencies inside the workspace are fine.
 wildcards = "deny"
-# A crate of this workspace depends on another by path, and a path carries no version.
 allow-wildcard-paths = true
+highlight = "all"
+# A deliberate exception goes here, with the reason in a comment.
+skip = []
+deny = []
 
 [sources]
+# Crates come from crates.io only: no unknown registry, no git dependency.
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
