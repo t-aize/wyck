@@ -36,23 +36,23 @@ pub struct Colors {
 impl Colors {
     /// The one palette of the interface: dark.
     pub const WYCK_DARK: Self = Self {
-        bg: 0x0a0a0a,
-        surface: 0x171717,
-        hover: 0x1f1f1f,
-        pressed: 0x282828,
-        fg: 0xfafafa,
-        muted: 0xa1a1a1,
-        accent: 0x7c86ff,
-        accent_fg: 0x0a0a0a,
-        selected: 0x615fff73,
-        danger: 0xff6467,
-        amber: 0xffb900,
-        emerald: 0x00d492,
-        up: 0x26a69a,
-        down: 0xef5350,
-        line: 0x5b8def,
-        tag: 0x363a45,
-        chart_bg: 0x0a0a0a,
+        bg: 0x0a_0a0a,
+        surface: 0x17_1717,
+        hover: 0x1f_1f1f,
+        pressed: 0x28_2828,
+        fg: 0xfa_fafa,
+        muted: 0xa1_a1a1,
+        accent: 0x7c_86ff,
+        accent_fg: 0x0a_0a0a,
+        selected: 0x615f_ff73,
+        danger: 0xff_6467,
+        amber: 0xff_b900,
+        emerald: 0x00_d492,
+        up: 0x26_a69a,
+        down: 0xef_5350,
+        line: 0x5b_8def,
+        tag: 0x36_3a45,
+        chart_bg: 0x0a_0a0a,
     };
 
     /// The text colors for what is drawn straight on the chart: the text, the secondary text and
@@ -64,8 +64,8 @@ impl Colors {
             (self.fg, self.muted, self.tag)
         } else {
             let bg = self.chart_bg;
-            let light = (0xf0f0f0, 0x9aa0a6, 0x363a45);
-            let dark = (0x1f2328, 0x57606a, 0xd0d7de);
+            let light = (0xf0_f0f0, 0x9a_a0a6, 0x36_3a45);
+            let dark = (0x1f_2328, 0x57_606a, 0xd0_d7de);
             let best = if contrast(dark.0, bg) >= contrast(light.0, bg) {
                 dark
             } else {
@@ -73,11 +73,11 @@ impl Colors {
             };
             if contrast(best.0, bg) >= 4.5 {
                 best
-            } else if contrast(0x000000, bg) >= contrast(0xffffff, bg) {
+            } else if contrast(0x00_0000, bg) >= contrast(0xff_ffff, bg) {
                 // A background in the middle of the range: plain black or white reads best.
-                (0x000000, 0x3a3a3a, dark.2)
+                (0x00_0000, 0x3a_3a3a, dark.2)
             } else {
-                (0xffffff, 0xd0d0d0, light.2)
+                (0xff_ffff, 0xd0_d0d0, light.2)
             }
         }
     }
@@ -97,15 +97,16 @@ pub fn contrast(a: u32, b: u32) -> f32 {
 
 /// The relative luminance of a `0xRRGGBB` color, from 0 (black) to 1 (white).
 pub fn luminance(color: u32) -> f32 {
-    let channel = |shift: u32| {
-        let c = ((color >> shift) & 0xff) as f32 / 255.0;
+    let [_, red, green, blue] = color.to_be_bytes();
+    let channel = |byte: u8| {
+        let c = f32::from(byte) / 255.0;
         if c <= 0.03928 {
             c / 12.92
         } else {
             ((c + 0.055) / 1.055).powf(2.4)
         }
     };
-    0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
 }
 
 /// The least and the most the interface can be scaled to, in percent.
@@ -132,18 +133,18 @@ mod tests {
 
     #[test]
     fn luminance_runs_from_black_to_white() {
-        assert!(luminance(0x000000) < 0.001);
-        assert!(luminance(0xffffff) > 0.99);
-        assert!(luminance(0x808080) > luminance(0x202020));
+        assert!(luminance(0x00_0000) < 0.001);
+        assert!(luminance(0xff_ffff) > 0.99);
+        assert!(luminance(0x80_8080) > luminance(0x20_2020));
     }
 
     #[test]
     fn contrast_is_one_for_equal_colors_and_twenty_one_for_black_on_white() {
-        assert!((contrast(0x336699, 0x336699) - 1.0).abs() < 1e-6);
-        assert!((contrast(0x000000, 0xffffff) - 21.0).abs() < 1e-3);
+        assert!((contrast(0x33_6699, 0x33_6699) - 1.0).abs() < 1e-6);
+        assert!((contrast(0x00_0000, 0xff_ffff) - 21.0).abs() < 1e-3);
         assert_eq!(
-            contrast(0x000000, 0xffffff),
-            contrast(0xffffff, 0x000000),
+            contrast(0x00_0000, 0xff_ffff),
+            contrast(0xff_ffff, 0x00_0000),
             "the order does not matter"
         );
     }

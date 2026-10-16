@@ -18,8 +18,9 @@ Depends on: `serde` only (no other crate of the workspace). Everything above may
 
 ## Invariants and traps
 
-- `math` functions index their inputs without checking: series passed together must have the same
-  length. A caller that takes a series from outside (a script) compares the lengths first.
+- Series passed together to a `math` function must have the same length. A shorter one reads as
+  gaps (`NaN`) past its end instead of panicking, but the result is then meaningless: a caller that
+  takes a series from outside (a script) compares the lengths first.
 - A `NaN` in a series is a gap: averages restart after it. Keep outputs aligned index for index
   with the bars they were computed from.
 - `math` is here, and not in `wyck-indicators`, because `wyck-trading` needs `atr` below the

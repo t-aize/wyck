@@ -27,9 +27,15 @@ fn percent() -> u32 {
     PERCENT.load(Ordering::Relaxed)
 }
 
+/// A percent as an `f32`. The scale is kept between [`SCALE_MIN`] and [`SCALE_MAX`], far below
+/// `u16::MAX`, so the conversion is exact.
+fn percent_f32(percent: u32) -> f32 {
+    f32::from(u16::try_from(percent).unwrap_or(u16::MAX))
+}
+
 /// The scale in force as a factor: 1.0 at 100 percent.
 pub fn factor() -> f32 {
-    percent() as f32 / 100.0
+    percent_f32(percent()) / 100.0
 }
 
 /// A size at the scale in force.
@@ -39,7 +45,7 @@ pub fn scaled(base: f32) -> f32 {
 
 /// A size at a scale given in percent.
 fn at(base: f32, percent: u32) -> f32 {
-    base * clamped(percent) as f32 / 100.0
+    base * percent_f32(clamped(percent)) / 100.0
 }
 
 #[cfg(test)]

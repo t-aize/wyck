@@ -4,11 +4,216 @@
 //! is not defined yet (the first `period - 1` points of a moving average, for example). A `NaN`
 //! in the input is skipped the way a gap is: averages restart after it. That keeps every output
 //! aligned index for index with the bars it was computed from, which is what the chart plots.
-//! Series passed together must have the same length: the functions index them without checking,
-//! so a caller that takes a series from outside (a script) compares the lengths first.
+//! Series passed together must have the same length: a shorter one reads as gaps past its end,
+//! so a caller that takes a series from outside (a script) still compares the lengths first.
 //!
 //! The definitions follow the usual references (Wilder for RSI and ATR, Appel for MACD,
 //! Bollinger for the bands), and the tests check them against values worked out by hand.
+
+/// A count (a period, a series length) as an `f64`.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a period or a series length is far below 2^53, so the conversion is exact"
+)]
+#[must_use]
+pub const fn count_f64(count: usize) -> f64 {
+    count as f64
+}
+
+/// An `i64` as an `f64`, rounded to the nearest representable value exactly as `value as f64`
+/// does, but without the cast: the two halves of the integer are each exact in an `f64`, so their
+/// sum is rounded once, by the hardware, the same way. Prices and volumes go through here, so that
+/// the conversion is written down in one place instead of being an unmarked `as`.
+#[must_use]
+pub fn i64_to_f64(value: i64) -> f64 {
+    let [h3, h2, h1, h0, l3, l2, l1, l0] = value.to_be_bytes();
+    let high = i32::from_be_bytes([h3, h2, h1, h0]);
+    let low = u32::from_be_bytes([l3, l2, l1, l0]);
+    f64::from(high) * TWO_POW_32 + f64::from(low)
+}
+
+/// A `u64` as an `f64`, rounded like `value as f64`; see [`i64_to_f64`].
+#[must_use]
+pub fn u64_to_f64(value: u64) -> f64 {
+    let [h3, h2, h1, h0, l3, l2, l1, l0] = value.to_be_bytes();
+    let high = u32::from_be_bytes([h3, h2, h1, h0]);
+    let low = u32::from_be_bytes([l3, l2, l1, l0]);
+    f64::from(high) * TWO_POW_32 + f64::from(low)
+}
+
+const TWO_POW_32: f64 = 4_294_967_296.0;
+
+/// A coordinate, a size or a factor worked out in `f64` as the `f32` the screen uses. The rounding
+/// is far below one pixel. For display only: money stays in `f64` and goes through [`f64_to_i64`].
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "screen coordinates are f32 and the rounding of the conversion is far below a pixel"
+)]
+#[must_use]
+pub const fn f32_of(value: f64) -> f32 {
+    value as f32
+}
+
+/// An `f64` as a `usize` with the semantics of `as`: the fraction is cut, `NaN` and negative
+/// values give 0 and a value out of range clamps. The caller rounds or floors first.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the saturating cast is the wanted behaviour: NaN and negatives give 0, too large clamps"
+)]
+#[must_use]
+pub const fn f64_to_usize(value: f64) -> usize {
+    value as usize
+}
+
+/// An `f32` as a `usize` with the semantics of `as`; see [`f64_to_usize`].
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the saturating cast is the wanted behaviour: NaN and negatives give 0, too large clamps"
+)]
+#[must_use]
+pub const fn f32_to_usize(value: f32) -> usize {
+    value as usize
+}
+
+/// An `f64` as a `u64` with the semantics of `as`: the fraction is cut, `NaN` and negative values
+/// give 0 and a value out of range clamps. The caller rounds or floors first.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the saturating cast is the wanted behaviour: NaN and negatives give 0, too large clamps"
+)]
+#[must_use]
+pub const fn f64_to_u64(value: f64) -> u64 {
+    value as u64
+}
+
+/// An `f32` as an `i32` with the semantics of `as`: the fraction is cut, `NaN` gives 0 and a value
+/// out of range clamps. The caller rounds or floors first.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the saturating cast is the wanted behaviour: NaN gives 0 and out of range clamps"
+)]
+#[must_use]
+pub const fn f32_to_i32(value: f32) -> i32 {
+    value as i32
+}
+
+/// An `f32` as an `i64`; see [`f32_to_i32`].
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the saturating cast is the wanted behaviour: NaN gives 0 and out of range clamps"
+)]
+#[must_use]
+pub const fn f32_to_i64(value: f32) -> i64 {
+    value as i64
+}
+
+/// An `f32` as a `u32` with the semantics of `as`; see [`f64_to_u32`].
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the saturating cast is the wanted behaviour: NaN and negatives give 0, too large clamps"
+)]
+#[must_use]
+pub const fn f32_to_u32(value: f32) -> u32 {
+    value as u32
+}
+
+/// A `u64` (a volume, a count of trades) as an `f32` for a size on the screen, rounded exactly as
+/// `value as f32` rounds it.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the value is only drawn: a bar width or a ratio, where the f32 precision is plenty"
+)]
+#[must_use]
+pub const fn u64_to_f32(value: u64) -> f32 {
+    value as f32
+}
+
+/// An `i64` (a time or a count) as an `f32` for a position on the screen, rounded exactly as
+/// `value as f32` rounds it.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the value is only drawn: a position or a size, where the f32 precision is plenty"
+)]
+#[must_use]
+pub const fn i64_to_f32(value: i64) -> f32 {
+    value as f32
+}
+
+/// A count as an `i64`. A length never comes near `i64::MAX`; past it the result clamps.
+#[must_use]
+pub fn count_i64(count: usize) -> i64 {
+    i64::try_from(count).unwrap_or(i64::MAX)
+}
+
+/// A count (an index, a number of bars) as an `f32` for a coordinate or a factor.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a count of bars or points is far below 2^24, so the conversion is exact"
+)]
+#[must_use]
+pub const fn count_f32(count: usize) -> f32 {
+    count as f32
+}
+
+/// An `f64` as an `i64` with the semantics of `as`: the fraction is cut, `NaN` gives 0 and a value
+/// out of range clamps to `i64::MIN` or `i64::MAX`. The caller rounds or floors first. This is the
+/// one place where prices, volumes and amounts of money leave the floating point world.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the saturating cast is the wanted behaviour: NaN gives 0 and out of range clamps"
+)]
+#[must_use]
+pub const fn f64_to_i64(value: f64) -> i64 {
+    value as i64
+}
+
+/// An `f64` as a `u32` with the semantics of `as`: the fraction is cut, `NaN` and negative values
+/// give 0 and a value out of range clamps to `u32::MAX`. The caller rounds or floors first.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the saturating cast is the wanted behaviour: NaN and negatives give 0, too large clamps"
+)]
+#[must_use]
+pub const fn f64_to_u32(value: f64) -> u32 {
+    value as u32
+}
+
+/// Reading and writing a series of `f64` by index without a panic: a read past the end is `NaN`
+/// (a gap) and a write past the end does nothing. Series passed together are meant to have the
+/// same length; this is what keeps a shorter one from taking the app down.
+pub trait Series {
+    /// The value at `index`, or `NaN` past the end.
+    fn at(&self, index: usize) -> f64;
+    /// Stores `value` at `index`; nothing happens past the end.
+    fn put(&mut self, index: usize, value: f64);
+}
+
+impl Series for [f64] {
+    fn at(&self, index: usize) -> f64 {
+        at(self, index)
+    }
+
+    fn put(&mut self, index: usize, value: f64) {
+        set(self, index, value);
+    }
+}
+
+/// `series[index]`, or `NaN` past its end.
+fn at(series: &[f64], index: usize) -> f64 {
+    series.get(index).copied().unwrap_or(f64::NAN)
+}
+
+/// Stores `value` at `index` of `series`; nothing happens past its end.
+fn set(series: &mut [f64], index: usize, value: f64) {
+    if let Some(slot) = series.get_mut(index) {
+        *slot = value;
+    }
+}
 
 /// Simple moving average over `period` points.
 pub fn sma(values: &[f64], period: usize) -> Vec<f64> {
@@ -18,7 +223,7 @@ pub fn sma(values: &[f64], period: usize) -> Vec<f64> {
     }
     let mut sum = 0.0;
     let mut run = 0usize;
-    for (i, &v) in values.iter().enumerate() {
+    for (i, (&v, slot)) in values.iter().zip(&mut out).enumerate() {
         if !v.is_finite() {
             sum = 0.0;
             run = 0;
@@ -27,11 +232,11 @@ pub fn sma(values: &[f64], period: usize) -> Vec<f64> {
         sum += v;
         run += 1;
         if run > period {
-            sum -= values[i - period];
+            sum -= at(values, i - period);
             run = period;
         }
         if run == period {
-            out[i] = sum / period as f64;
+            *slot = sum / count_f64(period);
         }
     }
     out
@@ -47,27 +252,24 @@ fn smoothed(values: &[f64], period: usize, alpha: f64) -> Vec<f64> {
     let mut prev: Option<f64> = None;
     let mut seed_sum = 0.0;
     let mut seed_run = 0usize;
-    for (i, &v) in values.iter().enumerate() {
+    for (&v, slot) in values.iter().zip(&mut out) {
         if !v.is_finite() {
             prev = None;
             seed_sum = 0.0;
             seed_run = 0;
             continue;
         }
-        match prev {
-            Some(p) => {
-                let next = p + alpha * (v - p);
-                out[i] = next;
-                prev = Some(next);
-            }
-            None => {
-                seed_sum += v;
-                seed_run += 1;
-                if seed_run == period {
-                    let seed = seed_sum / period as f64;
-                    out[i] = seed;
-                    prev = Some(seed);
-                }
+        if let Some(p) = prev {
+            let next = p + alpha * (v - p);
+            *slot = next;
+            prev = Some(next);
+        } else {
+            seed_sum += v;
+            seed_run += 1;
+            if seed_run == period {
+                let seed = seed_sum / count_f64(period);
+                *slot = seed;
+                prev = Some(seed);
             }
         }
     }
@@ -76,12 +278,12 @@ fn smoothed(values: &[f64], period: usize, alpha: f64) -> Vec<f64> {
 
 /// Exponential moving average: `alpha = 2 / (period + 1)`.
 pub fn ema(values: &[f64], period: usize) -> Vec<f64> {
-    smoothed(values, period, 2.0 / (period as f64 + 1.0))
+    smoothed(values, period, 2.0 / (count_f64(period) + 1.0))
 }
 
 /// Wilder's smoothing (RMA, SMMA): `alpha = 1 / period`.
 pub fn rma(values: &[f64], period: usize) -> Vec<f64> {
-    smoothed(values, period, 1.0 / period.max(1) as f64)
+    smoothed(values, period, 1.0 / count_f64(period.max(1)))
 }
 
 /// Linearly weighted moving average: the newest point weighs `period`, the oldest 1.
@@ -90,16 +292,15 @@ pub fn wma(values: &[f64], period: usize) -> Vec<f64> {
     if period == 0 {
         return out;
     }
-    let denominator = (period * (period + 1)) as f64 / 2.0;
-    for i in period.saturating_sub(1)..values.len() {
-        let window = &values[i + 1 - period..=i];
+    let denominator = count_f64(period * (period + 1)) / 2.0;
+    for (slot, window) in out.iter_mut().skip(period - 1).zip(values.windows(period)) {
         if window.iter().all(|v| v.is_finite()) {
             let weighted: f64 = window
                 .iter()
                 .enumerate()
-                .map(|(k, v)| v * (k + 1) as f64)
+                .map(|(k, v)| v * count_f64(k + 1))
                 .sum();
-            out[i] = weighted / denominator;
+            *slot = weighted / denominator;
         }
     }
     out
@@ -110,7 +311,13 @@ pub fn hma(values: &[f64], period: usize) -> Vec<f64> {
     let half = wma(values, (period / 2).max(1));
     let full = wma(values, period);
     let diff: Vec<f64> = half.iter().zip(&full).map(|(h, f)| 2.0 * h - f).collect();
-    wma(&diff, ((period as f64).sqrt().round() as usize).max(1))
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the square root of a period is a small positive number, so rounding it fits a usize"
+    )]
+    let root = count_f64(period).sqrt().round() as usize;
+    wma(&diff, root.max(1))
 }
 
 /// The population standard deviation over `period` points (what Bollinger used).
@@ -119,12 +326,12 @@ pub fn stdev(values: &[f64], period: usize) -> Vec<f64> {
     if period == 0 {
         return out;
     }
-    for i in period.saturating_sub(1)..values.len() {
-        let window = &values[i + 1 - period..=i];
+    for (slot, window) in out.iter_mut().skip(period - 1).zip(values.windows(period)) {
         if window.iter().all(|v| v.is_finite()) {
-            let mean = window.iter().sum::<f64>() / period as f64;
-            let variance = window.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / period as f64;
-            out[i] = variance.sqrt();
+            let mean = window.iter().sum::<f64>() / count_f64(period);
+            let variance =
+                window.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / count_f64(period);
+            *slot = variance.sqrt();
         }
     }
     out
@@ -145,10 +352,9 @@ fn window_fold(values: &[f64], period: usize, fold: fn(f64, f64) -> f64) -> Vec<
     if period == 0 {
         return out;
     }
-    for i in period.saturating_sub(1)..values.len() {
-        let window = &values[i + 1 - period..=i];
+    for (slot, window) in out.iter_mut().skip(period - 1).zip(values.windows(period)) {
         if window.iter().all(|v| v.is_finite()) {
-            out[i] = window.iter().copied().reduce(fold).unwrap_or(f64::NAN);
+            *slot = window.iter().copied().reduce(fold).unwrap_or(f64::NAN);
         }
     }
     out
@@ -160,10 +366,10 @@ pub fn rsi(values: &[f64], period: usize) -> Vec<f64> {
     let mut gains = vec![f64::NAN; n];
     let mut losses = vec![f64::NAN; n];
     for i in 1..n {
-        let change = values[i] - values[i - 1];
+        let change = at(values, i) - at(values, i - 1);
         if change.is_finite() {
-            gains[i] = change.max(0.0);
-            losses[i] = (-change).max(0.0);
+            set(&mut gains, i, change.max(0.0));
+            set(&mut losses, i, (-change).max(0.0));
         }
     }
     let (avg_gain, avg_loss) = (rma(&gains, period), rma(&losses, period));
@@ -200,13 +406,13 @@ pub fn macd(
 pub fn true_range(high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
     (0..high.len())
         .map(|i| {
-            let range = high[i] - low[i];
-            if i == 0 || !close[i - 1].is_finite() {
+            let range = at(high, i) - at(low, i);
+            if i == 0 || !at(close, i - 1).is_finite() {
                 range
             } else {
                 range
-                    .max((high[i] - close[i - 1]).abs())
-                    .max((low[i] - close[i - 1]).abs())
+                    .max((at(high, i) - at(close, i - 1)).abs())
+                    .max((at(low, i) - at(close, i - 1)).abs())
             }
         })
         .collect()
@@ -229,9 +435,9 @@ pub fn stochastic(
     let (hh, ll) = (highest(high, period), lowest(low, period));
     let raw: Vec<f64> = (0..close.len())
         .map(|i| {
-            let span = hh[i] - ll[i];
+            let span = at(&hh, i) - at(&ll, i);
             if span.is_finite() && span > 0.0 {
-                (close[i] - ll[i]) / span * 100.0
+                (at(close, i) - at(&ll, i)) / span * 100.0
             } else if span == 0.0 {
                 50.0
             } else {
@@ -249,17 +455,25 @@ pub fn stochastic(
 pub fn cci(typical: &[f64], period: usize) -> Vec<f64> {
     let mean = sma(typical, period);
     let mut out = vec![f64::NAN; typical.len()];
-    for i in period.saturating_sub(1)..typical.len() {
-        if !mean[i].is_finite() || period == 0 {
+    if period == 0 {
+        return out;
+    }
+    for (i, window) in typical.windows(period).enumerate() {
+        let i = i + period - 1;
+        let centre = at(&mean, i);
+        if !centre.is_finite() {
             continue;
         }
-        let window = &typical[i + 1 - period..=i];
-        let deviation = window.iter().map(|v| (v - mean[i]).abs()).sum::<f64>() / period as f64;
-        out[i] = if deviation > 0.0 {
-            (typical[i] - mean[i]) / (0.015 * deviation)
-        } else {
-            0.0
-        };
+        let deviation = window.iter().map(|v| (v - centre).abs()).sum::<f64>() / count_f64(period);
+        set(
+            &mut out,
+            i,
+            if deviation > 0.0 {
+                (at(typical, i) - centre) / (0.015 * deviation)
+            } else {
+                0.0
+            },
+        );
     }
     out
 }
@@ -269,9 +483,9 @@ pub fn williams_r(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Ve
     let (hh, ll) = (highest(high, period), lowest(low, period));
     (0..close.len())
         .map(|i| {
-            let span = hh[i] - ll[i];
+            let span = at(&hh, i) - at(&ll, i);
             if span > 0.0 {
-                (hh[i] - close[i]) / span * -100.0
+                (at(&hh, i) - at(close, i)) / span * -100.0
             } else if span == 0.0 {
                 -50.0
             } else {
@@ -285,15 +499,15 @@ pub fn williams_r(high: &[f64], low: &[f64], close: &[f64], period: usize) -> Ve
 pub fn obv(close: &[f64], volume: &[f64]) -> Vec<f64> {
     let mut out = vec![f64::NAN; close.len()];
     let mut total = 0.0;
-    for i in 0..close.len() {
-        if i > 0 && close[i].is_finite() && close[i - 1].is_finite() {
-            if close[i] > close[i - 1] {
-                total += volume[i];
-            } else if close[i] < close[i - 1] {
-                total -= volume[i];
+    for (i, slot) in out.iter_mut().enumerate() {
+        if i > 0 && at(close, i).is_finite() && at(close, i - 1).is_finite() {
+            if at(close, i) > at(close, i - 1) {
+                total += at(volume, i);
+            } else if at(close, i) < at(close, i - 1) {
+                total -= at(volume, i);
             }
         }
-        out[i] = total;
+        *slot = total;
     }
     out
 }
@@ -303,7 +517,7 @@ pub fn momentum(values: &[f64], period: usize) -> Vec<f64> {
     (0..values.len())
         .map(|i| {
             if i >= period {
-                values[i] - values[i - period]
+                at(values, i) - at(values, i - period)
             } else {
                 f64::NAN
             }
@@ -323,21 +537,23 @@ pub fn dmi(
     let mut plus = vec![f64::NAN; n];
     let mut minus = vec![f64::NAN; n];
     for i in 1..n {
-        let up = high[i] - high[i - 1];
-        let down = low[i - 1] - low[i];
-        plus[i] = if up > down && up > 0.0 { up } else { 0.0 };
-        minus[i] = if down > up && down > 0.0 { down } else { 0.0 };
+        let up = at(high, i) - at(high, i - 1);
+        let down = at(low, i - 1) - at(low, i);
+        set(&mut plus, i, if up > down && up > 0.0 { up } else { 0.0 });
+        set(
+            &mut minus,
+            i,
+            if down > up && down > 0.0 { down } else { 0.0 },
+        );
     }
     let mut tr = true_range(high, low, close);
-    if n > 0 {
-        // The first bar has no previous close: it only seeds the ranges above.
-        tr[0] = f64::NAN;
-    }
+    // The first bar has no previous close: it only seeds the ranges above.
+    set(&mut tr, 0, f64::NAN);
     let (atr, p, m) = (rma(&tr, period), rma(&plus, period), rma(&minus, period));
     let plus_di: Vec<f64> = (0..n)
         .map(|i| {
-            if atr[i] > 0.0 {
-                p[i] / atr[i] * 100.0
+            if at(&atr, i) > 0.0 {
+                at(&p, i) / at(&atr, i) * 100.0
             } else {
                 f64::NAN
             }
@@ -345,18 +561,20 @@ pub fn dmi(
         .collect();
     let minus_di: Vec<f64> = (0..n)
         .map(|i| {
-            if atr[i] > 0.0 {
-                m[i] / atr[i] * 100.0
+            if at(&atr, i) > 0.0 {
+                at(&m, i) / at(&atr, i) * 100.0
             } else {
                 f64::NAN
             }
         })
         .collect();
-    let dx: Vec<f64> = (0..n)
-        .map(|i| {
-            let sum = plus_di[i] + minus_di[i];
+    let dx: Vec<f64> = plus_di
+        .iter()
+        .zip(&minus_di)
+        .map(|(&plus_di, &minus_di)| {
+            let sum = plus_di + minus_di;
             if sum > 0.0 {
-                (plus_di[i] - minus_di[i]).abs() / sum * 100.0
+                (plus_di - minus_di).abs() / sum * 100.0
             } else if sum == 0.0 {
                 0.0
             } else {
@@ -374,41 +592,41 @@ pub fn parabolic_sar(high: &[f64], low: &[f64], start: f64, step: f64, max: f64)
     if n < 2 {
         return out;
     }
-    let mut long = high[1] >= high[0];
+    let mut long = at(high, 1) >= at(high, 0);
     let mut af = start;
     let mut ep = if long {
-        high[0].max(high[1])
+        at(high, 0).max(at(high, 1))
     } else {
-        low[0].min(low[1])
+        at(low, 0).min(at(low, 1))
     };
-    let mut sar = if long { low[0] } else { high[0] };
-    out[1] = sar;
+    let mut sar = if long { at(low, 0) } else { at(high, 0) };
+    set(&mut out, 1, sar);
     for i in 2..n {
         sar += af * (ep - sar);
         if long {
-            sar = sar.min(low[i - 1]).min(low[i - 2]);
-            if low[i] < sar {
+            sar = sar.min(at(low, i - 1)).min(at(low, i - 2));
+            if at(low, i) < sar {
                 long = false;
                 sar = ep;
-                ep = low[i];
+                ep = at(low, i);
                 af = start;
-            } else if high[i] > ep {
-                ep = high[i];
+            } else if at(high, i) > ep {
+                ep = at(high, i);
                 af = (af + step).min(max);
             }
         } else {
-            sar = sar.max(high[i - 1]).max(high[i - 2]);
-            if high[i] > sar {
+            sar = sar.max(at(high, i - 1)).max(at(high, i - 2));
+            if at(high, i) > sar {
                 long = true;
                 sar = ep;
-                ep = high[i];
+                ep = at(high, i);
                 af = start;
-            } else if low[i] < ep {
-                ep = low[i];
+            } else if at(low, i) < ep {
+                ep = at(low, i);
                 af = (af + step).min(max);
             }
         }
-        out[i] = sar;
+        set(&mut out, i, sar);
     }
     out
 }
@@ -417,20 +635,17 @@ pub fn parabolic_sar(high: &[f64], low: &[f64], start: f64, step: f64, max: f64)
 pub fn vwap(values: &[f64], volume: &[f64], day: &[i64]) -> Vec<f64> {
     let mut out = vec![f64::NAN; values.len()];
     let (mut weighted, mut total, mut current) = (0.0, 0.0, None);
-    for i in 0..values.len() {
-        if current != Some(day[i]) {
-            current = Some(day[i]);
+    for (slot, ((&value, &volume), &day)) in out.iter_mut().zip(values.iter().zip(volume).zip(day))
+    {
+        if current != Some(day) {
+            current = Some(day);
             weighted = 0.0;
             total = 0.0;
         }
-        let v = volume[i].max(0.0);
-        weighted += values[i] * v;
+        let v = volume.max(0.0);
+        weighted += value * v;
         total += v;
-        out[i] = if total > 0.0 {
-            weighted / total
-        } else {
-            values[i]
-        };
+        *slot = if total > 0.0 { weighted / total } else { value };
     }
     out
 }
@@ -449,7 +664,7 @@ pub fn vwma(values: &[f64], volume: &[f64], period: usize) -> Vec<f64> {
 pub fn sum(values: &[f64], period: usize) -> Vec<f64> {
     sma(values, period)
         .into_iter()
-        .map(|mean| mean * period as f64)
+        .map(|mean| mean * count_f64(period))
         .collect()
 }
 
@@ -471,8 +686,8 @@ pub fn cumulative(values: &[f64]) -> Vec<f64> {
 pub fn roc(values: &[f64], period: usize) -> Vec<f64> {
     (0..values.len())
         .map(|i| {
-            if i >= period && values[i - period] != 0.0 {
-                (values[i] / values[i - period] - 1.0) * 100.0
+            if i >= period && at(values, i - period) != 0.0 {
+                (at(values, i) / at(values, i - period) - 1.0) * 100.0
             } else {
                 f64::NAN
             }
@@ -488,23 +703,23 @@ pub fn linear_regression(values: &[f64], period: usize) -> (Vec<f64>, Vec<f64>) 
     if period < 2 {
         return (level, slope);
     }
-    let p = period as f64;
+    let p = count_f64(period);
     let mean_x = (p - 1.0) / 2.0;
-    let sxx: f64 = (0..period).map(|k| (k as f64 - mean_x).powi(2)).sum();
-    for i in period - 1..n {
-        let window = &values[i + 1 - period..=i];
+    let sxx: f64 = (0..period).map(|k| (count_f64(k) - mean_x).powi(2)).sum();
+    for (i, window) in values.windows(period).enumerate() {
         if !window.iter().all(|v| v.is_finite()) {
             continue;
         }
+        let i = i + period - 1;
         let mean_y = window.iter().sum::<f64>() / p;
         let sxy: f64 = window
             .iter()
             .enumerate()
-            .map(|(k, y)| (k as f64 - mean_x) * (y - mean_y))
+            .map(|(k, y)| (count_f64(k) - mean_x) * (y - mean_y))
             .sum();
         let b = sxy / sxx;
-        slope[i] = b;
-        level[i] = mean_y + b * (p - 1.0 - mean_x);
+        set(&mut slope, i, b);
+        set(&mut level, i, mean_y + b * (p - 1.0 - mean_x));
     }
     (level, slope)
 }
@@ -514,14 +729,16 @@ pub fn mfi(typical: &[f64], volume: &[f64], period: usize) -> Vec<f64> {
     let n = typical.len();
     let (mut up, mut down) = (vec![f64::NAN; n], vec![f64::NAN; n]);
     for i in 1..n {
-        let flow = typical[i] * volume[i];
-        if typical[i] > typical[i - 1] {
-            (up[i], down[i]) = (flow, 0.0);
-        } else if typical[i] < typical[i - 1] {
-            (up[i], down[i]) = (0.0, flow);
+        let flow = at(typical, i) * at(volume, i);
+        let (rise, fall) = if at(typical, i) > at(typical, i - 1) {
+            (flow, 0.0)
+        } else if at(typical, i) < at(typical, i - 1) {
+            (0.0, flow)
         } else {
-            (up[i], down[i]) = (0.0, 0.0);
-        }
+            (0.0, 0.0)
+        };
+        set(&mut up, i, rise);
+        set(&mut down, i, fall);
     }
     let (up, down) = (sum(&up, period), sum(&down, period));
     up.iter()
@@ -553,13 +770,18 @@ pub fn supertrend(
     let (mut upper, mut lower) = (f64::NAN, f64::NAN);
     let mut trend = 1.0;
     for i in 0..n {
-        if !range[i].is_finite() {
+        let width = at(&range, i);
+        if !width.is_finite() {
             continue;
         }
-        let mid = (high[i] + low[i]) / 2.0;
-        let (basic_upper, basic_lower) = (mid + mult * range[i], mid - mult * range[i]);
+        let mid = f64::midpoint(at(high, i), at(low, i));
+        let (basic_upper, basic_lower) = (mid + mult * width, mid - mult * width);
         let first = !upper.is_finite();
-        let previous_close = if i > 0 { close[i - 1] } else { close[i] };
+        let previous_close = if i > 0 {
+            at(close, i - 1)
+        } else {
+            at(close, i)
+        };
         let new_upper = if first || basic_upper < upper || previous_close > upper {
             basic_upper
         } else {
@@ -571,16 +793,16 @@ pub fn supertrend(
             lower
         };
         if !first {
-            if trend < 0.0 && close[i] > upper {
+            if trend < 0.0 && at(close, i) > upper {
                 trend = 1.0;
-            } else if trend > 0.0 && close[i] < lower {
+            } else if trend > 0.0 && at(close, i) < lower {
                 trend = -1.0;
             }
         }
         upper = new_upper;
         lower = new_lower;
-        direction[i] = trend;
-        line[i] = if trend > 0.0 { lower } else { upper };
+        set(&mut direction, i, trend);
+        set(&mut line, i, if trend > 0.0 { lower } else { upper });
     }
     (line, direction)
 }
@@ -618,6 +840,89 @@ mod tests {
     }
 
     const NAN: f64 = f64::NAN;
+
+    #[test]
+    fn a_series_reads_nan_and_ignores_writes_past_its_end() {
+        let mut series = vec![1.0, 2.0];
+        assert_eq!(series.at(1), 2.0);
+        assert!(series.at(2).is_nan());
+        series.put(0, 5.0);
+        series.put(9, 7.0);
+        assert_eq!(series, vec![5.0, 2.0]);
+    }
+
+    #[test]
+    fn floats_leave_the_float_world_by_saturating() {
+        assert_eq!(f64_to_i64(1.9), 1);
+        assert_eq!(f64_to_i64(-1.9), -1);
+        assert_eq!(f64_to_i64(1e30), i64::MAX);
+        assert_eq!(f64_to_i64(-1e30), i64::MIN);
+        assert_eq!(f64_to_i64(f64::INFINITY), i64::MAX);
+        assert_eq!(f64_to_i64(f64::NAN), 0);
+        assert_eq!(f64_to_u32(1.9), 1);
+        assert_eq!(f64_to_u32(-1.9), 0);
+        assert_eq!(f64_to_u32(4_294_967_296.0), u32::MAX);
+        assert_eq!(f64_to_u32(f64::NAN), 0);
+        assert_eq!(f64_to_usize(2.9), 2);
+        assert_eq!(f64_to_usize(-2.9), 0);
+        assert_eq!(f64_to_usize(f64::NAN), 0);
+        assert_eq!(f32_to_usize(7.9), 7);
+        assert_eq!(f32_to_usize(-1.0), 0);
+        assert_eq!(count_i64(5), 5);
+        assert_eq!(f64_to_u64(3.7), 3);
+        assert_eq!(f64_to_u64(-3.7), 0);
+        assert_eq!(f32_to_i32(-2.5), -2);
+        assert_eq!(f32_to_i32(f32::NAN), 0);
+        assert_eq!(f32_to_i64(1e30), i64::MAX);
+        assert_eq!(f32_to_u32(-1.0), 0);
+        assert_eq!(f32_to_u32(9.9), 9);
+        assert_eq!(u64_to_f32(3), 3.0);
+        assert_eq!(i64_to_f32(-3), -3.0);
+    }
+
+    #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the test compares the helpers with the cast they replace"
+    )]
+    fn integers_convert_to_floats_like_the_cast_does() {
+        let edges = [
+            0i64,
+            1,
+            -1,
+            (1 << 53) - 1,
+            1 << 53,
+            (1 << 53) + 1,
+            (1 << 53) + 3,
+            -(1 << 53) - 1,
+            -(1 << 53) - 3,
+            i64::MAX,
+            i64::MAX - 1,
+            i64::MIN,
+            i64::MIN + 1,
+            108_501,
+            2_965_960,
+        ];
+        for v in edges {
+            assert_eq!(i64_to_f64(v).to_bits(), (v as f64).to_bits(), "{v}");
+            assert_eq!(
+                u64_to_f64(v.unsigned_abs()).to_bits(),
+                (v.unsigned_abs() as f64).to_bits(),
+                "{v}"
+            );
+        }
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        for _ in 0..200_000 {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            let signed = i64::from_be_bytes(state.to_be_bytes());
+            assert_eq!(i64_to_f64(signed).to_bits(), (signed as f64).to_bits());
+            assert_eq!(u64_to_f64(state).to_bits(), (state as f64).to_bits());
+            let shifted = signed >> (state % 63);
+            assert_eq!(i64_to_f64(shifted).to_bits(), (shifted as f64).to_bits());
+        }
+    }
 
     #[test]
     fn a_simple_average_waits_for_its_period() {

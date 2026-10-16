@@ -14,11 +14,19 @@ enum Num {
     Text(String),
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the caller checked that the value is whole and below 9.0e15 in magnitude, so it fits an i64 exactly"
+)]
+fn whole_to_i64(value: f64) -> i64 {
+    value as i64
+}
+
 fn to_i64<E: Error>(value: Num) -> Result<i64, E> {
     match value {
         Num::Int(v) => Ok(v),
         Num::Uint(v) => i64::try_from(v).map_err(|_| E::custom("number out of range")),
-        Num::Float(v) if v.fract() == 0.0 && v.abs() < 9.0e15 => Ok(v as i64),
+        Num::Float(v) if v.fract() == 0.0 && v.abs() < 9.0e15 => Ok(whole_to_i64(v)),
         Num::Float(_) => Err(E::custom("not a whole number")),
         Num::Text(text) => text
             .trim()
