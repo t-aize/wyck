@@ -90,7 +90,7 @@ pub(super) fn alert_log(ctx: &Ctx) -> Table {
             }
         };
         let cells = vec![
-            Cell::text(ctx.time(firing.at)),
+            Cell::text(Ctx::time(firing.at)),
             Cell::text(firing.symbol.clone()),
             text_or_dash(&firing.watched),
             text_or_dash(&firing.condition),

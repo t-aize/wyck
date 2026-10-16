@@ -76,7 +76,7 @@ impl Render for AlertEditor {
                 watch.push(form::field(
                     "Indicator",
                     None,
-                    self.select("alert-indicator", spec.label.to_owned(), items, window, cx),
+                    Self::select("alert-indicator", spec.label.to_owned(), items, window, cx),
                 ));
                 if spec.plots.len() > 1 {
                     let labels: Vec<&str> = spec.plots.iter().take(4).map(|p| p.label).collect();
@@ -118,17 +118,17 @@ impl Render for AlertEditor {
                         &labels,
                         PriceKind::ALL.iter().position(|p| *p == price).unwrap_or(0),
                         move |choice, _window, cx| {
-                            price_this.update(cx, |e, cx| {
-                                e.draft.source = Source::Price {
-                                    price: PriceKind::ALL[choice],
-                                };
-                                cx.notify();
-                            });
+                            if let Some(&price) = PriceKind::ALL.get(choice) {
+                                price_this.update(cx, |e, cx| {
+                                    e.draft.source = Source::Price { price };
+                                    cx.notify();
+                                });
+                            }
                         },
                     ),
                 ));
             }
-            Source::Spread { .. } => {}
+            Source::Spread { .. } | Source::Drawing { .. } => {}
             Source::Pnl { scope } => {
                 // The choices: the whole account, the symbol, and the one position this alert
                 // was made for (it cannot be chosen here, only kept).
@@ -163,7 +163,6 @@ impl Render for AlertEditor {
                     }),
                 ));
             }
-            Source::Drawing { .. } => {}
         }
 
         // The condition and what it is compared with.
@@ -187,7 +186,7 @@ impl Render for AlertEditor {
         let mut when = vec![form::field(
             "Fires when it",
             None,
-            self.select(
+            Self::select(
                 "alert-condition",
                 condition.label().to_owned(),
                 cond_items,
@@ -276,7 +275,7 @@ impl Render for AlertEditor {
         let mut often = vec![form::field(
             "How often",
             Some("Once per bar close judges the closed bars only"),
-            self.select(
+            Self::select(
                 "alert-trigger",
                 trigger.label().to_owned(),
                 trig_items,
@@ -306,12 +305,12 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text =
-                wyck_market::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
+            let text = wyck_market::Timeframe::from_code(&current)
+                .map_or(current.clone(), wyck_market::Timeframe::label);
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),
-                self.select("alert-timeframe", text, tf_items, window, cx),
+                Self::select("alert-timeframe", text, tf_items, window, cx),
             ));
         }
         let sticky_this = cx.entity();
@@ -349,7 +348,9 @@ impl Render for AlertEditor {
                 &[sound_at],
                 move |index, _w, cx| {
                     sound_this.update(cx, |e, cx| {
-                        e.draft.sound = index.checked_sub(1).map(|i| SoundKind::ALL[i]);
+                        e.draft.sound = index
+                            .checked_sub(1)
+                            .and_then(|i| SoundKind::ALL.get(i).copied());
                         cx.notify();
                     });
                 },

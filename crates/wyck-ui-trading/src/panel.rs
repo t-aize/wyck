@@ -8,7 +8,7 @@
 
 mod data;
 mod dialogs;
-pub use wyck_app::prefs::panel as prefs;
+pub(crate) use wyck_app::prefs::panel as prefs;
 mod stats;
 mod view;
 
@@ -18,7 +18,7 @@ use wyck_app::account::Account;
 use wyck_app::alerts::Alerts;
 
 pub use self::dialogs::alert_editor::open_alert;
-pub use self::prefs::{PanelPrefs, Tab};
+pub(crate) use self::prefs::{PanelPrefs, Tab};
 
 pub enum PanelEvent {
     /// Show this symbol on the active chart.

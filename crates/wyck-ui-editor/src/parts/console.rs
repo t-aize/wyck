@@ -58,7 +58,7 @@ impl IndicatorEditor {
                 div()
                     .id("editor-console-resize")
                     .flex_none()
-                    .h(px(wyck_ui_kit::tokens::splitter()))
+                    .h(px(tokens::splitter()))
                     .w_full()
                     .cursor_row_resize()
                     .hover(|s| s.bg(theme::accent_alpha(0.35)))
@@ -112,7 +112,7 @@ impl IndicatorEditor {
                     )
                     .child(div().flex_1())
                     .child(
-                        self.tool_button(
+                        Self::tool_button(
                             "problem-prev",
                             IconName::ChevronUp,
                             None,
@@ -124,7 +124,7 @@ impl IndicatorEditor {
                         }),
                     )
                     .child(
-                        self.tool_button(
+                        Self::tool_button(
                             "problem-next",
                             IconName::ChevronDown,
                             None,
@@ -247,10 +247,10 @@ impl IndicatorEditor {
             Some(report) => {
                 let mut line = format!("On the active chart: {} bars", report.bars);
                 if let Some(elapsed) = report.elapsed {
-                    line.push_str(&format!(
-                        ", computed in {:.1} ms",
+                    line = format!(
+                        "{line}, computed in {:.1} ms",
                         elapsed.as_secs_f64() * 1000.0
-                    ));
+                    );
                 }
                 if report.running {
                     line.push_str(", running...");

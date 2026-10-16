@@ -5,6 +5,7 @@ use super::{OrderTicket, TicketEvent, TicketPrefs, helpers};
 use gpui::prelude::*;
 use gpui::{Context, Entity, Window};
 use wyck_app::account::Account;
+use wyck_core::math::{count_f64, f64_to_usize};
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math::{Contract, Offset};
 use wyck_trading::plan;
@@ -39,7 +40,7 @@ impl OrderTicket {
             )
         });
         let atr_length = cx.new(|cx| {
-            number::state(number::Kind::Count, prefs.atr.length as f64, window, cx).max(1_000.0)
+            number::state(number::Kind::Count, count_f64(prefs.atr.length), window, cx).max(1_000.0)
         });
         let atr_multiplier =
             cx.new(|cx| number::state(number::Kind::Multiplier, prefs.atr.multiplier, window, cx));
@@ -76,7 +77,7 @@ impl OrderTicket {
             cx.subscribe(&atr_length, |this, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     if let Some(value) = Self::read(&this.atr_length, cx) {
-                        this.atr.length = (value as usize).clamp(1, 1_000);
+                        this.atr.length = f64_to_usize(value).clamp(1, 1_000);
                     }
                     this.settings_changed(cx);
                     cx.emit(TicketEvent::LinesChanged);

@@ -238,8 +238,8 @@ impl Dashboard {
                         IconName::FileUp,
                         None,
                         |d, window, cx| {
-                            d.with_editor(window, cx, |editor, window, cx| {
-                                editor.import(window, cx)
+                            d.with_editor(window, cx, |_, window, cx| {
+                                IndicatorEditor::import(window, cx);
                             });
                         },
                     ),
@@ -248,7 +248,7 @@ impl Dashboard {
                         IconName::FileDown,
                         None,
                         |d, window, cx| {
-                            d.with_editor(window, cx, |editor, _, cx| editor.export_all(cx));
+                            d.with_editor(window, cx, |_, _, cx| IndicatorEditor::export_all(cx));
                         },
                     ),
                     run(

@@ -4,6 +4,7 @@ use super::helpers::{nice, offset_kind, side_of, size_kind};
 use super::{Kind, OrderTicket, TicketEvent};
 use gpui::{Context, Window};
 use wyck_app::account::Busy;
+use wyck_core::math::{f64_to_usize, i64_to_f64};
 use wyck_trading::math;
 use wyck_trading::math::{Offset, SizeMode};
 use wyck_ui_kit::number;
@@ -56,7 +57,7 @@ impl OrderTicket {
         let (bid, ask) = self.quote(cx);
         if let Some(price) = if self.buy { ask } else { bid } {
             let value = self.contract(cx).format_price(price);
-            self.write(&self.price.clone(), value, window, cx);
+            Self::write(&self.price.clone(), value, window, cx);
         }
     }
 
@@ -156,16 +157,15 @@ impl OrderTicket {
         } else {
             self.target_unit = unit;
         }
-        match price {
-            Some(price) => self.set_protection(stop, price, window, cx),
-            None => {
-                let state = if stop {
-                    self.stop_loss.clone()
-                } else {
-                    self.take_profit.clone()
-                };
-                self.write(&state, String::new(), window, cx);
-            }
+        if let Some(price) = price {
+            self.set_protection(stop, price, window, cx);
+        } else {
+            let state = if stop {
+                self.stop_loss.clone()
+            } else {
+                self.take_profit.clone()
+            };
+            Self::write(&state, String::new(), window, cx);
         }
         self.apply_steps(window, cx);
         self.settings_changed(cx);
@@ -186,14 +186,14 @@ impl OrderTicket {
                 .iter()
                 .find(|study| study.kind == wyck_indicators::kind::StudyKind::Atr)
         {
-            self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
-            self.atr.smoothing = match study.input("smoothing") as usize {
+            self.atr.length = f64_to_usize(study.input("length")).clamp(1, 1_000);
+            self.atr.smoothing = match f64_to_usize(study.input("smoothing")) {
                 1 => wyck_trading::atr_stop::Smoothing::Sma,
                 2 => wyck_trading::atr_stop::Smoothing::Ema,
                 3 => wyck_trading::atr_stop::Smoothing::Wma,
                 _ => wyck_trading::atr_stop::Smoothing::Rma,
             };
-            self.write(
+            Self::write(
                 &self.atr_length.clone(),
                 self.atr.length.to_string(),
                 window,
@@ -206,7 +206,7 @@ impl OrderTicket {
         if !self.target_on || Self::read(&self.take_profit, cx).is_none() {
             self.target_on = true;
             self.target_unit = Offset::Ratio;
-            self.write(&self.take_profit.clone(), "2".to_owned(), window, cx);
+            Self::write(&self.take_profit.clone(), "2".to_owned(), window, cx);
         }
         self.request_atr(cx);
         self.settings_changed(cx);
@@ -230,7 +230,7 @@ impl OrderTicket {
         }
         self.target_on = true;
         self.target_unit = Offset::Ratio;
-        self.write(
+        Self::write(
             &self.take_profit.clone(),
             number::format(ratio, 2),
             window,
@@ -261,7 +261,7 @@ impl OrderTicket {
         if self.link.is_some() {
             return;
         }
-        self.write(
+        Self::write(
             &self.atr_multiplier.clone(),
             number::format(multiplier, 2),
             window,
@@ -294,7 +294,7 @@ impl OrderTicket {
         let share = |amount: f64, of: f64| (of > 0.0).then(|| amount / of * 100.0);
         let value = match mode {
             SizeMode::Lots => volume.map(|v| contract.lots_of_volume(v)),
-            SizeMode::Units => volume.map(|v| v as f64 / 100.0),
+            SizeMode::Units => volume.map(|v| i64_to_f64(v) / 100.0),
             SizeMode::RiskBalance => plan.risk.and_then(|r| share(r, summary.balance)),
             SizeMode::RiskEquity => plan.risk.and_then(|r| share(r, summary.equity)),
             SizeMode::RiskMoney => plan.risk,
@@ -305,7 +305,7 @@ impl OrderTicket {
         };
         let fallback = match mode {
             SizeMode::Lots => 0.1,
-            SizeMode::Units => contract.lot_size as f64 / 1_000.0,
+            SizeMode::Units => i64_to_f64(contract.lot_size) / 1_000.0,
             SizeMode::RiskBalance | SizeMode::RiskEquity => 1.0,
             SizeMode::RiskMoney => nice(summary.balance / 100.0),
             SizeMode::FreeMargin => 10.0,
@@ -315,7 +315,7 @@ impl OrderTicket {
             .unwrap_or(fallback);
         self.size_mode = mode;
         let decimals = if mode == SizeMode::Units { 0 } else { 2 };
-        self.write(
+        Self::write(
             &self.size.clone(),
             number::format(value, decimals),
             window,

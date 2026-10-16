@@ -1,18 +1,20 @@
 //! The small computations behind the account panel that do not need the account: the average
 //! entry of several positions, and how a moment is written.
 
+use wyck_core::math::i64_to_f64;
+
 /// The average of prices weighted by volume, from `(price, volume)` pairs. `None` when there is
 /// no volume.
-pub fn weighted_entry(fills: &[(f64, i64)]) -> Option<f64> {
-    let total: f64 = fills.iter().map(|(_, v)| *v as f64).sum();
+pub(crate) fn weighted_entry(fills: &[(f64, i64)]) -> Option<f64> {
+    let total: f64 = fills.iter().map(|(_, v)| i64_to_f64(*v)).sum();
     if total <= 0.0 {
         return None;
     }
-    Some(fills.iter().map(|(p, v)| p * *v as f64).sum::<f64>() / total)
+    Some(fills.iter().map(|(p, v)| p * i64_to_f64(*v)).sum::<f64>() / total)
 }
 
 /// A moment written as `Sep 25 16:35:12`. `shifted_ms` is already in the zone the user reads.
-pub fn format_time(shifted_ms: i64) -> String {
+pub(crate) fn format_time(shifted_ms: i64) -> String {
     let Some(t) = chrono::DateTime::from_timestamp(shifted_ms.div_euclid(1_000), 0) else {
         return String::new();
     };

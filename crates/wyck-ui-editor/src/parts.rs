@@ -61,7 +61,8 @@ fn source_match(source: &str, query: &str) -> Option<(usize, usize)> {
     source.lines().enumerate().find_map(|(line, text)| {
         let lowered = text.to_lowercase();
         let column = lowered.find(query)?;
-        Some((line + 1, lowered[..column].chars().count() + 1))
+        let before = lowered.get(..column).map_or(0, |text| text.chars().count());
+        Some((line + 1, before + 1))
     })
 }
 
@@ -128,13 +129,13 @@ impl IndicatorEditor {
                             } else {
                                 theme::muted_fg()
                             })
-                            .when(doc.gone, |el| el.line_through())
+                            .when(doc.gone, Styled::line_through)
                             .child(stem(&doc.id).to_owned()),
                     )
                     .child(
                         div()
                             .id(("editor-tab-close", index))
-                            .size(px(wyck_ui_kit::tokens::swatch::large()))
+                            .size(px(tokens::swatch::large()))
                             .flex()
                             .items_center()
                             .justify_center()
@@ -145,7 +146,7 @@ impl IndicatorEditor {
                             })
                             .child(if doc.dirty {
                                 div()
-                                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
+                                    .size(px(tokens::swatch::dot()))
                                     .rounded_full()
                                     .bg(theme::amber())
                                     .into_any_element()
@@ -206,14 +207,14 @@ impl IndicatorEditor {
                     wyck_ui_kit::button::dense("editor-keep")
                         .label("Keep mine")
                         .on_click(move |_, _window, cx| {
-                            keep.update(cx, |e, cx| e.keep_mine(cx));
+                            keep.update(cx, Self::keep_mine);
                         })
                 }))
                 .into_any_element(),
         )
     }
 
-    fn empty(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn empty(cx: &mut Context<Self>) -> AnyElement {
         let folder = cx.entity();
         let mut cards = div().flex().flex_row().flex_wrap().justify_center().gap_3();
         for (index, template) in TEMPLATES.iter().enumerate() {
@@ -286,7 +287,7 @@ impl IndicatorEditor {
             )
             .child(
                 div()
-                    .max_w(px(wyck_ui_kit::tokens::measure::note()))
+                    .max_w(px(tokens::measure::note()))
                     .text_center()
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
@@ -416,7 +417,7 @@ impl Render for IndicatorEditor {
                         .text_size(px(tokens::text::body())),
                 )
                 .into_any_element(),
-            None => self.empty(cx),
+            None => Self::empty(cx),
         };
         let console = self.console(cx);
         let reference = self.reference_open.then(|| self.reference(cx));
@@ -482,7 +483,7 @@ impl Render for IndicatorEditor {
                         div()
                             .id("editor-explorer-resize")
                             .flex_none()
-                            .w(px(wyck_ui_kit::tokens::splitter()))
+                            .w(px(tokens::splitter()))
                             .h_full()
                             .cursor_col_resize()
                             .hover(|s| s.bg(theme::accent_alpha(0.35)))
@@ -520,7 +521,7 @@ impl Render for IndicatorEditor {
                                 div()
                                     .id("editor-reference-resize")
                                     .flex_none()
-                                    .w(px(wyck_ui_kit::tokens::splitter()))
+                                    .w(px(tokens::splitter()))
                                     .h_full()
                                     .cursor_col_resize()
                                     .hover(|s| s.bg(theme::accent_alpha(0.35)))

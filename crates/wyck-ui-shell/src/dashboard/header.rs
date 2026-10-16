@@ -12,7 +12,6 @@ pub mod figures;
 pub mod timeframes;
 use super::{Conn, Dashboard, MenuKind, Tick};
 use wyck_ui_kit::{anim, icon, layout, theme, tokens};
-use wyck_ui_trading as trading;
 
 /// The widest the subtitle of the symbol grows before it is cut.
 const SUBTITLE_MAX: f32 = 170.0;
@@ -281,7 +280,7 @@ impl Dashboard {
     /// open profit. It opens the account menu.
     fn account_pill(&self, fit: Fit, cx: &mut Context<Self>) -> impl IntoElement {
         let account = self.trading.read(cx);
-        let ready = account.status == trading::account::Status::Ready;
+        let ready = account.status == wyck_app::account::Status::Ready;
         let summary = account.summary();
         let currency = account.book.currency.clone();
         let profit_color = if summary.unrealized > 0.0 {

@@ -1,8 +1,8 @@
 //! The dialogs the account panel opens: the one that modifies a position or an order, and the one
 //! that edits an alert.
 
-pub mod alert_editor;
-pub mod alert_render;
+pub(crate) mod alert_editor;
+pub(crate) mod alert_render;
 
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window};
@@ -13,7 +13,7 @@ use wyck_app::account::Account;
 use wyck_ui_kit::{button, form, form::Head, modal, number, tokens};
 
 #[derive(Debug, Clone, Copy)]
-pub enum Target {
+pub(crate) enum Target {
     Position(i64),
     Order(i64),
 }
@@ -26,7 +26,7 @@ struct ProtectionEditor {
     take_profit: Entity<InputState>,
 }
 
-pub fn open_protection(
+pub(crate) fn open_protection(
     account: Entity<Account>,
     target: Target,
     window: &mut Window,

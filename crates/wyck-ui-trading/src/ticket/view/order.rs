@@ -8,6 +8,7 @@ use super::{
     nice, number, or_money, popup, px, stop_limit_price, text_button, theme, tint, tokens,
 };
 use gpui::prelude::*;
+use wyck_core::math::i64_to_f64;
 use wyck_ui_kit::focus::Keyboard as _;
 use wyck_ui_kit::prelude::StyledExt as _;
 
@@ -15,7 +16,6 @@ impl OrderTicket {
     /// A button that opens a list under it, showing what is picked. It is the height and the
     /// look of a field, so it sits in a row with one.
     pub(super) fn select(
-        &self,
         key: &'static str,
         text: String,
         items: impl FnOnce() -> Vec<Item>,
@@ -74,7 +74,7 @@ impl OrderTicket {
         let current = self.size_mode;
         let currency = currency.to_owned();
         let text = Self::size_label(current, &currency);
-        self.select(
+        Self::select(
             "ticket-size-mode",
             text,
             move || {
@@ -117,7 +117,7 @@ impl OrderTicket {
         let risk_sized = self.size_mode.is_risk();
         let currency = currency.to_owned();
         let text = Self::unit_label(current, &currency);
-        self.select(
+        Self::select(
             if stop {
                 "ticket-stop-unit"
             } else {
@@ -166,7 +166,7 @@ impl OrderTicket {
 
     /// The quick values for the volume, in its mode: the ones the user set, or worked out.
     pub(super) fn preset_values(&self, f: &Frame, cx: &App) -> Vec<(String, f64)> {
-        let lot_units = f.contract.lot_size as f64 / 100.0;
+        let lot_units = i64_to_f64(f.contract.lot_size) / 100.0;
         let mode = self.size_mode;
         let custom = self.layout.presets.of(mode);
         if !custom.is_empty() {
@@ -225,7 +225,7 @@ impl OrderTicket {
                     .on_click(move |_, window, cx| {
                         this.update(cx, |t, cx| {
                             let text = number::format(value, decimals);
-                            t.write(&t.size.clone(), text, window, cx);
+                            Self::write(&t.size.clone(), text, window, cx);
                         });
                     })
                     .child(label),
@@ -494,7 +494,9 @@ impl OrderTicket {
                 &labels,
                 index,
                 move |choice, window, cx| {
-                    this.update(cx, |t, cx| t.set_kind(Kind::ALL[choice], window, cx));
+                    if let Some(&kind) = Kind::ALL.get(choice) {
+                        this.update(cx, |t, cx| t.set_kind(kind, window, cx));
+                    }
                 },
             ))
             .when(self.kind.is_pending(), |el| {

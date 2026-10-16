@@ -17,7 +17,7 @@ impl OrderTicket {
     /// sent or the link is cut.
     pub(super) fn begin_link(
         &mut self,
-        plan: PositionPlan,
+        plan: &PositionPlan,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -37,7 +37,7 @@ impl OrderTicket {
             before,
             follow_kind: true,
         });
-        self.apply_link(&plan, window, cx);
+        self.apply_link(plan, window, cx);
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();
     }
@@ -52,46 +52,40 @@ impl OrderTicket {
         self.buy = plan.buy;
         self.autofill = false;
         self.stop_on = true;
-        match &plan.atr {
-            Some(atr) => {
-                self.atr = atr.clone();
-                self.atr_seeded = true;
-                self.stop_atr = true;
-                self.write(
-                    &self.atr_length.clone(),
-                    self.atr.length.to_string(),
-                    window,
-                    cx,
-                );
-                self.write(
-                    &self.atr_multiplier.clone(),
-                    number::format(self.atr.multiplier, 4),
-                    window,
-                    cx,
-                );
-                self.request_atr(cx);
-            }
-            None => {
-                self.stop_atr = false;
-                self.stop_unit = Offset::Price;
-                let text = self.contract(cx).format_price(plan.stop_loss);
-                self.write(&self.stop_loss.clone(), text, window, cx);
-            }
+        if let Some(atr) = &plan.atr {
+            self.atr = atr.clone();
+            self.atr_seeded = true;
+            self.stop_atr = true;
+            Self::write(
+                &self.atr_length.clone(),
+                self.atr.length.to_string(),
+                window,
+                cx,
+            );
+            Self::write(
+                &self.atr_multiplier.clone(),
+                number::format(self.atr.multiplier, 4),
+                window,
+                cx,
+            );
+            self.request_atr(cx);
+        } else {
+            self.stop_atr = false;
+            self.stop_unit = Offset::Price;
+            let text = self.contract(cx).format_price(plan.stop_loss);
+            Self::write(&self.stop_loss.clone(), text, window, cx);
         }
         self.target_on = true;
-        match plan.rr {
-            Some(rr) => {
-                self.target_unit = Offset::Ratio;
-                self.write(&self.take_profit.clone(), number::format(rr, 4), window, cx);
-            }
-            None => {
-                self.target_unit = Offset::Price;
-                let text = self.contract(cx).format_price(plan.take_profit);
-                self.write(&self.take_profit.clone(), text, window, cx);
-            }
+        if let Some(rr) = plan.rr {
+            self.target_unit = Offset::Ratio;
+            Self::write(&self.take_profit.clone(), number::format(rr, 4), window, cx);
+        } else {
+            self.target_unit = Offset::Price;
+            let text = self.contract(cx).format_price(plan.take_profit);
+            Self::write(&self.take_profit.clone(), text, window, cx);
         }
         let text = self.contract(cx).format_price(plan.entry);
-        self.write(&self.price.clone(), text, window, cx);
+        Self::write(&self.price.clone(), text, window, cx);
         self.refresh_kind(cx);
         self.apply_steps(window, cx);
     }
@@ -167,13 +161,13 @@ impl OrderTicket {
             self.atr = before.atr;
             self.stop_unit = before.stop_unit;
             self.target_unit = before.target_unit;
-            self.write(
+            Self::write(
                 &self.atr_length.clone(),
                 self.atr.length.to_string(),
                 window,
                 cx,
             );
-            self.write(
+            Self::write(
                 &self.atr_multiplier.clone(),
                 number::format(self.atr.multiplier, 4),
                 window,
@@ -211,7 +205,7 @@ impl OrderTicket {
         match line {
             LINE_ENTRY => {
                 let value = self.contract(cx).format_price(price);
-                self.write(&self.price.clone(), value, window, cx);
+                Self::write(&self.price.clone(), value, window, cx);
             }
             LINE_STOP => {
                 self.stop_atr = false;
@@ -229,7 +223,7 @@ impl OrderTicket {
                     let r = ((price - entry) * math::protection_side(self.buy, false)) / distance;
                     if r.is_finite() && r > 0.0 {
                         let target = target.clone();
-                        self.write(&target, number::format(r, 2), window, cx);
+                        Self::write(&target, number::format(r, 2), window, cx);
                     }
                 }
             }
@@ -243,7 +237,6 @@ impl OrderTicket {
     }
 
     pub(super) fn write(
-        &self,
         state: &Entity<InputState>,
         value: String,
         window: &mut Window,
@@ -279,26 +272,25 @@ impl OrderTicket {
                 self.scale(&plan, cx).value(unit, distance)
             }),
         };
-        let text = match value {
-            Some(value) => format_offset(unit, value),
-            None => {
-                if unit != Offset::Price {
-                    if stop {
-                        self.stop_unit = Offset::Price;
-                    } else {
-                        self.target_unit = Offset::Price;
-                    }
-                    self.apply_steps(window, cx);
-                    self.settings_changed(cx);
+        let text = if let Some(value) = value {
+            format_offset(unit, value)
+        } else {
+            if unit != Offset::Price {
+                if stop {
+                    self.stop_unit = Offset::Price;
+                } else {
+                    self.target_unit = Offset::Price;
                 }
-                contract.format_price(price)
+                self.apply_steps(window, cx);
+                self.settings_changed(cx);
             }
+            contract.format_price(price)
         };
         let state = if stop {
             self.stop_loss.clone()
         } else {
             self.take_profit.clone()
         };
-        self.write(&state, text, window, cx);
+        Self::write(&state, text, window, cx);
     }
 }

@@ -5,6 +5,7 @@ use super::{
     math, px, text_button, theme, tokens,
 };
 use gpui::prelude::*;
+use wyck_core::math::f32_of;
 
 impl OrderTicket {
     /// What the safety limits say now: a lock that stops new orders (with the way out), a request
@@ -54,7 +55,7 @@ impl OrderTicket {
                             .child(
                                 div()
                                     .flex_none()
-                                    .pt(px(wyck_ui_kit::tokens::HAIRLINE))
+                                    .pt(px(tokens::HAIRLINE))
                                     .child(icon::tinted(
                                         IconName::ShieldAlert,
                                         13.,
@@ -75,7 +76,7 @@ impl OrderTicket {
                                         "Close every position?",
                                         "All open positions are closed at market.",
                                         move |_, cx| {
-                                            close.update(cx, |a, cx| a.close_all(None, cx))
+                                            close.update(cx, |a, cx| a.close_all(None, cx));
                                         },
                                     );
                                 },
@@ -86,7 +87,7 @@ impl OrderTicket {
             );
         }
         if uncertain {
-            let refresh = account_entity.clone();
+            let refresh = account_entity;
             out.push(
                 div()
                     .flex()
@@ -99,14 +100,14 @@ impl OrderTicket {
                     .text_color(theme::amber())
                     .child("A request got no answer. It may have gone through: check the positions before sending again.")
                     .child(text_button("ticket-uncertain-refresh", "Check the account").on_click(
-                        move |_, _, cx| refresh.update(cx, |a, cx| a.on_ready(cx)),
+                        move |_, _, cx| refresh.update(cx, wyck_app::account::Account::on_ready),
                     ))
                     .into_any_element(),
             );
         }
         if let Some(limit) = limit.filter(|l| *l > 0.0) {
             let used = (-standing.day_pnl).max(0.0);
-            let share = (used / limit).clamp(0.0, 1.0) as f32;
+            let share = f32_of((used / limit).clamp(0.0, 1.0));
             let color = if share >= 1.0 {
                 theme::destructive()
             } else if share >= 0.7 {

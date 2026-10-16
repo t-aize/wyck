@@ -22,14 +22,14 @@ use wyck_indicators::custom::lexer::{Kind, Token};
 use wyck_ui_kit::theme;
 
 /// The name of the language, as the editor is told.
-pub const LANGUAGE: &str = "rhai";
+pub(crate) const LANGUAGE: &str = "rhai";
 
 fn hsla(color: gpui::Rgba) -> Hsla {
     color.into()
 }
 
 /// How a kind of word is drawn: from the colors of the theme, so it follows the theme.
-pub fn style_of(kind: Kind) -> HighlightStyle {
+pub(crate) fn style_of(kind: Kind) -> HighlightStyle {
     let color = |c: gpui::Rgba| HighlightStyle {
         color: Some(hsla(c)),
         ..HighlightStyle::default()
@@ -66,7 +66,7 @@ pub fn style_of(kind: Kind) -> HighlightStyle {
 /// The coloring of a script: it reads the whole text again at every change, which is nothing for
 /// a script (they are limited to 256 KB).
 #[derive(Default)]
-pub struct Highlighter {
+pub(crate) struct Highlighter {
     tokens: Vec<Token>,
     blocks: Vec<(usize, usize)>,
 }
@@ -102,7 +102,7 @@ impl InputHighlighter for Highlighter {
         let mut at = range.start;
         // The first token that ends after the start of the range.
         let first = self.tokens.partition_point(|t| t.range.end <= range.start);
-        for token in &self.tokens[first..] {
+        for token in self.tokens.iter().skip(first) {
             if token.range.start >= range.end {
                 break;
             }
@@ -131,7 +131,7 @@ impl InputHighlighter for Highlighter {
 }
 
 /// What the editor asks for a highlighter by language name.
-pub fn highlighter_factory() -> InputHighlighterFactory {
+pub(crate) fn highlighter_factory() -> InputHighlighterFactory {
     Rc::new(|language| {
         language
             .eq_ignore_ascii_case(LANGUAGE)
@@ -139,7 +139,7 @@ pub fn highlighter_factory() -> InputHighlighterFactory {
     })
 }
 
-pub struct Completions;
+pub(crate) struct Completions;
 
 fn item_kind(kind: CandidateKind) -> CompletionItemKind {
     match kind {
@@ -190,7 +190,7 @@ impl CompletionProvider for Completions {
     }
 }
 
-pub struct Help;
+pub(crate) struct Help;
 
 impl HoverProvider for Help {
     fn hover(

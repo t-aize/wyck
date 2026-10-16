@@ -1,8 +1,8 @@
 //! How the account panel looks: its header with the tabs, the figures of the account and the
 //! button that closes everything, then the table of the open tab.
 
-pub mod header;
-pub mod table;
+pub(crate) mod header;
+pub(crate) mod table;
 
 use super::AccountPanel;
 use super::data::{self, Ctx, Tone};
@@ -32,7 +32,7 @@ fn tone_color(tone: Tone) -> gpui::Rgba {
 fn ask(title: &'static str, text: String, run: impl Fn(&mut App) + 'static) -> Action {
     let run = Rc::new(run);
     Rc::new(move |window, cx| {
-        let run = run.clone();
+        let run = Rc::clone(&run);
         confirm_as(
             window,
             cx,

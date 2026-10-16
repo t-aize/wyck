@@ -1,5 +1,6 @@
 //! The small arithmetic and formats the ticket shares.
 
+use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
 use wyck_trading::math::{Contract, Offset, SizeMode};
 use wyck_ui_kit::number;
 
@@ -11,9 +12,8 @@ pub(super) fn side_of(margins: (f64, f64), buy: bool) -> f64 {
 /// A distance in pips as the points the server counts: the smallest step of the price.
 pub(super) fn slippage_points(pips: f64, contract: &Contract) -> i32 {
     let digits = i32::try_from(contract.digits).unwrap_or(5);
-    (pips * contract.pip() * 10f64.powi(digits))
-        .round()
-        .max(0.0) as i32
+    let points = f64_to_u32((pips * contract.pip() * 10f64.powi(digits)).round());
+    i32::try_from(points).unwrap_or(i32::MAX)
 }
 
 /// Where the limit of a stop limit sits: past the stop by the range, in the direction the order
@@ -29,7 +29,7 @@ pub(super) fn size_kind(mode: SizeMode, contract: &Contract) -> number::Kind {
             step: contract.lots_of_volume(contract.step_volume.max(1)),
         },
         SizeMode::Units => number::Kind::Volume {
-            step: contract.step_volume.max(1) as f64 / 100.0,
+            step: i64_to_f64(contract.step_volume.max(1)) / 100.0,
         },
         SizeMode::RiskBalance | SizeMode::RiskEquity | SizeMode::FreeMargin => {
             number::Kind::Percent
@@ -65,7 +65,8 @@ pub(super) fn nice(amount: f64) -> f64 {
     if !amount.is_finite() || amount <= 0.0 {
         return 10.0;
     }
-    let magnitude = 10f64.powi(amount.log10().floor() as i32 - 1);
+    let exponent = i32::try_from(f64_to_i64(amount.log10().floor())).unwrap_or(0);
+    let magnitude = 10f64.powi(exponent - 1);
     ((amount / magnitude).round() * magnitude).max(1.0)
 }
 

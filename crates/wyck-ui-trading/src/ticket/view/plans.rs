@@ -62,9 +62,9 @@ impl OrderTicket {
                     &spans,
                     span_at,
                     move |choice, _, cx| {
-                        span_this.update(cx, |t, cx| {
-                            t.edit_time_stop(cx, |s| s.span = prefs::Span::ALL[choice])
-                        });
+                        if let Some(&span) = prefs::Span::ALL.get(choice) {
+                            span_this.update(cx, |t, cx| t.edit_time_stop(cx, |s| s.span = span));
+                        }
                     },
                 )),
         )
@@ -75,7 +75,9 @@ impl OrderTicket {
                 &only,
                 only_at,
                 move |choice, _, cx| {
-                    only_this.update(cx, |t, cx| t.edit_time_stop(cx, |s| s.only = Only::ALL[choice]));
+                    if let Some(&only) = Only::ALL.get(choice) {
+                        only_this.update(cx, |t, cx| t.edit_time_stop(cx, |s| s.only = only));
+                    }
                 },
             ),
         ))

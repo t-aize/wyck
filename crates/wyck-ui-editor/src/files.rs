@@ -54,7 +54,7 @@ impl IndicatorEditor {
                     doc.conflict = false;
                     doc.gone = false;
                     if let Some(entry) = &entry {
-                        doc.problems = entry.problems.clone();
+                        doc.problems.clone_from(&entry.problems);
                         show_diagnostics(&doc.state, &doc.problems, &now, cx);
                     }
                 }
@@ -136,11 +136,8 @@ impl IndicatorEditor {
 
     /// A file changed, appeared or went: the tabs follow it.
     pub(super) fn library_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for index in 0..self.docs.len() {
-            let id = self.docs[index].id.clone();
-            let entry = registry::get(&id);
-            let doc = &mut self.docs[index];
-            match entry {
+        for doc in &mut self.docs {
+            match registry::get(&doc.id) {
                 None => doc.gone = true,
                 Some(entry) => {
                     doc.gone = false;
@@ -153,7 +150,7 @@ impl IndicatorEditor {
                         // The file changed elsewhere and the tab has nothing of its own: it follows.
                         let text = entry.source.to_string();
                         doc.saved.clone_from(&text);
-                        doc.problems = entry.problems.clone();
+                        doc.problems.clone_from(&entry.problems);
                         doc.state
                             .update(cx, |state, cx| state.set_value(text.clone(), window, cx));
                         show_diagnostics(&doc.state, &doc.problems, &text, cx);
@@ -175,7 +172,7 @@ impl IndicatorEditor {
             doc.saved.clone_from(&text);
             doc.dirty = false;
             doc.conflict = false;
-            doc.problems = entry.problems.clone();
+            doc.problems.clone_from(&entry.problems);
             doc.state
                 .update(cx, |state, cx| state.set_value(text.clone(), window, cx));
             show_diagnostics(&doc.state, &doc.problems, &text, cx);

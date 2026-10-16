@@ -13,7 +13,6 @@ description = "The trading screens of Wyck: the order ticket, the account panel 
 chrono.workspace = true
 gpui.workspace = true
 serde_json.workspace = true
-toml.workspace = true
 wyck-app.workspace = true
 wyck-chart.workspace = true
 wyck-core.workspace = true
@@ -23,6 +22,9 @@ wyck-market.workspace = true
 wyck-trading.workspace = true
 wyck-ui-chart.workspace = true
 wyck-ui-kit.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
 
 [lints]
 workspace = true

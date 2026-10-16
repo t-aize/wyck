@@ -20,7 +20,7 @@ use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
     toast, tokens,
 };
-use wyck_ui_trading as trading;
+use wyck_ui_trading::lines as trade_lines;
 use wyck_ui_trading::panel::PanelEvent;
 use wyck_ui_trading::ticket::{OrderTicket, TicketEvent};
 
@@ -186,7 +186,7 @@ impl Dashboard {
     /// The lines of the account, the alerts and the ticket, handed to the charts.
     pub(in crate::dashboard) fn push_lines(&mut self, cx: &mut Context<Self>) {
         let account = self.trading.read(cx);
-        let mut lines = trading::lines(
+        let mut lines = trade_lines(
             &account.book,
             self.alerts.read(cx).book(),
             &|id| account.net_profit(id),

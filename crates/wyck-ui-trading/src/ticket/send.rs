@@ -5,6 +5,7 @@ use super::{Kind, OrderTicket, Plan, Tif, problem};
 use gpui::{App, Context, SharedString, Window};
 use wyck_app::broker::trading::NewOrderReq;
 use wyck_app::market_data::now_ms;
+use wyck_core::math::f64_to_u32;
 use wyck_trading::NewOrderType;
 use wyck_trading::follow::AtrFollow;
 use wyck_trading::guard::Verdict;
@@ -110,10 +111,11 @@ impl OrderTicket {
             let mut order = self.order(plan, cx)?;
             // The rule a pending order keeps its ATR stop on, with the take profit as a multiple
             // of the risk when it is one.
-            let follow = follow_base.clone().map(|atr| {
+            let follow = follow_base.map(|atr| {
                 let rr = match (plan.entry, plan.stop, plan.target) {
                     (Some(entry), Some(stop), Some(target))
-                        if self.target_unit == math::Offset::Ratio && entry != stop =>
+                        if self.target_unit == math::Offset::Ratio
+                            && (entry - stop).abs() > 0.0 =>
                     {
                         Some((target - entry).abs() / (entry - stop).abs())
                     }
@@ -164,8 +166,8 @@ impl OrderTicket {
             let at = kept.iter().rposition(|k| *k <= want).unwrap_or(0);
             let after = (at + 1).min(kept.len() - 1).max(1);
             (
-                after as u8,
-                (exits.break_even.offset_pips * 10.0).round() as u32,
+                u8::try_from(after).unwrap_or(u8::MAX),
+                f64_to_u32((exits.break_even.offset_pips * 10.0).round()),
             )
         });
         let group = plan::new_group(now_ms());
@@ -191,7 +193,9 @@ impl OrderTicket {
         let mut orders = Vec::new();
         for (buy, entry, stop) in sides {
             for (n, (volume, leg)) in volumes.iter().zip(&kept).enumerate() {
-                let target_r = exits.legs[*leg].target_r;
+                let Some(target_r) = exits.legs.get(*leg).map(|config| config.target_r) else {
+                    continue;
+                };
                 let mut leg_plan = plan.clone();
                 leg_plan.entry = Some(entry);
                 leg_plan.stop = Some(stop);
@@ -206,8 +210,8 @@ impl OrderTicket {
                 order.label = Some(
                     plan::Label {
                         group: group.clone(),
-                        leg: (n + 1) as u8,
-                        of: kept.len() as u8,
+                        leg: u8::try_from(n + 1).unwrap_or(u8::MAX),
+                        of: u8::try_from(kept.len()).unwrap_or(u8::MAX),
                         break_even,
                         oco,
                         time_stop,
@@ -330,7 +334,7 @@ impl OrderTicket {
             details,
             move |window, cx| {
                 account.update(cx, |account, cx| {
-                    account.place_batch(orders.clone(), one_click, cx)
+                    account.place_batch(orders.clone(), one_click, cx);
                 });
                 this.update(cx, |ticket, cx| ticket.release_link(true, window, cx));
             },

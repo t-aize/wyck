@@ -4,10 +4,10 @@
 //! Each tab has fixed columns (see [`columns`]), and every row has one cell for each of them, in
 //! the same order.
 
-pub mod alerts;
-pub mod exposure;
-pub mod orders;
-pub mod positions;
+pub(crate) mod alerts;
+pub(crate) mod exposure;
+pub(crate) mod orders;
+pub(crate) mod positions;
 
 use wyck_app::account::Account;
 use wyck_app::alerts::Alerts;
@@ -19,7 +19,7 @@ use wyck_ui_kit::tokens;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Tone {
+pub(crate) enum Tone {
     Plain,
     Muted,
     Up,
@@ -29,7 +29,7 @@ pub enum Tone {
 
 impl Tone {
     /// The tone of an amount: gains up, losses down.
-    pub fn of(value: f64) -> Self {
+    pub(crate) fn of(value: f64) -> Self {
         if value > 0.0 {
             Self::Up
         } else if value < 0.0 {
@@ -42,19 +42,19 @@ impl Tone {
 
 /// How the sum of a column is written in the totals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Unit {
+pub(crate) enum Unit {
     None,
     Lots,
     Money,
 }
 
 #[derive(Debug, Clone)]
-pub struct Cell {
-    pub text: String,
-    pub tone: Tone,
+pub(crate) struct Cell {
+    pub(crate) text: String,
+    pub(crate) tone: Tone,
     /// What the column adds up, when it does.
-    pub sum: Option<f64>,
-    pub unit: Unit,
+    pub(crate) sum: Option<f64>,
+    pub(crate) unit: Unit,
 }
 
 impl Cell {
@@ -90,15 +90,15 @@ impl Cell {
 
 /// What can be done to a position from its row.
 #[derive(Debug, Clone)]
-pub struct PositionRow {
-    pub id: i64,
-    pub busy: bool,
+pub(crate) struct PositionRow {
+    pub(crate) id: i64,
+    pub(crate) busy: bool,
     /// `Buy 0.1 EURUSD`, for what a confirmation says.
-    pub describe: String,
+    pub(crate) describe: String,
 }
 
 #[derive(Debug, Clone)]
-pub enum RowKind {
+pub(crate) enum RowKind {
     Position(PositionRow),
     Order {
         id: i64,
@@ -113,39 +113,39 @@ pub enum RowKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct Row {
+pub(crate) struct Row {
     /// A key that stays the same for the same row, for element ids.
-    pub key: String,
-    pub symbol: Option<i64>,
-    pub kind: RowKind,
+    pub(crate) key: String,
+    pub(crate) symbol: Option<i64>,
+    pub(crate) kind: RowKind,
     /// One cell for each column of the table.
-    pub cells: Vec<Cell>,
+    pub(crate) cells: Vec<Cell>,
 }
 
 /// A column of a table.
 #[derive(Debug, Clone, Copy)]
-pub struct Column {
-    pub label: &'static str,
+pub(crate) struct Column {
+    pub(crate) label: &'static str,
     /// How wide it is at least, in pixels, at the scale of the interface now.
-    pub width: f32,
+    pub(crate) width: f32,
     /// Whether its text sits at the right, as numbers do.
-    pub right: bool,
+    pub(crate) right: bool,
 }
 
 /// A table ready to draw.
 #[derive(Debug, Clone)]
-pub struct Table {
-    pub tab: Tab,
-    pub columns: Vec<Column>,
-    pub rows: Vec<Row>,
+pub(crate) struct Table {
+    pub(crate) tab: Tab,
+    pub(crate) columns: Vec<Column>,
+    pub(crate) rows: Vec<Row>,
     /// One total for each column; its text is empty where a column adds up to nothing.
-    pub totals: Vec<(String, Tone)>,
+    pub(crate) totals: Vec<(String, Tone)>,
 }
 
 /// What the tables are built from.
-pub struct Ctx<'a> {
-    pub account: &'a Account,
-    pub alerts: &'a Alerts,
+pub(crate) struct Ctx<'a> {
+    pub(crate) account: &'a Account,
+    pub(crate) alerts: &'a Alerts,
 }
 
 impl Ctx<'_> {
@@ -153,7 +153,7 @@ impl Ctx<'_> {
         &self.account.book.currency
     }
 
-    fn time(&self, ms: i64) -> String {
+    fn time(ms: i64) -> String {
         super::stats::format_time(Zone::Local.shift(ms))
     }
 }
@@ -254,8 +254,14 @@ fn finish(ctx: &Ctx, tab: Tab, rows: Vec<Row>) -> Table {
     let columns = columns(tab);
     let mut totals: Vec<(String, Tone)> = (0..columns.len())
         .map(|index| {
-            let unit = rows.first().map_or(Unit::None, |r| r.cells[index].unit);
-            let sums: Vec<f64> = rows.iter().filter_map(|r| r.cells[index].sum).collect();
+            let unit = rows
+                .first()
+                .and_then(|r| r.cells.get(index))
+                .map_or(Unit::None, |cell| cell.unit);
+            let sums: Vec<f64> = rows
+                .iter()
+                .filter_map(|r| r.cells.get(index).and_then(|cell| cell.sum))
+                .collect();
             if sums.is_empty() {
                 return (String::new(), Tone::Muted);
             }
@@ -284,7 +290,7 @@ fn finish(ctx: &Ctx, tab: Tab, rows: Vec<Row>) -> Table {
 }
 
 /// The table of a tab.
-pub fn build(ctx: &Ctx, tab: Tab) -> Table {
+pub(crate) fn build(ctx: &Ctx, tab: Tab) -> Table {
     match tab {
         Tab::Positions => positions::positions(ctx),
         Tab::Orders => orders::orders(ctx),

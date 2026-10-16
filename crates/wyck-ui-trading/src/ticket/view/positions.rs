@@ -11,7 +11,7 @@ use wyck_ui_kit::prelude::StyledExt as _;
 
 impl OrderTicket {
     /// What is open on the symbol, with what can be done to it.
-    pub(super) fn positions(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn positions(&self, frame: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let Some(symbol) = self.symbol.as_ref().map(|s| s.id) else {
             return div().into_any_element();
         };
@@ -25,7 +25,7 @@ impl OrderTicket {
                            on: bool,
                            run: Action| {
             wyck_ui_kit::button::dense(id)
-                .when(!enabled, |button| button.cursor_not_allowed())
+                .when(!enabled, Styled::cursor_not_allowed)
                 .icon(icon)
                 .tooltip(tip)
                 .selected(on)
@@ -41,7 +41,7 @@ impl OrderTicket {
             let id = position.position_id;
             let buy = position.trade_data.is_buy();
             let volume = position.trade_data.volume;
-            let contract = &f.contract;
+            let contract = &frame.contract;
             let profit = account.net_profit(id);
             let tone = match profit {
                 Some(p) if p > 0.0 => theme::chart_up(),
@@ -60,7 +60,7 @@ impl OrderTicket {
                 "{} {} {}",
                 if buy { "Buy" } else { "Sell" },
                 math::format_lots(contract.lots_of_volume(volume)),
-                f.name
+                frame.name
             );
             let (take_profit, stop_loss, trailing) = (
                 position.take_profit,
@@ -74,7 +74,7 @@ impl OrderTicket {
                         if one_click {
                             action(cx);
                         } else {
-                            let action = action.clone();
+                            let action = Rc::<dyn for<'a> Fn(&'a mut App)>::clone(&action);
                             confirm_as(
                                 window,
                                 cx,
@@ -86,7 +86,7 @@ impl OrderTicket {
                         }
                     })
                 };
-            let (a, b, c, d, e) = (
+            let (closer, halver, reverser, protector, trailer) = (
                 self.account.clone(),
                 self.account.clone(),
                 self.account.clone(),
@@ -96,31 +96,31 @@ impl OrderTicket {
             let close = run(
                 "Close",
                 "Close this position?",
-                Rc::new(move |cx| a.update(cx, |acc, cx| acc.close_position(id, None, cx))),
+                Rc::new(move |cx| closer.update(cx, |acc, cx| acc.close_position(id, None, cx))),
             );
             let close_half = run(
                 "Close half of",
                 "Close half of this position?",
                 Rc::new(move |cx| {
                     if let Some(half) = half {
-                        b.update(cx, |acc, cx| acc.close_position(id, Some(half), cx));
+                        halver.update(cx, |acc, cx| acc.close_position(id, Some(half), cx));
                     }
                 }),
             );
             let reverse = run(
                 "Reverse",
                 "Reverse this position?",
-                Rc::new(move |cx| c.update(cx, |acc, cx| acc.reverse_position(id, cx))),
+                Rc::new(move |cx| reverser.update(cx, |acc, cx| acc.reverse_position(id, cx))),
             );
             let break_even: Action = Rc::new(move |_, cx| {
                 if let Some(entry) = entry {
-                    d.update(cx, |acc, cx| {
+                    protector.update(cx, |acc, cx| {
                         acc.protect_position(id, Some(entry), take_profit, cx);
                     });
                 }
             });
             let trail: Action = Rc::new(move |_, cx| {
-                e.update(cx, |acc, cx| acc.trail_position(id, !trailing, cx));
+                trailer.update(cx, |acc, cx| acc.trail_position(id, !trailing, cx));
             });
             let symbol_id = SharedString::from(format!("{id}"));
             rows.push(
@@ -158,15 +158,12 @@ impl OrderTicket {
                                     .child(div().text_color(theme::fg()).child(format!(
                                         "{} @ {}",
                                         math::format_lots(contract.lots_of_volume(volume)),
-                                        f.price(entry)
+                                        frame.price(entry)
                                     ))),
                             )
-                            .child(
-                                div()
-                                    .font_semibold()
-                                    .text_color(tone)
-                                    .child(profit.map_or_else(|| "...".to_owned(), |p| f.money(p))),
-                            ),
+                            .child(div().font_semibold().text_color(tone).child(
+                                profit.map_or_else(|| "...".to_owned(), |p| frame.money(p)),
+                            )),
                     )
                     .child(
                         div()
@@ -180,8 +177,8 @@ impl OrderTicket {
                                     .text_color(theme::muted_fg())
                                     .child(format!(
                                         "SL {}  TP {}{}",
-                                        f.price(stop_loss),
-                                        f.price(take_profit),
+                                        frame.price(stop_loss),
+                                        frame.price(take_profit),
                                         if trailing { "  trailing" } else { "" }
                                     )),
                             )
@@ -265,8 +262,8 @@ impl OrderTicket {
                         "{} {} {} @ {}",
                         if buy { "Buy" } else { "Sell" },
                         order.kind().map_or("order", wyck_trading::OrderType::label),
-                        math::format_lots(f.contract.lots_of_volume(order.trade_data.volume)),
-                        f.price(price)
+                        math::format_lots(frame.contract.lots_of_volume(order.trade_data.volume)),
+                        frame.price(price)
                     ))
                     .child(icon_button(
                         SharedString::from(format!("order-cancel-{id}")),
@@ -280,7 +277,7 @@ impl OrderTicket {
             );
         }
         let close_all = self.account.clone();
-        let text = format!("Every position of {} is closed at the market.", f.name);
+        let text = format!("Every position of {} is closed at the market.", frame.name);
         let close_all_button = (count > 1).then(|| {
             text_button("ticket-close-all", "Close all")
                 .on_click(move |_, window, cx| {
@@ -303,8 +300,11 @@ impl OrderTicket {
                 })
                 .into_any_element()
         });
-        card(f.m)
-            .child(card_head(format!("Open on {}", f.name), close_all_button))
+        card(frame.m)
+            .child(card_head(
+                format!("Open on {}", frame.name),
+                close_all_button,
+            ))
             .children(rows)
             .when(count == 0, |el| {
                 el.child(hint("Nothing open on this symbol."))

@@ -1,14 +1,11 @@
-//! Trading from the app: the live account ([`account`]), what it holds and how that changes
-//! ([`book`]), the arithmetic of lots, pips and profit ([`math`]), the order ticket ([`ticket`]),
-//! and the account panel under the charts ([`panel`]).
+//! The trading screens: the order ticket ([`ticket`]) and the account panel under the charts
+//! ([`panel`]). The account itself, the book and the arithmetic of lots, pips and profit are
+//! `wyck-app` and `wyck-trading`.
 //!
 //! On the charts, positions, their stop loss and take profit, working orders, alerts and the
 //! ticket's pending prices show as lines ([`lines`] builds them); dragging one moves what it
 //! stands for.
 
-pub use wyck_app::account;
-pub use wyck_trading::book;
-use wyck_trading::math;
 pub mod panel;
 pub mod ticket;
 
@@ -17,9 +14,9 @@ use std::collections::HashMap;
 use wyck_app::alerts::AlertBook;
 use wyck_chart::LineId;
 use wyck_drawings::model::style::Dash;
+use wyck_trading::book::AccountBook;
+use wyck_trading::math;
 use wyck_ui_chart::chart::ChartLine;
-
-use self::book::AccountBook;
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`

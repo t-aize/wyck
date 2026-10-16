@@ -9,17 +9,16 @@
 //! Saving (Ctrl+S) writes the file; the app notices the change like it does for a file edited in
 //! another program, so every chart that holds the script draws the new version at once.
 
-pub mod actions;
-pub mod files;
+mod actions;
+mod files;
 mod parts;
-pub mod prompts;
-pub mod providers;
-pub mod tabs;
+mod prompts;
+mod providers;
+mod tabs;
 
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, MouseMoveEvent, Subscription, Task, Window,
-    actions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -37,19 +36,31 @@ use wyck_ui_kit::input::{
 };
 use wyck_ui_kit::input::{Diagnostic, DiagnosticSeverity};
 
-actions!(
-    wyck_indicator_editor,
-    [
-        SaveScript,
-        AddToChart,
-        CloseTab,
-        ToggleReference,
-        NextProblem,
-        PreviousProblem,
-        NextTab,
-        PreviousTab
-    ]
-);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod action {
+    gpui::actions!(
+        wyck_indicator_editor,
+        [
+            SaveScript,
+            AddToChart,
+            CloseTab,
+            ToggleReference,
+            NextProblem,
+            PreviousProblem,
+            NextTab,
+            PreviousTab
+        ]
+    );
+}
+pub use action::*;
+
+/// A line or a column of a text as the number the language server protocol counts in.
+fn lsp_index(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
 
 /// The key context of the editor's panel.
 pub const CONTEXT: &str = "IndicatorEditor";
@@ -106,18 +117,18 @@ struct DraftTab {
 /// One script open in a tab.
 pub(crate) struct Doc {
     /// The id of the script, its path in the folder.
-    pub id: String,
-    pub state: Entity<EditorState>,
+    pub(crate) id: String,
+    pub(crate) state: Entity<EditorState>,
     /// The text as it is on disk (as last read or written).
-    pub saved: String,
+    pub(crate) saved: String,
     /// Whether the text differs from `saved`.
-    pub dirty: bool,
+    pub(crate) dirty: bool,
     /// What the last check found.
-    pub problems: Vec<Problem>,
+    pub(crate) problems: Vec<Problem>,
     /// The file changed on disk while the tab had changes of its own.
-    pub conflict: bool,
+    pub(crate) conflict: bool,
     /// The file is no longer on disk.
-    pub gone: bool,
+    pub(crate) gone: bool,
     check: Option<Task<()>>,
     _subscription: Subscription,
 }
@@ -130,8 +141,8 @@ pub(crate) enum Ask {
 }
 
 pub(crate) struct Prompt {
-    pub ask: Ask,
-    pub input: Entity<InputState>,
+    pub(crate) ask: Ask,
+    pub(crate) input: Entity<InputState>,
     _subscription: Subscription,
 }
 
@@ -144,8 +155,8 @@ pub(crate) enum ConsoleTab {
 
 /// A line in the status bar.
 pub(crate) struct Notice {
-    pub ok: bool,
-    pub text: String,
+    pub(crate) ok: bool,
+    pub(crate) text: String,
     _clear: Task<()>,
 }
 
@@ -158,9 +169,9 @@ pub(crate) enum ResizeSide {
 
 #[derive(Clone, Copy)]
 pub(crate) struct ResizeDrag {
-    pub side: ResizeSide,
-    pub start: f32,
-    pub size: f32,
+    pub(crate) side: ResizeSide,
+    pub(crate) start: f32,
+    pub(crate) size: f32,
 }
 
 pub struct IndicatorEditor {
@@ -212,7 +223,7 @@ impl IndicatorEditor {
             cx.new(|cx| InputState::new(window, cx).placeholder("Search the reference"));
         let subscriptions = vec![
             cx.subscribe(&filter, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify()
+                cx.notify();
             }),
             cx.subscribe(
                 &reference_filter,
@@ -296,8 +307,7 @@ impl IndicatorEditor {
                 });
                 let index = self.docs.len() - 1;
                 self.show_problems(index, cx);
-                if dirty {
-                    let id = self.docs[index].id.clone();
+                if dirty && let Some(id) = self.docs.get(index).map(|doc| doc.id.clone()) {
                     self.text_changed(&id, cx);
                 }
             }
@@ -450,8 +460,8 @@ fn show_diagnostics(state: &Entity<EditorState>, problems: &[Problem], text: &st
                 Severity::Warning => DiagnosticSeverity::Warning,
             };
             Diagnostic::new(
-                Position::new(line as u32, column as u32)
-                    ..Position::new(line as u32, (column + width) as u32),
+                Position::new(lsp_index(line), lsp_index(column))
+                    ..Position::new(lsp_index(line), lsp_index(column + width)),
                 problem.message.clone(),
             )
             .with_severity(severity)

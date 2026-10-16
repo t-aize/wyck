@@ -19,7 +19,7 @@ impl Customizer {
                     form::field(
                         "Side of the charts",
                         None,
-                        self.choice(
+                        Self::choice(
                             "custom-dock",
                             &["Left", "Right"],
                             usize::from(layout.dock == Dock::Right),
@@ -35,7 +35,7 @@ impl Customizer {
                     form::field(
                         "Spacing",
                         Some("Compact fits more of the panel on a small screen"),
-                        self.choice(
+                        Self::choice(
                             "custom-density",
                             &["Comfortable", "Compact"],
                             usize::from(layout.density == Density::Compact),
@@ -58,21 +58,21 @@ impl Customizer {
                     form::field(
                         "Buy on the left, sell on the right",
                         None,
-                        self.flag("custom-buy-first", layout.buy_first, cx, |l, v| {
+                        Self::flag("custom-buy-first", layout.buy_first, cx, |l, v| {
                             l.buy_first = v;
                         }),
                     ),
                     form::field(
                         "Prices on the buttons",
                         None,
-                        self.flag("custom-prices", layout.show_prices, cx, |l, v| {
+                        Self::flag("custom-prices", layout.show_prices, cx, |l, v| {
                             l.show_prices = v;
                         }),
                     ),
                     form::field(
                         "Spread between the buttons",
                         None,
-                        self.flag("custom-spread", layout.show_spread, cx, |l, v| {
+                        Self::flag("custom-spread", layout.show_spread, cx, |l, v| {
                             l.show_spread = v;
                         }),
                     ),
@@ -83,7 +83,6 @@ impl Customizer {
 
     /// A list of slots, each with its arrows and its switch.
     pub(super) fn slots<T: Slot>(
-        &self,
         id: &'static str,
         list: &[Placed<T>],
         pick: fn(&mut Layout) -> &mut Vec<Placed<T>>,
@@ -138,7 +137,11 @@ impl Customizer {
                             placed.shown,
                             move |shown, _, cx| {
                                 toggle.update(cx, |c, cx| {
-                                    c.edit(cx, |l| pick(l)[index].shown = shown);
+                                    c.edit(cx, |l| {
+                                        if let Some(placed) = pick(l).get_mut(index) {
+                                            placed.shown = shown;
+                                        }
+                                    });
                                 });
                             },
                         )),
@@ -147,12 +150,12 @@ impl Customizer {
             .collect()
     }
 
-    pub(super) fn blocks_page(&self, layout: &Layout, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn blocks_page(layout: &Layout, cx: &Context<Self>) -> AnyElement {
         form::page()
             .child(form::group(
                 IconName::LayoutList,
                 "Blocks of the panel",
-                self.slots("custom-sections", &layout.sections, |l| &mut l.sections, cx),
+                Self::slots("custom-sections", &layout.sections, |l| &mut l.sections, cx),
             ))
             .child(form::note(
                 "Switch a block off to hide it, and move it with the arrows to change where it sits.",
@@ -160,7 +163,7 @@ impl Customizer {
             .child(form::group(
                 IconName::ListChecks,
                 "Lines of the summary",
-                self.slots("custom-lines", &layout.lines, |l| &mut l.lines, cx),
+                Self::slots("custom-lines", &layout.lines, |l| &mut l.lines, cx),
             ))
             .into_any_element()
     }
@@ -191,7 +194,7 @@ impl Customizer {
         let number = |index: usize| {
             div()
                 .w(px(tokens::field::wide()))
-                .child(wyck_ui_kit::input::number(&self.numbers[index]))
+                .children(self.numbers.get(index).map(wyck_ui_kit::input::number))
         };
         form::page()
             .child(form::group(
@@ -201,25 +204,29 @@ impl Customizer {
                     form::field(
                         "Order type",
                         None,
-                        self.choice(
+                        Self::choice(
                             "custom-kind",
                             &kinds,
                             Kind::ALL.iter().position(|k| *k == d.kind).unwrap_or(0),
                             cx,
-                            |l, i| l.defaults.kind = Kind::ALL[i],
+                            |l, i| {
+                                if let Some(&kind) = Kind::ALL.get(i) {
+                                    l.defaults.kind = kind;
+                                }
+                            },
                         ),
                     ),
                     form::field(
                         "Stop loss turned on",
                         None,
-                        self.flag("custom-stop-on", d.stop_on, cx, |l, v| {
+                        Self::flag("custom-stop-on", d.stop_on, cx, |l, v| {
                             l.defaults.stop_on = v;
                         }),
                     ),
                     form::field(
                         "Take profit turned on",
                         None,
-                        self.flag("custom-target-on", d.target_on, cx, |l, v| {
+                        Self::flag("custom-target-on", d.target_on, cx, |l, v| {
                             l.defaults.target_on = v;
                         }),
                     ),
@@ -242,7 +249,7 @@ impl Customizer {
                     form::field(
                         "A pending order lasts",
                         None,
-                        self.choice(
+                        Self::choice(
                             "custom-tif",
                             &["Until cancelled", "Good till date"],
                             usize::from(d.tif == Tif::GoodTillDate),
@@ -260,7 +267,7 @@ impl Customizer {
                     form::field(
                         "Good till date: unit",
                         None,
-                        self.choice(
+                        Self::choice(
                             "custom-span",
                             &spans,
                             Span::ALL
@@ -268,7 +275,11 @@ impl Customizer {
                                 .position(|s| *s == d.expiry_span)
                                 .unwrap_or(1),
                             cx,
-                            |l, i| l.defaults.expiry_span = Span::ALL[i],
+                            |l, i| {
+                                if let Some(&span) = Span::ALL.get(i) {
+                                    l.defaults.expiry_span = span;
+                                }
+                            },
                         ),
                     ),
                     form::field(

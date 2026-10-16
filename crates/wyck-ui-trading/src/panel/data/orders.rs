@@ -89,7 +89,7 @@ pub(super) fn history(ctx: &Ctx) -> Table {
         let lots = contract.lots_of_volume(deal.filled_volume);
         // A closing deal is on the other side of the position it closes.
         let cells = vec![
-            Cell::text(ctx.time(deal.execution_timestamp)).tone(Tone::Muted),
+            Cell::text(Ctx::time(deal.execution_timestamp)).tone(Tone::Muted),
             Cell::text(account.book.name(symbol)),
             side_cell(!buy),
             Cell::text(math::format_lots(lots)).adds(lots, Unit::Lots),

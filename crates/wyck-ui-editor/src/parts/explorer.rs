@@ -27,7 +27,7 @@ impl IndicatorEditor {
                 .push(entry);
         }
         let total: usize = folders.values().map(Vec::len).sum();
-        let file_menu = self.menu(window, cx, "editor-file-menu");
+        let file_menu = Self::menu(window, cx, "editor-file-menu");
 
         let mut list = div()
             .id("editor-files")
@@ -233,7 +233,7 @@ impl IndicatorEditor {
             )
             .children(unsaved.then(|| {
                 div()
-                    .size(px(wyck_ui_kit::tokens::swatch::dot()))
+                    .size(px(tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())
             }))
@@ -251,23 +251,19 @@ impl IndicatorEditor {
         };
         let ready = registry::get(&id).is_some_and(|e| e.is_ready());
         let entity = cx.entity();
-        let action = |label: &'static str,
-                      icon: IconName,
-                      run: fn(
-            &mut IndicatorEditor,
-            &str,
-            &mut Window,
-            &mut Context<IndicatorEditor>,
-        )| {
-            let (entity, id, menu) = (entity.clone(), id.clone(), menu.clone());
-            Entry::new(label).icon(icon).on_click(move |window, cx| {
-                menu.close(cx);
-                entity.update(cx, |e, cx| run(e, &id, window, cx));
-            })
-        };
+        let action =
+            |label: &'static str,
+             icon: IconName,
+             run: fn(&mut Self, &str, &mut Window, &mut Context<Self>)| {
+                let (entity, id, menu) = (entity.clone(), id.clone(), menu.clone());
+                Entry::new(label).icon(icon).on_click(move |window, cx| {
+                    menu.close(cx);
+                    entity.update(cx, |e, cx| run(e, &id, window, cx));
+                })
+            };
         vec![
             Item::Title(stem(&id).to_owned().into()),
-            action("Open", IconName::FileCode, |e, id, w, cx| e.open(id, w, cx)).into(),
+            action("Open", IconName::FileCode, Self::open).into(),
             action("Add to chart", IconName::Play, |e, id, w, cx| {
                 e.open(id, w, cx);
                 e.add_to_chart(w, cx);
@@ -276,11 +272,11 @@ impl IndicatorEditor {
             .into(),
             Item::Separator,
             action("Rename...", IconName::Pencil, |e, id, w, cx| {
-                e.ask_rename(id, w, cx)
+                e.ask_rename(id, w, cx);
             })
             .into(),
-            action("Duplicate", IconName::Copy, |e, id, w, cx| {
-                e.duplicate(id, w, cx)
+            action("Duplicate", IconName::Copy, |_, id, w, cx| {
+                Self::duplicate(id, w, cx);
             })
             .into(),
             action("Show in folder", IconName::FolderOpen, |_, id, _, cx| {
@@ -290,8 +286,8 @@ impl IndicatorEditor {
             })
             .into(),
             Item::Separator,
-            action("Delete...", IconName::Trash, |e, id, w, cx| {
-                e.delete(id, w, cx)
+            action("Delete...", IconName::Trash, |_, id, w, cx| {
+                Self::delete(id, w, cx);
             })
             .danger()
             .into(),
@@ -314,8 +310,8 @@ impl IndicatorEditor {
         let card = div()
             .id("editor-prompt-card")
             // A click on the card is its own: it must not reach the veil, which closes the prompt.
-            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .w(px(wyck_ui_kit::tokens::measure::card()))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .w(px(tokens::measure::card()))
             .p_4()
             .flex()
             .flex_col()
@@ -328,7 +324,7 @@ impl IndicatorEditor {
             .child(
                 div()
                     .text_size(px(tokens::text::title()))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child(title),
             )
@@ -349,7 +345,7 @@ impl IndicatorEditor {
                         wyck_ui_kit::button::dense("editor-prompt-cancel")
                             .label("Cancel")
                             .on_click(move |_, _window, cx| {
-                                cancel.update(cx, |e, cx| e.cancel_prompt(cx));
+                                cancel.update(cx, Self::cancel_prompt);
                             }),
                     )
                     .child(
@@ -372,12 +368,12 @@ impl IndicatorEditor {
                 // The veil takes the mouse: nothing behind it (the templates) reacts while a name
                 // is asked, and a click outside the card closes it.
                 .occlude()
-                .on_mouse_down(gpui::MouseButton::Left, move |_, _, cx| {
-                    outside.update(cx, |e, cx| e.cancel_prompt(cx));
+                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                    outside.update(cx, Self::cancel_prompt);
                 })
                 .on_key_down(move |event, _, cx| {
                     if event.keystroke.key == "escape" {
-                        escape.update(cx, |e, cx| e.cancel_prompt(cx));
+                        escape.update(cx, Self::cancel_prompt);
                     }
                 })
                 .child(card)

@@ -15,6 +15,7 @@ use wyck_ui_kit::input::{InputEvent, InputState};
 
 use super::OrderTicket;
 use wyck_app::prefs::ticket::Layout;
+use wyck_core::math::f32_of;
 use wyck_trading::math::SizeMode;
 use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
 
@@ -78,7 +79,7 @@ impl Page {
     }
 }
 
-pub struct Customizer {
+pub(crate) struct Customizer {
     ticket: Entity<OrderTicket>,
     page: Page,
     width: Entity<InputState>,
@@ -88,7 +89,7 @@ pub struct Customizer {
 }
 
 /// Opens the panel for a ticket.
-pub fn open(ticket: Entity<OrderTicket>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open(ticket: Entity<OrderTicket>, window: &mut Window, cx: &mut App) {
     // Opened once the click that asked for it is done with the ticket.
     window.defer(cx, move |window, cx| {
         let editor = cx.new(|cx| Customizer::new(ticket, window, cx));
@@ -187,7 +188,7 @@ impl Customizer {
             if matches!(event, InputEvent::Change)
                 && let Some(value) = number::parse(&state.read(cx).value())
             {
-                this.edit(cx, |l| l.width = value as f32);
+                this.edit(cx, |l| l.width = f32_of(value));
             }
         }));
 
@@ -237,7 +238,7 @@ impl Customizer {
 
     /// Puts everything back as it was first, fields included.
     fn reset(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.ticket.update(cx, |t, cx| t.reset_layout(cx));
+        self.ticket.update(cx, OrderTicket::reset_layout);
         let layout = self.ticket.read(cx).layout().clone();
         self.width.update(cx, |s, cx| {
             s.set_value(number::format(f64::from(layout.width), 0), window, cx);
@@ -259,7 +260,6 @@ impl Customizer {
 
     /// A switch that sets a flag of the layout.
     fn flag(
-        &self,
         id: &'static str,
         on: bool,
         cx: &Context<Self>,
@@ -274,7 +274,6 @@ impl Customizer {
 
     /// Buttons side by side that set a choice of the layout.
     fn choice(
-        &self,
         id: &'static str,
         options: &[&str],
         selected: usize,
@@ -296,7 +295,7 @@ impl Render for Customizer {
         let active = Page::ALL.iter().position(|p| *p == self.page).unwrap_or(0);
         let body = match self.page {
             Page::Panel => self.panel_page(&layout, cx),
-            Page::Blocks => self.blocks_page(&layout, cx),
+            Page::Blocks => Self::blocks_page(&layout, cx),
             Page::Shortcuts => self.shortcuts_page(),
             Page::Defaults => self.defaults_page(&layout, cx),
         };
@@ -312,7 +311,9 @@ impl Render for Customizer {
             active,
             move |index, _, cx| {
                 this.update(cx, |c, cx| {
-                    c.page = Page::ALL[index];
+                    if let Some(&page) = Page::ALL.get(index) {
+                        c.page = page;
+                    }
                     cx.notify();
                 });
             },

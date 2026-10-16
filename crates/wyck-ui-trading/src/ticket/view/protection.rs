@@ -98,7 +98,7 @@ impl OrderTicket {
             vec![self.followed_level(stop, f), result.into_any_element()]
         } else if stop && self.stop_atr {
             vec![
-                self.stop_mode(true, cx),
+                Self::stop_mode(true, cx),
                 self.atr_options(f, window, cx),
                 result.into_any_element(),
             ]
@@ -110,7 +110,7 @@ impl OrderTicket {
             };
             let mut rows = Vec::new();
             if stop {
-                rows.push(self.stop_mode(false, cx));
+                rows.push(Self::stop_mode(false, cx));
             }
             rows.push(
                 div()
@@ -178,7 +178,7 @@ impl OrderTicket {
     }
 
     /// The choice between a stop loss given as a distance and one that follows the ATR.
-    fn stop_mode(&self, atr: bool, cx: &mut Context<Self>) -> AnyElement {
+    fn stop_mode(atr: bool, cx: &mut Context<Self>) -> AnyElement {
         let this = cx.entity();
         controls::segmented_fill(
             "ticket-stop-mode",
@@ -315,7 +315,7 @@ impl OrderTicket {
     fn atr_details(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let smoothing = self.atr.smoothing;
         let smoothing_this = cx.entity();
-        let smoothing_menu = self.select(
+        let smoothing_menu = Self::select(
             "ticket-atr-smoothing",
             smoothing.label().to_owned(),
             move || {
@@ -342,7 +342,7 @@ impl OrderTicket {
         );
         let current = self.atr.timeframe.clone();
         let timeframe_this = cx.entity();
-        let timeframe_menu = self.select(
+        let timeframe_menu = Self::select(
             "ticket-atr-timeframe",
             current.clone().unwrap_or_else(|| "Chart".to_owned()),
             move || {

@@ -21,8 +21,8 @@ impl IndicatorEditor {
             return;
         };
         let position = Position::new(
-            line.saturating_sub(1) as u32,
-            column.saturating_sub(1) as u32,
+            super::lsp_index(line.saturating_sub(1)),
+            super::lsp_index(column.saturating_sub(1)),
         );
         doc.state.update(cx, |state, cx| {
             state.set_cursor_position(position, window, cx);
@@ -91,7 +91,7 @@ impl IndicatorEditor {
         let start = indicators::dir(cx);
         let name = format!("{}.rhai", id.rsplit('/').next().unwrap_or(&id));
         let picked = cx.prompt_for_new_path(&start, Some(&name));
-        let task_id = id.clone();
+        let task_id = id;
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(path))) = picked.await else {
                 return;
@@ -104,7 +104,7 @@ impl IndicatorEditor {
                 "actions: export_current",
                 this.update(cx, |this, cx| match result {
                     Some(Ok(path)) => {
-                        this.say(true, format!("Exported to {}.", path.display()), cx)
+                        this.say(true, format!("Exported to {}.", path.display()), cx);
                     }
                     Some(Err(error)) => this.say(false, error.to_string(), cx),
                     None => {}
@@ -114,7 +114,7 @@ impl IndicatorEditor {
         .detach();
     }
 
-    pub fn export_all(&mut self, cx: &mut Context<Self>) {
+    pub fn export_all(cx: &mut Context<Self>) {
         let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: false,
             directories: true,
@@ -149,7 +149,7 @@ impl IndicatorEditor {
         .detach();
     }
 
-    pub fn import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn import(window: &mut Window, cx: &mut Context<Self>) {
         let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: true,
             directories: true,
@@ -175,11 +175,10 @@ impl IndicatorEditor {
                     let (added, skipped) = (report.imported.len(), report.skipped.len());
                     let mut text = format!("Imported {added} script(s).");
                     if let Some((path, why)) = report.skipped.first() {
-                        text.push_str(&format!(
-                            " Skipped {skipped}: {} ({why}).",
-                            path.file_name()
-                                .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
-                        ));
+                        let name = path
+                            .file_name()
+                            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                        text = format!("{text} Skipped {skipped}: {name} ({why}).");
                     }
                     this.say(skipped == 0, text, cx);
                     if let Some(first) = report.imported.first() {
@@ -199,7 +198,7 @@ impl IndicatorEditor {
         }
     }
 
-    pub(super) fn menu(&self, window: &mut Window, cx: &mut App, id: &'static str) -> popup::Menu {
+    pub(super) fn menu(window: &mut Window, cx: &mut App, id: &'static str) -> popup::Menu {
         popup::Menu::new(id, window, cx)
     }
 }

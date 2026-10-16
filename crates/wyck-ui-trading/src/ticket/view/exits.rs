@@ -110,7 +110,9 @@ impl OrderTicket {
                 usize::from(be.after_leg).saturating_sub(1).min(count - 2),
                 move |choice, _, cx| {
                     this.update(cx, |t, cx| {
-                        t.edit_exits(cx, |e| e.break_even.after_leg = (choice + 1) as u8)
+                        t.edit_exits(cx, |e| {
+                            e.break_even.after_leg = u8::try_from(choice + 1).unwrap_or(u8::MAX);
+                        });
                     });
                 },
             )

@@ -8,6 +8,7 @@ use wyck_app::lost::lost;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
 use wyck_chart::LineId;
+use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
@@ -46,7 +47,7 @@ impl OrderTicket {
     pub(super) fn expires_at(&self, cx: &App) -> Option<i64> {
         Self::read(&self.expiry, cx)
             .filter(|v| *v > 0.0)
-            .map(|v| now_ms() + (v * self.expiry_span.millis() as f64) as i64)
+            .map(|v| now_ms() + f64_to_i64(v * i64_to_f64(self.expiry_span.millis())))
     }
 
     /// The price the order would enter at: its own for a pending order, the market's for a
@@ -85,12 +86,11 @@ impl OrderTicket {
             &self.take_profit
         };
         let value = Self::read(state, cx)?;
-        match unit {
-            Offset::Price => Some(value),
-            _ => {
-                let distance = scale.distance(unit, value)?;
-                Some(entry? + math::protection_side(self.buy, stop) * distance)
-            }
+        if unit == Offset::Price {
+            Some(value)
+        } else {
+            let distance = scale.distance(unit, value)?;
+            Some(entry? + math::protection_side(self.buy, stop) * distance)
         }
     }
 
@@ -125,7 +125,7 @@ impl OrderTicket {
                 .then(|| self.protection_price(true, self.stop_unit, entry, &scale, cx))
                 .flatten()
         };
-        let lot_units = contract.lot_size as f64 / 100.0;
+        let lot_units = i64_to_f64(contract.lot_size) / 100.0;
         let sized: Result<Stepped, TicketProblem> = (|| match self.size_mode {
             SizeMode::Lots => Ok(contract.volume_near(size.ok_or(TicketProblem::NoVolume)?)),
             SizeMode::Units => {
@@ -176,7 +176,7 @@ impl OrderTicket {
         plan.money_per_price = plan
             .sized
             .zip(rate)
-            .map(|(s, r)| s.volume as f64 / 100.0 * r);
+            .map(|(s, r)| i64_to_f64(s.volume) / 100.0 * r);
         scale.money_per_price = plan.money_per_price;
         if self.stop_on {
             plan.stop = if self.stop_atr {
@@ -324,7 +324,7 @@ impl OrderTicket {
                         entry + math::protection_side(self.buy, false) * leg.target_r * distance;
                     let money = plan.risk.map(|r| r * leg.target_r * leg.share / 100.0);
                     lines.push(line(
-                        LINE_TARGET + index as u8,
+                        LINE_TARGET.saturating_add(u8::try_from(index).unwrap_or(u8::MAX)),
                         price,
                         palette.up,
                         &format!("TP{}", index + 1),

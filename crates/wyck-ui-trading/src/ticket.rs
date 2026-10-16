@@ -28,26 +28,27 @@
 //! An order is sent after a confirmation, unless one-click trading is on; then the send button
 //! sends at once. The buy and sell buttons only pick the side.
 //!
-//! Everything about the panel can be changed (see [`prefs`] and [`customize`]): its side and
+//! Everything about the panel can be changed (see [`prefs`] and `customize`): its side and
 //! width, which blocks show and in what order, the size shortcuts and what a new order starts
 //! with.
 
 mod build;
-pub mod customize;
-pub mod edit;
-pub mod helpers;
-pub mod link;
-pub mod planning;
-pub mod problem;
-pub mod send;
+pub(crate) mod customize;
+pub(crate) mod edit;
+pub(crate) mod helpers;
+pub(crate) mod link;
+pub(crate) mod planning;
+pub(crate) mod problem;
+pub(crate) mod send;
 mod templates;
 mod view;
 
-pub use self::prefs::{Kind, Layout, TicketPrefs};
+pub(crate) use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
 use wyck_app::account::Account;
-pub use wyck_app::prefs::ticket as prefs;
+pub(crate) use wyck_app::prefs::ticket as prefs;
+use wyck_core::math::i64_to_f64;
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math;
 use wyck_trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
@@ -60,10 +61,10 @@ use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
 
 /// Which line of the ticket a pending line on the chart stands for.
-pub const LINE_ENTRY: u8 = 0;
-pub const LINE_STOP: u8 = 1;
+pub(crate) const LINE_ENTRY: u8 = 0;
+pub(crate) const LINE_STOP: u8 = 1;
 /// The take profit; with exits, the first of them (the next ones follow at 3 and 4).
-pub const LINE_TARGET: u8 = 2;
+pub(crate) const LINE_TARGET: u8 = 2;
 
 pub enum TicketEvent {
     /// The ticket's lines on the chart changed.
@@ -106,6 +107,10 @@ struct Before {
 /// Whether two readings of a drawing ask the ticket for something different. The stop loss of an
 /// ATR stop and the take profit of a multiple of the risk are worked out by the ticket itself, so
 /// they do not count.
+#[expect(
+    clippy::float_cmp,
+    reason = "two readings of one drawing hold the same copied numbers exactly when the drawing did not move"
+)]
 fn same_shape(a: &PositionPlan, b: &PositionPlan) -> bool {
     a.buy == b.buy
         && a.entry == b.entry
@@ -134,6 +139,10 @@ struct Plan {
     problem: Option<TicketProblem>,
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own switch of the ticket (guaranteed, one click, stop in ATR...)"
+)]
 pub struct OrderTicket {
     account: Entity<Account>,
     symbol: Option<SymbolRef>,
@@ -213,7 +222,7 @@ impl OrderTicket {
 
     /// How the ticket sizes orders and looks now, to be remembered. What a followed drawing sets
     /// is not: it lasts as long as the link.
-    pub fn prefs(&self, cx: &App) -> TicketPrefs {
+    pub(crate) fn prefs(&self, cx: &App) -> TicketPrefs {
         let (stop_atr, atr, stop_unit, target_unit) = match &self.link {
             Some(link) => (
                 link.before.stop_atr,
@@ -289,8 +298,8 @@ impl OrderTicket {
                 target_r: 0.0,
             });
             let (share, target) = (share.clone(), target.clone());
-            self.write(&share, number::format(leg.share, 2), window, cx);
-            self.write(&target, number::format(leg.target_r, 2), window, cx);
+            Self::write(&share, number::format(leg.share, 2), window, cx);
+            Self::write(&target, number::format(leg.target_r, 2), window, cx);
         }
         let mut exits = self.exits_now(cx);
         exits.legs = legs;
@@ -353,7 +362,7 @@ impl OrderTicket {
     }
 
     /// Puts the look and the defaults of the panel back as they were first.
-    pub fn reset_layout(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn reset_layout(&mut self, cx: &mut Context<Self>) {
         self.edit_layout(cx, |layout| *layout = Layout::default());
     }
 
@@ -389,10 +398,10 @@ impl OrderTicket {
             let contract = self.contract(cx);
             let lots = contract.lots_of_volume(contract.min_volume.max(contract.lot_size / 10));
             let value = match self.size_mode {
-                SizeMode::Units => lots * contract.lot_size as f64 / 100.0,
+                SizeMode::Units => lots * i64_to_f64(contract.lot_size) / 100.0,
                 _ => lots,
             };
-            self.write(&self.size.clone(), number::format(value, 2), window, cx);
+            Self::write(&self.size.clone(), number::format(value, 2), window, cx);
         }
         self.apply_steps(window, cx);
         cx.emit(TicketEvent::LinesChanged);
@@ -415,7 +424,10 @@ impl OrderTicket {
 
     /// Fills the ticket from the chart: a side, a price (a pending order, limit or stop by where
     /// it is), and protection. From a position drawing (`link`) it also follows the drawing.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the chart hands over a side, up to three prices and a link in one call"
+    )]
     pub fn prefill(
         &mut self,
         buy: bool,
@@ -430,7 +442,7 @@ impl OrderTicket {
             (link, entry, stop_loss, take_profit)
         {
             self.begin_link(
-                PositionPlan {
+                &PositionPlan {
                     drawing: link.drawing,
                     buy,
                     entry,
@@ -457,7 +469,7 @@ impl OrderTicket {
                     Pending::Stop => Kind::Stop,
                 };
                 let value = self.contract(cx).format_price(price);
-                self.write(&self.price.clone(), value, window, cx);
+                Self::write(&self.price.clone(), value, window, cx);
             }
             None => self.kind = self.layout.defaults.kind,
         }
@@ -468,11 +480,11 @@ impl OrderTicket {
         // The stop loss first: a volume sized by risk and a take profit in R depend on it.
         match stop_loss {
             Some(price) => self.set_protection(true, price, window, cx),
-            None => self.write(&self.stop_loss.clone(), String::new(), window, cx),
+            None => Self::write(&self.stop_loss.clone(), String::new(), window, cx),
         }
         match take_profit {
             Some(price) => self.set_protection(false, price, window, cx),
-            None => self.write(&self.take_profit.clone(), String::new(), window, cx),
+            None => Self::write(&self.take_profit.clone(), String::new(), window, cx),
         }
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();

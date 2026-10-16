@@ -60,7 +60,7 @@ impl OrderTicket {
         let this = cx.entity();
         let span_this = cx.entity();
         let span = self.expiry_span;
-        let span_menu = self.select(
+        let span_menu = Self::select(
             "ticket-expiry-span",
             span.label().to_owned(),
             move || {

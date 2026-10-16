@@ -6,10 +6,10 @@ use crate::dashboard::Dashboard;
 use gpui::Context;
 use wyck_app::alerts;
 use wyck_app::market_data::now_ms;
+use wyck_app::prefs::panel::Tab;
 use wyck_market::PRICE_SCALE;
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::toast;
-use wyck_ui_trading::panel::Tab;
 
 impl Dashboard {
     /// Gives the alerts what they read from the account: how the symbols they watch are written

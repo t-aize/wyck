@@ -5,6 +5,7 @@ use super::{
     div, format_units, icon, math, number, px, theme, tokens,
 };
 use gpui::prelude::*;
+use wyck_core::math::{f32_of, i64_to_f64};
 
 impl OrderTicket {
     pub(super) fn summary(&self, f: &Frame) -> AnyElement {
@@ -37,7 +38,7 @@ impl OrderTicket {
                             .child(
                                 div()
                                     .h_full()
-                                    .w(gpui::relative((risk / (risk + reward)) as f32))
+                                    .w(gpui::relative(f32_of(risk / (risk + reward))))
                                     .bg(theme::chart_down()),
                             )
                             .child(div().h_full().flex_1().bg(theme::chart_up())),
@@ -70,7 +71,7 @@ impl OrderTicket {
                 ),
                 Line::Notional => plan.sized.zip(plan.entry).zip(plan.rate).map_or_else(
                     || "-".into(),
-                    |((s, e), r)| f.money(s.volume as f64 / 100.0 * e * r),
+                    |((s, e), r)| f.money(i64_to_f64(s.volume) / 100.0 * e * r),
                 ),
                 Line::Risk => match plan.risk {
                     Some(r) => format!("{}  {}", f.money(r), f.share(r)),
@@ -147,7 +148,7 @@ pub(super) fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .child(
                     div()
                         .flex_none()
-                        .pt(px(wyck_ui_kit::tokens::HAIRLINE))
+                        .pt(px(tokens::HAIRLINE))
                         .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber())),
                 )
                 .child(div().flex_1().min_w_0().child(message.clone()))

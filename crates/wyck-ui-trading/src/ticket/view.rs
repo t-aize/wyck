@@ -16,6 +16,7 @@ use super::helpers::{nice, side_of, stop_limit_price};
 use super::{OrderTicket, Plan, TicketEvent, customize, plan};
 use wyck_app::account::Busy;
 use wyck_app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
+use wyck_core::math::i64_to_f64;
 use wyck_trading::atr_stop::Smoothing;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Limit, Offset, SizeMode};
@@ -183,7 +184,7 @@ fn text_button(id: &'static str, text: &'static str) -> gpui::Stateful<Div> {
         .cursor_pointer()
         .text_size(px(tokens::text::body()))
         .text_color(theme::accent())
-        .hover(|s| s.underline())
+        .hover(Styled::underline)
         .child(text)
 }
 
@@ -220,7 +221,7 @@ impl OrderTicket {
         let locked = self.account.read(cx).lock().is_some();
         let blocked = f.plan.problem.is_some() || f.busy || locked;
         wyck_ui_kit::button::trade("ticket-send", self.buy)
-            .when(blocked, |button| button.cursor_not_allowed())
+            .when(blocked, Styled::cursor_not_allowed)
             .label(self.describe(&f.plan, cx))
             .disabled(blocked)
             .loading(f.busy)
@@ -351,7 +352,7 @@ impl Render for OrderTicket {
                 .map(|(b, a)| format!("{:.1}", contract.pips(a - b)))
                 .unwrap_or_default(),
             lots: plan.sized.map(|s| contract.lots_of_volume(s.volume)),
-            units: plan.sized.map(|s| s.volume as f64 / 100.0),
+            units: plan.sized.map(|s| i64_to_f64(s.volume) / 100.0),
             name: self
                 .symbol
                 .as_ref()

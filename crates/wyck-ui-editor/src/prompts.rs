@@ -71,7 +71,7 @@ impl IndicatorEditor {
                 let source = (*source).to_owned();
                 let task =
                     indicators::on_library(cx, move |library| library.create(None, &name, &source));
-                self.after_create(task, window, cx);
+                Self::after_create(task, window, cx);
             }
             Ask::Rename(id) => {
                 let task = indicators::rename(cx, id.clone(), name);
@@ -100,7 +100,6 @@ impl IndicatorEditor {
     }
 
     pub(super) fn after_create(
-        &mut self,
         task: Task<Option<Result<String, LibraryError>>>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -122,14 +121,14 @@ impl IndicatorEditor {
         .detach();
     }
 
-    pub(super) fn duplicate(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn duplicate(id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let id = id.to_owned();
         let task = indicators::on_library(cx, move |library| library.duplicate(&id));
-        self.after_create(task, window, cx);
+        Self::after_create(task, window, cx);
     }
 
     /// Asks, then takes the script out of the folder (into its trash).
-    pub(super) fn delete(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn delete(id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (this, target) = (cx.entity(), id.to_owned());
         confirm_as(
             window,
@@ -148,8 +147,8 @@ impl IndicatorEditor {
                     let result = task.await;
                     this.update(cx, |this, cx| match result {
                         Some(Ok(())) => {
-                            if let Some(at) = this.docs.iter().position(|d| d.id == id) {
-                                this.docs[at].gone = true;
+                            if let Some(doc) = this.docs.iter_mut().find(|d| d.id == id) {
+                                doc.gone = true;
                             }
                             this.say(true, "Deleted.", cx);
                         }

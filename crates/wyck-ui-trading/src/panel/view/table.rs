@@ -22,7 +22,7 @@ fn icon_button(
     run: Action,
 ) -> AnyElement {
     button::icon(id, button::Size::Sm, glyph, tip)
-        .when(!enabled, |button| button.cursor_not_allowed())
+        .when(!enabled, Styled::cursor_not_allowed)
         .disabled(!enabled)
         .on_click(move |_, window, cx| run(window, cx))
         .into_any_element()
@@ -37,7 +37,7 @@ fn cell(col: &Column) -> gpui::Div {
         .flex_shrink_0()
         .min_w_0()
         .truncate()
-        .when(col.right, |el| el.text_right())
+        .when(col.right, Styled::text_right)
 }
 
 impl AccountPanel {

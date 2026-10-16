@@ -10,7 +10,6 @@ use wyck_ui_kit::prelude::Disableable;
 
 impl IndicatorEditor {
     pub(super) fn tool_button(
-        &self,
         id: &'static str,
         icon: IconName,
         label: Option<&'static str>,
@@ -30,8 +29,8 @@ impl IndicatorEditor {
     pub(super) fn toolbar(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let has_doc = self.current().is_some();
         let dirty = self.current().is_some_and(|d| d.dirty);
-        let new_menu = self.menu(window, cx, "editor-new-menu");
-        let export_menu = self.menu(window, cx, "editor-export-menu");
+        let new_menu = Self::menu(window, cx, "editor-new-menu");
+        let export_menu = Self::menu(window, cx, "editor-export-menu");
 
         let mut templates: Vec<Item> = vec![Item::Title("New script from".into())];
         for (index, template) in TEMPLATES.iter().enumerate() {
@@ -50,16 +49,16 @@ impl IndicatorEditor {
         }
 
         let this = cx.entity();
-        let (one, all) = (this.clone(), this.clone());
+        let (one, all) = (this.clone(), this);
         let export_items: Vec<Item> = vec![
             Entry::new("This script...")
                 .icon(IconName::FileDown)
                 .disabled(!has_doc)
-                .on_click(move |_, cx| one.update(cx, |e, cx| e.export_current(cx)))
+                .on_click(move |_, cx| one.update(cx, Self::export_current))
                 .into(),
             Entry::new("Every script to a folder...")
                 .icon(IconName::FolderDown)
-                .on_click(move |_, cx| all.update(cx, |e, cx| e.export_all(cx)))
+                .on_click(move |_, cx| all.update(cx, |_, cx| Self::export_all(cx)))
                 .into(),
         ];
 
@@ -106,7 +105,7 @@ impl IndicatorEditor {
                 div()
                     .relative()
                     .child(
-                        self.tool_button(
+                        Self::tool_button(
                             "editor-new",
                             IconName::FilePlus,
                             Some("New"),
@@ -123,11 +122,11 @@ impl IndicatorEditor {
                     )),
             )
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-save",
                     IconName::Save,
                     Some("Save"),
-                    gpui::SharedString::from(format!(
+                    SharedString::from(format!(
                         "Save{}",
                         wyck_ui_kit::hints::suffix("editor_save")
                     )),
@@ -138,11 +137,11 @@ impl IndicatorEditor {
                 }),
             )
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-add",
                     IconName::Play,
                     Some("Add to chart"),
-                    gpui::SharedString::from(format!(
+                    SharedString::from(format!(
                         "Save, and put it on the active chart{}",
                         wyck_ui_kit::hints::suffix("editor_add_to_chart")
                     )),
@@ -154,7 +153,7 @@ impl IndicatorEditor {
             )
             .child(layout::divider())
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-import",
                     IconName::FileUp,
                     Some("Import"),
@@ -162,14 +161,14 @@ impl IndicatorEditor {
                     true,
                 )
                 .on_click(move |_, window, cx| {
-                    import.update(cx, |e, cx| e.import(window, cx));
+                    import.update(cx, |_, cx| Self::import(window, cx));
                 }),
             )
             .child(
                 div()
                     .relative()
                     .child(
-                        self.tool_button(
+                        Self::tool_button(
                             "editor-export",
                             IconName::FileDown,
                             Some("Export"),
@@ -186,7 +185,7 @@ impl IndicatorEditor {
                     )),
             )
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-reveal",
                     IconName::FolderOpen,
                     None,
@@ -194,16 +193,16 @@ impl IndicatorEditor {
                     has_doc,
                 )
                 .on_click(move |_, _window, cx| {
-                    reveal.update(cx, |e, cx| e.reveal_current(cx));
+                    reveal.update(cx, Self::reveal_current);
                 }),
             )
             .child(div().flex_1())
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-reference",
                     IconName::BookOpen,
                     Some("Reference"),
-                    gpui::SharedString::from(format!(
+                    SharedString::from(format!(
                         "Every function of the language{}",
                         wyck_ui_kit::hints::suffix("editor_reference")
                     )),
@@ -218,7 +217,7 @@ impl IndicatorEditor {
                 }),
             )
             .child(
-                self.tool_button(
+                Self::tool_button(
                     "editor-maximize",
                     if maximized {
                         IconName::Minimize2
@@ -238,7 +237,7 @@ impl IndicatorEditor {
                 }),
             )
             .child(
-                self.tool_button("editor-close", IconName::X, None, "Close the editor", true)
+                Self::tool_button("editor-close", IconName::X, None, "Close the editor", true)
                     .on_click(move |_, _window, cx| {
                         close.update(cx, |_, cx| cx.emit(EditorEvent::Close));
                     }),

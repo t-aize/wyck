@@ -7,6 +7,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
 use wyck_app::prefs::panel::Tab;
 use wyck_core::format::grouped;
+use wyck_core::math::f64_to_i64;
 use wyck_trading::math::format_amount;
 use wyck_ui_kit::prelude::StyledExt as _;
 use wyck_ui_kit::{focus::Keyboard, theme, tokens};
@@ -51,7 +52,7 @@ impl AccountPanel {
             .border_color(if chosen {
                 theme::accent()
             } else {
-                gpui::rgba(0x00000000)
+                gpui::rgba(0x0000_0000)
             })
             .hover(|s| s.text_color(theme::fg()))
             .on_click(cx.listener(move |this, _, _, cx| this.show_tab(tab, cx)))
@@ -111,7 +112,7 @@ impl AccountPanel {
                 "Margin level",
                 summary.margin_level.map_or_else(
                     || "-".to_owned(),
-                    |level| format!("{}%", grouped(level.round() as i64)),
+                    |level| format!("{}%", grouped(f64_to_i64(level.round()))),
                 ),
                 match summary.margin_level {
                     Some(level) if level < 100.0 => tone_color(Tone::Down),

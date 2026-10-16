@@ -4,6 +4,7 @@ use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
 use wyck_app::alerts::model::source::{PnlScope, PriceKind};
 use wyck_app::alerts::{Alert, Alerts, Condition, Source, Trigger};
+use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::kind::StudyKind;
 use wyck_ui_kit::focus::Keyboard;
@@ -85,7 +86,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
         expiry: cx.new(|cx| {
             let hours = alert
                 .expires_at
-                .map(|at| ((at - wyck_app::market_data::now_ms()) as f64 / 3_600_000.0).max(0.0))
+                .map(|at| (i64_to_f64(at - wyck_app::market_data::now_ms()) / 3_600_000.0).max(0.0))
                 .filter(|h| *h > 0.0)
                 .map_or(String::new(), |h| format!("{h:.1}"));
             InputState::new(window, cx)
@@ -114,7 +115,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
 }
 
 impl AlertEditor {
-    pub(super) fn read(&self, state: &Entity<InputState>, cx: &App) -> Option<f64> {
+    pub(super) fn read(state: &Entity<InputState>, cx: &App) -> Option<f64> {
         number::parse(&state.read(cx).value())
     }
 
@@ -212,23 +213,22 @@ impl AlertEditor {
 
     pub(super) fn save(&self, cx: &mut App) {
         let mut alert = self.draft.clone();
-        if let Some(price) = self.read(&self.price, cx)
+        if let Some(price) = Self::read(&self.price, cx)
             && (price > 0.0 || alert.source.is_indicator() || alert.source.is_measure())
         {
             alert.price = price;
         }
-        alert.upper = self.read(&self.upper, cx).unwrap_or(alert.upper);
-        alert.amount = self.read(&self.amount, cx).unwrap_or(alert.amount);
-        alert.minutes = self
-            .read(&self.minutes, cx)
-            .map_or(alert.minutes, |m| m.max(1.0) as u32);
+        alert.upper = Self::read(&self.upper, cx).unwrap_or(alert.upper);
+        alert.amount = Self::read(&self.amount, cx).unwrap_or(alert.amount);
+        alert.minutes =
+            Self::read(&self.minutes, cx).map_or(alert.minutes, |m| f64_to_u32(m.max(1.0)));
         alert.message = self.message.read(cx).value().to_string();
-        alert.tag = self.tag.read(cx).value().trim().to_owned();
-        let hours = self.read(&self.expiry, cx).filter(|h| *h > 0.0);
+        self.tag.read(cx).value().trim().clone_into(&mut alert.tag);
+        let hours = Self::read(&self.expiry, cx).filter(|h| *h > 0.0);
         alert.expires_at =
-            hours.map(|h| wyck_app::market_data::now_ms() + (h * 3_600_000.0) as i64);
+            hours.map(|h| wyck_app::market_data::now_ms() + f64_to_i64(h * 3_600_000.0));
         if let Source::Indicator { study, .. } = &mut alert.source
-            && let Some(length) = self.read(&self.period, cx)
+            && let Some(length) = Self::read(&self.period, cx)
             && study.kind.spec().inputs.iter().any(|i| i.key == "length")
         {
             study
@@ -255,7 +255,6 @@ impl AlertEditor {
 
     /// A button that opens a list of choices under it.
     pub(super) fn select(
-        &self,
         key: &'static str,
         text: String,
         items: Vec<Item>,

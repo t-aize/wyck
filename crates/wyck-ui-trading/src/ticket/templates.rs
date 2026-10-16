@@ -63,7 +63,7 @@ impl OrderTicket {
         match prefs.save_plan(template) {
             Some(replaced) => {
                 self.plans = prefs.plans;
-                self.write(&self.plan_name.clone(), String::new(), window, cx);
+                Self::write(&self.plan_name.clone(), String::new(), window, cx);
                 self.settings_changed(cx);
                 wyck_ui_kit::toast::Toast::success(
                     if replaced {
@@ -126,7 +126,7 @@ impl OrderTicket {
         }
         let template = template.clone().normalized();
         self.size_mode = template.size_mode;
-        self.write(
+        Self::write(
             &self.size.clone(),
             number::format(
                 template.size,
@@ -140,39 +140,33 @@ impl OrderTicket {
             cx,
         );
         self.stop_atr = false;
-        match template.stop {
-            Some(d) => {
-                self.stop_on = true;
-                self.stop_unit = d.unit;
-                self.write(
-                    &self.stop_loss.clone(),
-                    format_offset(d.unit, d.value),
-                    window,
-                    cx,
-                );
-            }
-            None => {
-                self.stop_on = false;
-                self.trailing = false;
-                self.guaranteed = false;
-                self.write(&self.stop_loss.clone(), String::new(), window, cx);
-            }
+        if let Some(d) = template.stop {
+            self.stop_on = true;
+            self.stop_unit = d.unit;
+            Self::write(
+                &self.stop_loss.clone(),
+                format_offset(d.unit, d.value),
+                window,
+                cx,
+            );
+        } else {
+            self.stop_on = false;
+            self.trailing = false;
+            self.guaranteed = false;
+            Self::write(&self.stop_loss.clone(), String::new(), window, cx);
         }
-        match template.target {
-            Some(d) => {
-                self.target_on = true;
-                self.target_unit = d.unit;
-                self.write(
-                    &self.take_profit.clone(),
-                    format_offset(d.unit, d.value),
-                    window,
-                    cx,
-                );
-            }
-            None => {
-                self.target_on = false;
-                self.write(&self.take_profit.clone(), String::new(), window, cx);
-            }
+        if let Some(d) = template.target {
+            self.target_on = true;
+            self.target_unit = d.unit;
+            Self::write(
+                &self.take_profit.clone(),
+                format_offset(d.unit, d.value),
+                window,
+                cx,
+            );
+        } else {
+            self.target_on = false;
+            Self::write(&self.take_profit.clone(), String::new(), window, cx);
         }
         // The exits: the legs go into their inputs, the rest into the plan.
         for (index, (share, target)) in self.leg_inputs.iter().enumerate() {
@@ -186,16 +180,16 @@ impl OrderTicket {
                     target_r: 0.0,
                 });
             let (share, target) = (share.clone(), target.clone());
-            self.write(&share, number::format(leg.share, 2), window, cx);
-            self.write(&target, number::format(leg.target_r, 2), window, cx);
+            Self::write(&share, number::format(leg.share, 2), window, cx);
+            Self::write(&target, number::format(leg.target_r, 2), window, cx);
         }
-        self.write(
+        Self::write(
             &self.be_offset.clone(),
             number::format(template.exits.break_even.offset_pips, 2),
             window,
             cx,
         );
-        self.write(
+        Self::write(
             &self.oco_pips.clone(),
             number::format(template.exits.oco_pips, 2),
             window,
@@ -203,7 +197,7 @@ impl OrderTicket {
         );
         self.exits = template.exits.clone();
         self.time_stop = template.time_stop;
-        self.write(
+        Self::write(
             &self.time_stop_amount.clone(),
             number::format(template.time_stop.amount, 0),
             window,
@@ -327,10 +321,7 @@ mod tests {
         assert_eq!(stop.normalized().amount, 4.0);
         stop.amount = 1.0e12;
         stop.span = prefs::Span::Days;
-        assert_eq!(
-            stop.normalized().minutes(),
-            wyck_trading::plan::MAX_TIME_STOP_MINUTES
-        );
+        assert_eq!(stop.normalized().minutes(), plan::MAX_TIME_STOP_MINUTES);
         assert_eq!(TimeStopPrefs::default().rule(), None);
         stop.only = Only::Losing;
         assert_eq!(stop.rule().map(|r| r.only), Some(Only::Losing));
@@ -355,7 +346,7 @@ mod tests {
     #[test]
     fn prefs_from_before_plans_load_with_none() {
         let old: TicketPrefs = toml::from_str("size = 0.5").unwrap();
-        assert!(old.plans.is_empty());
+        assert_eq!(old.plans, Vec::new());
         assert!(!old.time_stop.on);
         let with: TicketPrefs = toml::from_str(
             &toml::to_string(&{
