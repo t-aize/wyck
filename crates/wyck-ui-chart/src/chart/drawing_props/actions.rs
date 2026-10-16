@@ -20,7 +20,6 @@ impl DrawingProps {
     /// What a row's reset button does: puts one part of the look back to the tool's built-in
     /// value. `restore` copies that part from the built-in style into the drawing's.
     pub(super) fn restore(
-        &self,
         cx: &mut Context<Self>,
         restore: fn(&mut Drawing, &wyck_drawings::model::style::Style),
     ) -> impl Fn(&mut Window, &mut App) + 'static + use<> {
@@ -254,7 +253,6 @@ impl DrawingProps {
 
     /// A switch that sets one flag of the drawing.
     pub(super) fn switch(
-        &self,
         id: &str,
         on: bool,
         cx: &mut Context<Self>,

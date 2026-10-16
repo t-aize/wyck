@@ -55,7 +55,7 @@ impl ExportDialog {
             ));
         }
         if matches!(o.format, Format::Delimited | Format::Markdown) {
-            file.push(self.switch(
+            file.push(Self::switch(
                 cx,
                 "export-header",
                 "Header row",
@@ -82,7 +82,7 @@ impl ExportDialog {
             o.line_ending,
             |o, v| o.line_ending = v,
         ));
-        file.push(self.switch(
+        file.push(Self::switch(
             cx,
             "export-bom",
             "Byte order mark",
@@ -90,7 +90,7 @@ impl ExportDialog {
             o.bom,
             |o, on| o.bom = on,
         ));
-        file.push(self.switch(
+        file.push(Self::switch(
             cx,
             "export-notes",
             "Say where the data comes from",
@@ -99,7 +99,7 @@ impl ExportDialog {
             |o, on| o.notes = on,
         ));
         if o.format == Format::Json {
-            file.push(self.switch(
+            file.push(Self::switch(
                 cx,
                 "export-pretty",
                 "Indented JSON",
@@ -150,7 +150,7 @@ impl ExportDialog {
             ));
         }
         if matches!(o.time_format, TimeFormat::Iso8601 | TimeFormat::DateTime) {
-            times.push(self.switch(
+            times.push(Self::switch(
                 cx,
                 "export-millis",
                 "Milliseconds",
@@ -197,7 +197,7 @@ impl ExportDialog {
             o.decimal,
             |o, v| o.decimal = v,
         ));
-        numbers.push(self.switch(
+        numbers.push(Self::switch(
             cx,
             "export-trim",
             "Drop trailing zeros",

@@ -2,6 +2,7 @@
 
 use super::{ExportDialog, MAX_COPY_ROWS, Preview, human_bytes};
 use gpui::{ClipboardItem, Context};
+use wyck_app::lost::lost;
 use wyck_chart::PREVIEW_ROWS;
 use wyck_chart::{RangeKind, TimeFormat};
 use wyck_chart::{clashes, date_is_valid, file_name, pattern_is_valid, render, table};
@@ -82,10 +83,13 @@ impl ExportDialog {
         cx.notify();
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(path))) = picked.await else {
-                let _ = this.update(cx, |d, cx| {
-                    d.busy = false;
-                    cx.notify();
-                });
+                lost(
+                    "output: export",
+                    this.update(cx, |d, cx| {
+                        d.busy = false;
+                        cx.notify();
+                    }),
+                );
                 return;
             };
             let target = path.clone();
@@ -99,25 +103,28 @@ impl ExportDialog {
                         .map(|()| (table.total_rows, text.len()))
                 })
                 .await;
-            let _ = this.update(cx, |d, cx| {
-                d.busy = false;
-                match done {
-                    Ok((rows, bytes)) => toast::show(
-                        cx,
-                        Kind::Success,
-                        "Exported",
-                        format!("{rows} rows, {}, to {}", human_bytes(bytes), path.display()),
-                    ),
-                    Err(error) => toast::Toast::error(
-                        "The export failed",
-                        format!("Nothing was written to {}.", path.display()),
-                    )
-                    .hint("Check that the folder exists and can be written to.")
-                    .details(error.to_string())
-                    .show(cx),
-                }
-                cx.notify();
-            });
+            lost(
+                "output: export",
+                this.update(cx, |d, cx| {
+                    d.busy = false;
+                    match done {
+                        Ok((rows, bytes)) => toast::show(
+                            cx,
+                            Kind::Success,
+                            "Exported",
+                            format!("{rows} rows, {}, to {}", human_bytes(bytes), path.display()),
+                        ),
+                        Err(error) => toast::Toast::error(
+                            "The export failed",
+                            format!("Nothing was written to {}.", path.display()),
+                        )
+                        .hint("Check that the folder exists and can be written to.")
+                        .details(error.to_string())
+                        .show(cx),
+                    }
+                    cx.notify();
+                }),
+            );
         })
         .detach();
     }

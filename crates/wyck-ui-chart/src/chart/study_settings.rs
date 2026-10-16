@@ -5,8 +5,8 @@
 //! them.
 
 mod build;
-pub mod inputs;
-pub mod style;
+pub(crate) mod inputs;
+pub(crate) mod style;
 
 use super::Chart;
 use super::study::config::StudyConfig;
@@ -28,7 +28,7 @@ const PANE_HEIGHTS: &[(&str, f32)] = &[
 ];
 
 /// Opens the settings of indicator `index` of `chart`.
-pub fn open(chart: Entity<Chart>, index: usize, window: &mut Window, cx: &mut App) {
+pub(crate) fn open(chart: Entity<Chart>, index: usize, window: &mut Window, cx: &mut App) {
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
     window.defer(cx, move |window, cx| {
         let Some(config) = chart.read(cx).settings.studies.get(index).cloned() else {
@@ -102,7 +102,7 @@ impl Target {
         change: impl FnOnce(&mut FillStyle),
     ) {
         self.edit(cx, |study| {
-            change(study.fills.entry(index).or_insert(default))
+            change(study.fills.entry(index).or_insert(default));
         });
     }
 
@@ -207,8 +207,10 @@ impl Render for StudyEditor {
                 .into_any_element();
         };
         let pages = Self::pages(&config);
-        if !pages.contains(&self.page) {
-            self.page = pages[0];
+        if !pages.contains(&self.page)
+            && let Some(&first) = pages.first()
+        {
+            self.page = first;
         }
         let active = pages.iter().position(|p| *p == self.page).unwrap_or(0);
         let tabs: Vec<Tab> = pages.iter().map(|p| p.tab()).collect();
@@ -295,7 +297,7 @@ impl Render for StudyEditor {
                 })
                 .into_any_element(),
                 button::action("study-ok", "OK", None, true, |window, cx| {
-                    modal::close(window, cx)
+                    modal::close(window, cx);
                 })
                 .into_any_element(),
             ],
@@ -306,7 +308,9 @@ impl Render for StudyEditor {
             &tabs,
             active,
             move |index, _window, cx| {
-                let page = pages[index];
+                let Some(&page) = pages.get(index) else {
+                    return;
+                };
                 this.update(cx, |e, cx| {
                     e.page = page;
                     e.color_open = None;
@@ -373,7 +377,7 @@ fn timeframe_picks(
     key: &'static str,
     target: Target,
     field: Entity<InputState>,
-    current: String,
+    current: &str,
 ) -> gpui::Div {
     let labels: Vec<&str> = TIMEFRAME_PICKS.iter().map(|(label, _)| *label).collect();
     let chosen = TIMEFRAME_PICKS
@@ -385,7 +389,9 @@ fn timeframe_picks(
         &labels,
         chosen,
         move |index, window, cx| {
-            let code = TIMEFRAME_PICKS[index].1;
+            let Some(code) = TIMEFRAME_PICKS.get(index).map(|pick| pick.1) else {
+                return;
+            };
             // Setting a field's value does not announce a change, so the study is told here.
             target.set_text(key, code.to_owned(), cx);
             field.update(cx, |state, cx| state.set_value(code, window, cx));
@@ -421,6 +427,6 @@ mod tests {
 
     #[test]
     fn no_input_means_no_card() {
-        assert!(split_by_group::<u8>("Parameters", Vec::new()).is_empty());
+        assert_eq!(split_by_group::<u8>("Parameters", Vec::new()), Vec::new());
     }
 }

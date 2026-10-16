@@ -8,7 +8,7 @@ use tracing::warn;
 /// released (the window closed, the user signed out) while the call was away. The answer is lost,
 /// and on the order, position and account paths that is worth knowing, so it is logged with where
 /// it happened instead of dropped. `what` says which answer it was; it must hold no secret.
-pub(crate) fn lost<T, E: Display>(what: &str, delivered: Result<T, E>) {
+pub fn lost<T, E: Display>(what: &str, delivered: Result<T, E>) {
     if let Err(error) = delivered {
         warn!(what, %error, "an answer arrived after its owner was released");
     }

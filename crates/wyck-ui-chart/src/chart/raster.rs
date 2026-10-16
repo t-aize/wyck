@@ -14,6 +14,7 @@ use wyck_chart::Hsla;
 use wyck_chart::{fitted_origin, fitted_size};
 
 use wyck_chart::{Align, Cmd};
+use wyck_core::math::{f32_to_i32, f32_to_u32};
 use wyck_ui_kit::assets;
 
 /// A clip rectangle, in logical pixels.
@@ -26,8 +27,8 @@ struct Clip {
 }
 
 impl Clip {
-    fn intersect(self, other: Clip) -> Clip {
-        Clip {
+    fn intersect(self, other: Self) -> Self {
+        Self {
             l: self.l.max(other.l),
             t: self.t.max(other.t),
             r: self.r.min(other.r),
@@ -65,25 +66,62 @@ fn paint(hsla: Hsla) -> Paint<'static> {
 }
 
 /// A rectangle with rounded corners as a path.
-fn rounded_rect(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Path> {
-    let r = r.min(w / 2.0).min(h / 2.0).max(0.0);
-    if r <= 0.01 {
-        return Some(PathBuilder::from_rect(Rect::from_xywh(x, y, w, h)?));
+fn rounded_rect(
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    radius: f32,
+) -> Option<tiny_skia::Path> {
+    let radius = radius.min(width / 2.0).min(height / 2.0).max(0.0);
+    if radius <= 0.01 {
+        return Some(PathBuilder::from_rect(Rect::from_xywh(
+            left, top, width, height,
+        )?));
     }
+    let (right, bottom) = (left + width, top + height);
     // A cubic with this handle length approximates a quarter circle.
-    let k = r * 0.552_284_8;
-    let mut pb = PathBuilder::new();
-    pb.move_to(x + r, y);
-    pb.line_to(x + w - r, y);
-    pb.cubic_to(x + w - r + k, y, x + w, y + r - k, x + w, y + r);
-    pb.line_to(x + w, y + h - r);
-    pb.cubic_to(x + w, y + h - r + k, x + w - r + k, y + h, x + w - r, y + h);
-    pb.line_to(x + r, y + h);
-    pb.cubic_to(x + r - k, y + h, x, y + h - r + k, x, y + h - r);
-    pb.line_to(x, y + r);
-    pb.cubic_to(x, y + r - k, x + r - k, y, x + r, y);
-    pb.close();
-    pb.finish()
+    let k = radius * 0.552_284_8;
+    let mut path = PathBuilder::new();
+    path.move_to(left + radius, top);
+    path.line_to(right - radius, top);
+    path.cubic_to(
+        right - radius + k,
+        top,
+        right,
+        top + radius - k,
+        right,
+        top + radius,
+    );
+    path.line_to(right, bottom - radius);
+    path.cubic_to(
+        right,
+        bottom - radius + k,
+        right - radius + k,
+        bottom,
+        right - radius,
+        bottom,
+    );
+    path.line_to(left + radius, bottom);
+    path.cubic_to(
+        left + radius - k,
+        bottom,
+        left,
+        bottom - radius + k,
+        left,
+        bottom - radius,
+    );
+    path.line_to(left, top + radius);
+    path.cubic_to(
+        left,
+        top + radius - k,
+        left + radius - k,
+        top,
+        left + radius,
+        top,
+    );
+    path.close();
+    path.finish()
 }
 
 /// How a text is drawn: its size, color and weight.
@@ -127,23 +165,23 @@ impl Canvas<'_> {
         width
     }
 
-    /// Draws `text` with its top-left at `(x, y)` (logical pixels).
-    fn text(&mut self, text: &str, x: f32, y: f32, ink: Ink, clip: Clip) {
+    /// Draws `text` with its top-left at `(left, top)` (logical pixels).
+    fn text(&mut self, text: &str, left: f32, top: f32, ink: Ink, clip: Clip) {
         let Ink { size, fill, bold } = ink;
         let px_size = size * self.scale;
         let font = self.font.as_scaled(PxScale::from(px_size));
-        let c = color(fill);
-        let line_top = y * self.scale + (size * 1.3 * self.scale - px_size * 1.2) / 2.0;
+        let ink_color = color(fill);
+        let line_top = top * self.scale + (size * 1.3 * self.scale - px_size * 1.2) / 2.0;
         let baseline = line_top + font.ascent();
-        let mut pen = x * self.scale;
+        let mut pen = left * self.scale;
         let mut previous = None;
-        let (cl, ct, cr, cb) = (
-            (clip.l * self.scale).floor() as i32,
-            (clip.t * self.scale).floor() as i32,
-            (clip.r * self.scale).ceil() as i32,
-            (clip.b * self.scale).ceil() as i32,
+        let (clip_left, clip_top, clip_right, clip_bottom) = (
+            f32_to_i32((clip.l * self.scale).floor()),
+            f32_to_i32((clip.t * self.scale).floor()),
+            f32_to_i32((clip.r * self.scale).ceil()),
+            f32_to_i32((clip.b * self.scale).ceil()),
         );
-        let (width, height) = (self.pixmap.width() as i32, self.pixmap.height() as i32);
+        let (width, height) = (signed(self.pixmap.width()), signed(self.pixmap.height()));
         for ch in text.chars() {
             let id = font.glyph_id(ch);
             if let Some(prev) = previous {
@@ -158,9 +196,13 @@ impl Canvas<'_> {
             let bounds = outlined.px_bounds();
             let pixels = self.pixmap.pixels_mut();
             let mut plot = |gx: u32, gy: u32, coverage: f32| {
-                let px = bounds.min.x as i32 + gx as i32;
-                let py = bounds.min.y as i32 + gy as i32;
-                if px < cl.max(0) || py < ct.max(0) || px >= cr.min(width) || py >= cb.min(height) {
+                let px = f32_to_i32(bounds.min.x) + signed(gx);
+                let py = f32_to_i32(bounds.min.y) + signed(gy);
+                if px < clip_left.max(0)
+                    || py < clip_top.max(0)
+                    || px >= clip_right.min(width)
+                    || py >= clip_bottom.min(height)
+                {
                     return;
                 }
                 // A little extra weight for bold text.
@@ -169,29 +211,33 @@ impl Canvas<'_> {
                 } else {
                     coverage
                 };
-                let alpha = coverage * c.alpha();
+                let alpha = coverage * ink_color.alpha();
                 if alpha <= 0.0 {
                     return;
                 }
-                let index = (py * width + px) as usize;
-                let dst = pixels[index];
-                let blend = |d: u8, s: f32| -> u8 {
-                    (s * 255.0 * alpha + f32::from(d) * (1.0 - alpha))
-                        .round()
-                        .clamp(0.0, 255.0) as u8
+                let Some(slot) = usize::try_from(py * width + px)
+                    .ok()
+                    .and_then(|index| pixels.get_mut(index))
+                else {
+                    return;
                 };
-                let a = (alpha * 255.0 + f32::from(dst.alpha()) * (1.0 - alpha))
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
-                let (r, g, b) = (
-                    blend(dst.red(), c.red()),
-                    blend(dst.green(), c.green()),
-                    blend(dst.blue(), c.blue()),
+                let behind = *slot;
+                let blend = |below: u8, source: f32| -> u8 {
+                    channel(source * 255.0 * alpha + f32::from(below) * (1.0 - alpha))
+                };
+                let opacity = channel(alpha * 255.0 + f32::from(behind.alpha()) * (1.0 - alpha));
+                let (red, green, blue) = (
+                    blend(behind.red(), ink_color.red()),
+                    blend(behind.green(), ink_color.green()),
+                    blend(behind.blue(), ink_color.blue()),
                 );
-                if let Some(pixel) =
-                    PremultipliedColorU8::from_rgba(r.min(a), g.min(a), b.min(a), a)
-                {
-                    pixels[index] = pixel;
+                if let Some(pixel) = PremultipliedColorU8::from_rgba(
+                    red.min(opacity),
+                    green.min(opacity),
+                    blue.min(opacity),
+                    opacity,
+                ) {
+                    *slot = pixel;
                 }
             };
             outlined.draw(&mut plot);
@@ -259,9 +305,12 @@ impl Canvas<'_> {
                     if points.len() < 2 {
                         continue;
                     }
+                    let Some((&(x, y), rest)) = points.split_first() else {
+                        continue;
+                    };
                     let mut pb = PathBuilder::new();
-                    pb.move_to(points[0].0, points[0].1);
-                    for (px, py) in &points[1..] {
+                    pb.move_to(x, y);
+                    for (px, py) in rest {
                         pb.line_to(*px, *py);
                     }
                     let Some(path) = pb.finish() else { continue };
@@ -285,9 +334,12 @@ impl Canvas<'_> {
                     if points.len() < 3 {
                         continue;
                     }
+                    let Some((&(x, y), rest)) = points.split_first() else {
+                        continue;
+                    };
                     let mut pb = PathBuilder::new();
-                    pb.move_to(points[0].0, points[0].1);
-                    for (px, py) in &points[1..] {
+                    pb.move_to(x, y);
+                    for (px, py) in rest {
                         pb.line_to(*px, *py);
                     }
                     pb.close();
@@ -439,6 +491,16 @@ impl Canvas<'_> {
     }
 }
 
+/// A size in pixels as the signed integer the glyph arithmetic works in.
+fn signed(value: u32) -> i32 {
+    i32::try_from(value).unwrap_or(i32::MAX)
+}
+
+/// A color channel from a blended value, kept between 0 and 255.
+fn channel(value: f32) -> u8 {
+    u8::try_from(f32_to_u32(value.round().clamp(0.0, 255.0))).unwrap_or(u8::MAX)
+}
+
 fn aligned(x: f32, width: f32, align: Align) -> f32 {
     match align {
         Align::Left => x,
@@ -449,7 +511,7 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
 
 /// Why a picture of a chart could not be made.
 #[derive(Debug, thiserror::Error)]
-pub enum RasterError {
+pub(crate) enum RasterError {
     #[error("the font of the picture cannot be read: {0}")]
     Font(#[from] ab_glyph::InvalidFont),
     #[error("the picture is too large")]
@@ -465,21 +527,21 @@ impl RasterError {
 }
 
 /// Device pixels per logical pixel in a picture: twice the screen, for a crisp image.
-pub const PICTURE_SCALE: f32 = 2.0;
+pub(crate) const PICTURE_SCALE: f32 = 2.0;
 
 /// A line of text over the picture: what it says, its size and color, and whether it is bold.
-pub struct Caption {
-    pub text: String,
-    pub size: f32,
-    pub color: Hsla,
-    pub bold: bool,
+pub(crate) struct Caption {
+    pub(crate) text: String,
+    pub(crate) size: f32,
+    pub(crate) color: Hsla,
+    pub(crate) bold: bool,
 }
 
 /// Paints `cmds` (for a chart of `w` by `h` logical pixels, drawn from the origin) at `scale`
 /// device pixels per logical pixel on `background`, with `captions` stacked at the top left, and
 /// encodes the result as PNG.
 #[cfg(test)]
-pub fn render_png(
+pub(crate) fn render_png(
     cmds: &[Cmd],
     w: f32,
     h: f32,
@@ -494,7 +556,7 @@ pub fn render_png(
 
 /// `render_png` without the encoding: the pixels, to be put in a larger picture (see
 /// [`compose_png`]).
-pub fn render_pixmap(
+pub(crate) fn render_pixmap(
     cmds: &[Cmd],
     w: f32,
     h: f32,
@@ -503,7 +565,10 @@ pub fn render_pixmap(
     captions: &[Caption],
 ) -> Result<Pixmap, RasterError> {
     let font = FontRef::try_from_slice(assets::FONT)?;
-    let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
+    let (pw, ph) = (
+        f32_to_u32((w * scale).round()),
+        f32_to_u32((h * scale).round()),
+    );
     let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     let mut canvas = Canvas {
@@ -540,20 +605,23 @@ pub fn render_pixmap(
 /// `background`, with each tile drawn at its own top left corner (in logical pixels), and encodes
 /// it as PNG. What a tile does not cover shows the background; a tile that reaches past the edge
 /// is cut.
-pub fn compose_png(
+pub(crate) fn compose_png(
     w: f32,
     h: f32,
     scale: f32,
     background: Hsla,
     tiles: &[(f32, f32, Pixmap)],
 ) -> Result<Vec<u8>, RasterError> {
-    let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
+    let (pw, ph) = (
+        f32_to_u32((w * scale).round()),
+        f32_to_u32((h * scale).round()),
+    );
     let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     for (x, y, tile) in tiles {
         pixmap.draw_pixmap(
-            (x * scale).round() as i32,
-            (y * scale).round() as i32,
+            f32_to_i32((x * scale).round()),
+            f32_to_i32((y * scale).round()),
             tile.as_ref(),
             &tiny_skia::PixmapPaint::default(),
             Transform::identity(),
@@ -566,6 +634,8 @@ pub fn compose_png(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::{f64_to_i64, i64_to_f64};
+    use wyck_drawings::look::Face;
 
     /// A tile of one flat color.
     fn tile(w: u32, h: u32, red: u8) -> Pixmap {
@@ -576,7 +646,7 @@ mod tests {
 
     #[test]
     fn tiles_are_put_where_they_say_in_a_picture_of_their_own_size() {
-        let background = rgb_alpha(0x000000, 1.0);
+        let background = rgb_alpha(0x0000_0000, 1.0);
         // Two tiles of 20 by 10 logical pixels side by side, at twice the size.
         let tiles = vec![
             (0.0, 0.0, tile(40, 20, 200)),
@@ -591,7 +661,7 @@ mod tests {
 
     #[test]
     fn a_tile_past_the_edge_is_cut_and_a_gap_shows_the_background() {
-        let background = rgb_alpha(0x000000, 1.0);
+        let background = rgb_alpha(0x0000_0000, 1.0);
         let tiles = vec![(10.0, 0.0, tile(40, 20, 255))];
         let png = compose_png(20.0, 10.0, 2.0, background, &tiles).unwrap();
         let picture = Pixmap::decode_png(&png).unwrap();
@@ -617,7 +687,12 @@ mod tests {
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {
-                let base = 100_000 + (i as f64 * 0.17).sin().mul_add(350.0, i as f64 * 3.0) as i64;
+                let base = 100_000
+                    + f64_to_i64(
+                        (i64_to_f64(i) * 0.17)
+                            .sin()
+                            .mul_add(350.0, i64_to_f64(i) * 3.0),
+                    );
                 Bar {
                     time_ms: 1_767_571_200_000 + i * 60_000,
                     open: base,
@@ -674,7 +749,7 @@ mod tests {
             watermark: None,
         };
         let cmds = build(&frame);
-        let png = render_png(&cmds, 1_400.0, 900.0, 1.0, rgb_alpha(0x0a0a0a, 1.0), &[]).unwrap();
+        let png = render_png(&cmds, 1_400.0, 900.0, 1.0, rgb_alpha(0x000a_0a0a, 1.0), &[]).unwrap();
         let path = std::env::temp_dir().join("wyck-indicator-families.png");
         std::fs::write(&path, png).unwrap();
         println!("preview written to {}", path.display());
@@ -688,14 +763,14 @@ mod tests {
                 y: 10.0,
                 w: 50.0,
                 h: 20.0,
-                fill: rgb_alpha(0x26a69a, 1.0),
-                border: Some((1.0, rgb_alpha(0xffffff, 1.0))),
+                fill: rgb_alpha(0x0026_a69a, 1.0),
+                border: Some((1.0, rgb_alpha(0x00ff_ffff, 1.0))),
                 radius: 4.0,
             },
             Cmd::Stroke {
                 points: vec![(0.0, 0.0), (100.0, 50.0), (200.0, 10.0)],
                 width: 1.5,
-                color: rgb_alpha(0x5b8def, 1.0),
+                color: rgb_alpha(0x005b_8def, 1.0),
                 dash: Some([4.0, 2.0]),
             },
             Cmd::Clip {
@@ -705,7 +780,7 @@ mod tests {
                 h: 100.0,
                 inner: vec![Cmd::Fill {
                     points: vec![(0.0, 0.0), (300.0, 0.0), (0.0, 300.0)],
-                    color: rgb_alpha(0xef5350, 0.5),
+                    color: rgb_alpha(0x00ef_5350, 0.5),
                 }],
             },
             Cmd::Text {
@@ -713,10 +788,10 @@ mod tests {
                 x: 50.0,
                 y: 60.0,
                 size: font(),
-                color: rgb_alpha(0xffffff, 1.0),
+                color: rgb_alpha(0x00ff_ffff, 1.0),
                 align: Align::Center,
                 bold: false,
-                face: Default::default(),
+                face: Face::default(),
             },
             Cmd::Tag {
                 text: "UTC".into(),
@@ -724,14 +799,14 @@ mod tests {
                 y: 80.0,
                 height: 18.0,
                 pad: 6.0,
-                bg: rgb_alpha(0x363a45, 1.0),
-                fg: rgb_alpha(0xffffff, 1.0),
+                bg: rgb_alpha(0x0036_3a45, 1.0),
+                fg: rgb_alpha(0x00ff_ffff, 1.0),
                 align: Align::Left,
                 fixed_width: None,
                 within: Some((0.0, 200.0)),
                 size: font(),
                 bold: false,
-                face: Default::default(),
+                face: Face::default(),
             },
         ];
         let png = render_png(
@@ -739,11 +814,11 @@ mod tests {
             200.0,
             100.0,
             2.0,
-            rgb_alpha(0x0a0a0a, 1.0),
+            rgb_alpha(0x000a_0a0a, 1.0),
             &[Caption {
                 text: "EURUSD M5".into(),
                 size: 14.0,
-                color: rgb_alpha(0xffffff, 1.0),
+                color: rgb_alpha(0x00ff_ffff, 1.0),
                 bold: true,
             }],
         )
@@ -779,23 +854,23 @@ mod tests {
                 w: 40.0,
                 h: 20.0,
                 size: 14.0,
-                color: rgb_alpha(0xffffff, 1.0),
-                background: Some(rgb_alpha(0x226666, 1.0)),
+                color: rgb_alpha(0x00ff_ffff, 1.0),
+                background: Some(rgb_alpha(0x0022_6666, 1.0)),
                 align: Align::Center,
                 valign: wyck_drawings::look::VAlign::Auto,
                 bold: false,
-                face: Default::default(),
+                face: Face::default(),
             }],
             80.0,
             50.0,
             2.0,
-            rgb_alpha(0x000000, 1.0),
+            rgb_alpha(0x0000_0000, 1.0),
             &[],
         )
         .unwrap();
         let image = Pixmap::decode_png(&png).unwrap();
         let background = image.pixel(0, 0).unwrap();
-        assert!(image.pixel(60, 40).unwrap() != background);
+        assert_ne!(image.pixel(60, 40).unwrap(), background);
         for y in 0..100 {
             for x in 0..160 {
                 if !(20..100).contains(&x) || !(20..60).contains(&y) {

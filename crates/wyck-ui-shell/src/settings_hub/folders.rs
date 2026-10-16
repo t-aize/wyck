@@ -11,6 +11,7 @@ use super::{
 };
 use gpui::prelude::*;
 use wyck_app::locations::{self, Row};
+use wyck_app::lost::lost;
 use wyck_app::storage::locations::Kind;
 use wyck_app::storage::relocate::{PlanError, Step};
 use wyck_ui_kit::prelude::Disableable;
@@ -412,13 +413,16 @@ impl SettingsHub {
             let Some(path) = paths.into_iter().next() else {
                 return;
             };
-            let _ = this.update(cx, |hub, cx| {
-                if kind == Kind::Indicators {
-                    hub.read_indicators_from(Some(&path), cx);
-                } else {
-                    hub.stage_result(locations::stage_folder(kind, Some(&path)), cx);
-                }
-            });
+            lost(
+                "folders: choose_folder",
+                this.update(cx, |hub, cx| {
+                    if kind == Kind::Indicators {
+                        hub.read_indicators_from(Some(&path), cx);
+                    } else {
+                        hub.stage_result(locations::stage_folder(kind, Some(&path)), cx);
+                    }
+                }),
+            );
         })
         .detach();
     }
@@ -438,9 +442,12 @@ impl SettingsHub {
             let Some(path) = paths.into_iter().next() else {
                 return;
             };
-            let _ = this.update(cx, |hub, cx| {
-                hub.stage_result(locations::stage_cloud(&path), cx);
-            });
+            lost(
+                "folders: choose_cloud_root",
+                this.update(cx, |hub, cx| {
+                    hub.stage_result(locations::stage_cloud(&path), cx);
+                }),
+            );
         })
         .detach();
     }

@@ -8,6 +8,7 @@ use wyck_chart::BoxSize;
 use wyck_chart::quote_unit;
 use wyck_chart::{ChartKind, ChartSettings, ScaleMode};
 use wyck_chart::{CrosshairStyle, ScaleMargin};
+use wyck_core::math::i64_to_f64;
 use wyck_market::PRICE_SCALE;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{controls, form, icon, number, theme, tokens};
@@ -28,7 +29,7 @@ impl ChartSettingsEditor {
                 wrap = wrap.child(
                     div()
                         .id(SharedString::from(format!("chart-kind-{}", kind.code())))
-                        .w(px(wyck_ui_kit::tokens::field::select()))
+                        .w(px(tokens::field::select()))
                         .h(px(tokens::height::large()))
                         .flex()
                         .flex_row()
@@ -88,8 +89,8 @@ impl ChartSettingsEditor {
             let size = field.get(&settings.transform);
             let chart = self.chart.clone();
             let state_for_mode = state.clone();
-            let unit_real = quote_unit(digits) / PRICE_SCALE as f64;
-            let resolved = (box_size > 0).then(|| box_size as f64 / PRICE_SCALE as f64);
+            let unit_real = quote_unit(digits) / i64_to_f64(PRICE_SCALE);
+            let resolved = (box_size > 0).then(|| i64_to_f64(box_size) / i64_to_f64(PRICE_SCALE));
             rows.push(form::field(
                 field.label(),
                 Some("Measured in ATR, in price or in percent"),
@@ -333,7 +334,7 @@ impl ChartSettingsEditor {
                 |s, on| s.price_lines.countdown = on,
             ),
             self.switch_row("lines-ask", "Line at the ask", None, p.ask_line, |s, on| {
-                s.price_lines.ask_line = on
+                s.price_lines.ask_line = on;
             }),
             self.switch_row(
                 "lines-previous",
@@ -352,7 +353,7 @@ impl ChartSettingsEditor {
         ];
         let grid = vec![
             self.switch_row("grid-show", "Grid", None, settings.grid, |s, on| {
-                s.grid = on
+                s.grid = on;
             }),
             self.switch_row(
                 "grid-horizontal",

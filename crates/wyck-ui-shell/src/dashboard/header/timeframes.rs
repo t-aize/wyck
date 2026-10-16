@@ -5,7 +5,7 @@ use super::CUSTOM_TIMEFRAME_WIDTH;
 use crate::dashboard::{Dashboard, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
-use wyck_ui_chart::chart;
+use wyck_market::{GROUPS, Timeframe, Unit};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::{InputEvent, InputState};
 use wyck_ui_kit::{controls, icon, menu, theme, tokens};
@@ -86,13 +86,13 @@ impl Dashboard {
     /// Moves the active chart to the next (`longer`) or previous timeframe of the favorites,
     /// going round at the ends.
     pub(in crate::dashboard) fn step_timeframe(&mut self, longer: bool, cx: &mut Context<Self>) {
-        let list: Vec<chart::Timeframe> = self
+        let list: Vec<Timeframe> = self
             .workspace
             .read(cx)
             .preferences()
             .favorite_timeframes
             .iter()
-            .filter_map(|code| chart::Timeframe::from_code(code))
+            .filter_map(|code| Timeframe::from_code(code))
             .collect();
         let current = self.multi.read(cx).active_timeframe(cx);
         if let Some(next) = current.step_in(&list, longer) {
@@ -100,7 +100,7 @@ impl Dashboard {
         }
     }
 
-    pub(super) fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
+    pub(super) fn pick_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
         self.close_menus();
         self.multi
             .update(cx, |multi, cx| multi.set_timeframe(timeframe, cx));
@@ -109,7 +109,7 @@ impl Dashboard {
 
     pub(super) fn toggle_favorite_timeframe(
         &mut self,
-        timeframe: chart::Timeframe,
+        timeframe: Timeframe,
         cx: &mut Context<Self>,
     ) {
         self.workspace.update(cx, |workspace, cx| {
@@ -130,9 +130,9 @@ impl Dashboard {
         let timeframe = if text.bytes().all(|b| b.is_ascii_digit()) {
             text.parse()
                 .ok()
-                .and_then(|count| chart::Timeframe::of(count, self.tf_unit))
+                .and_then(|count| Timeframe::of(count, self.tf_unit))
         } else {
-            chart::Timeframe::from_code(&text)
+            Timeframe::from_code(&text)
         };
         let Some(timeframe) = timeframe else {
             wyck_ui_kit::toast::show(
@@ -155,11 +155,7 @@ impl Dashboard {
         cx.notify();
     }
 
-    pub(super) fn remove_custom_timeframe(
-        &mut self,
-        timeframe: chart::Timeframe,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn remove_custom_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.remove_custom_timeframe(timeframe));
         });
@@ -168,8 +164,8 @@ impl Dashboard {
     /// A timeframe of the menu with its star, and a cross for one the user added.
     pub(super) fn menu_chip(
         &self,
-        timeframe: chart::Timeframe,
-        current: chart::Timeframe,
+        timeframe: Timeframe,
+        current: Timeframe,
         favorite: bool,
         removable: bool,
         cx: &mut Context<Self>,
@@ -230,7 +226,7 @@ impl Dashboard {
     /// Every timeframe, in sections, under the strip. A star keeps one in the header.
     pub(super) fn timeframe_menu(
         &self,
-        current: chart::Timeframe,
+        current: Timeframe,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let prefs = self.workspace.read(cx).preferences().clone();
@@ -243,7 +239,7 @@ impl Dashboard {
                 .child(menu::parts::section_title(title).px_0())
                 .child(div().flex().flex_row().flex_wrap().gap_1().children(chips))
         };
-        for (title, items) in chart::GROUPS {
+        for (title, items) in GROUPS {
             let chips = items
                 .iter()
                 .copied()
@@ -266,7 +262,7 @@ impl Dashboard {
             })
             .collect();
         let mut units = div().flex().flex_row().gap_1();
-        for unit in chart::Unit::ALL {
+        for unit in Unit::ALL {
             let chosen = unit == self.tf_unit;
             units = units.child(
                 div()
@@ -346,7 +342,7 @@ impl Dashboard {
 /// One timeframe as a small button; the active one is tinted.
 pub(super) fn timeframe_chip(
     prefix: &str,
-    timeframe: chart::Timeframe,
+    timeframe: Timeframe,
     active: bool,
     cx: &mut Context<Dashboard>,
 ) -> impl IntoElement + use<> {

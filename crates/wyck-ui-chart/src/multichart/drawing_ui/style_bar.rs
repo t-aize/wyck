@@ -6,6 +6,7 @@ use super::{OPACITY_STEPS, swatch_color};
 use crate::multichart::MultiChart;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Window, canvas, div, px};
+use wyck_core::math::f32_to_u32;
 use wyck_drawings::model::style::{Dash, PALETTE};
 use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::icon::IconName;
@@ -73,7 +74,7 @@ impl MultiChart {
             .border_color(theme::border_subtle())
             .shadow_lg()
             .occlude()
-            .child(self.bar_grip(Movable::StyleBar, cx))
+            .child(Self::bar_grip(Movable::StyleBar, cx))
             .child(
                 div()
                     .px_2()
@@ -87,16 +88,16 @@ impl MultiChart {
             if tool.has_quick_color() {
                 bar = self.bar_colors(bar, &st, cx);
             }
-            bar = self.bar_line_options(bar, &st, cx);
+            bar = Self::bar_line_options(bar, &st, cx);
             bar = self.bar_extras(bar, &st, cx);
         }
         if tool.is_position() {
-            bar = self.bar_position(bar, &st, cx);
+            bar = Self::bar_position(bar, &st, cx);
         }
         if !st.locked {
-            bar = self.bar_look(bar, &st, window, cx);
+            bar = Self::bar_look(bar, &st, window, cx);
         }
-        bar = self.bar_actions(bar, &st, cx);
+        bar = Self::bar_actions(bar, &st, cx);
 
         // The bar belongs to the whole area of charts: it sits under the legends along the top, or
         // where the user moved it.
@@ -105,7 +106,7 @@ impl MultiChart {
         let bar = bar.relative().left(px(dx)).child(
             canvas(
                 move |bounds_now, _window, _cx| bounds.set(Some(bounds_now)),
-                |_, _, _, _| {},
+                |_, (), _, _| {},
             )
             .absolute()
             .size_full(),
@@ -123,7 +124,6 @@ impl MultiChart {
         )
     }
 
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_colors(
         &self,
@@ -131,9 +131,7 @@ impl MultiChart {
         st: &BarState,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
-        let (has_fill, has_dash) = (st.has_fill, st.has_dash);
-        let (has_default, template_names) = (st.has_default, st.template_names.clone());
+        let (style, tool, id) = (&st.style, st.tool, st.id);
         if tool.has_quick_color() {
             for color in PALETTE {
                 let selected = style.color == color;
@@ -152,7 +150,7 @@ impl MultiChart {
                         }))
                         .child(
                             div()
-                                .size(px(wyck_ui_kit::tokens::swatch::medium()))
+                                .size(px(tokens::swatch::medium()))
                                 .rounded_full()
                                 .bg(swatch_color(color)),
                         ),
@@ -182,7 +180,7 @@ impl MultiChart {
                         }))
                         .child(
                             div()
-                                .size(px(wyck_ui_kit::tokens::swatch::medium()))
+                                .size(px(tokens::swatch::medium()))
                                 .rounded_full()
                                 .bg(swatch_color(color)),
                         ),
@@ -223,17 +221,14 @@ impl MultiChart {
         bar
     }
 
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_line_options(
-        &self,
         mut bar: gpui::Div,
         st: &BarState,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
+        let (style, tool) = (&st.style, st.tool);
         let (has_fill, has_dash) = (st.has_fill, st.has_dash);
-        let (has_default, template_names) = (st.has_default, st.template_names.clone());
         if tool.has_width() {
             let widths = tool.widths();
             let selected = widths.iter().position(|w| (style.width - w).abs() < 0.01);
@@ -244,7 +239,9 @@ impl MultiChart {
                     &widths,
                     selected,
                     move |index, _window, cx| {
-                        let width = picked[index];
+                        let Some(&width) = picked.get(index) else {
+                            return;
+                        };
                         this.update(cx, |this, cx| this.set_drawing_width(width, cx));
                     },
                 ))
@@ -259,7 +256,9 @@ impl MultiChart {
                     "draw-dash",
                     selected,
                     move |index, _window, cx| {
-                        this.update(cx, |this, cx| this.set_drawing_dash(DASHES[index], cx));
+                        if let Some(&dash) = DASHES.get(index) {
+                            this.update(cx, |this, cx| this.set_drawing_dash(dash, cx));
+                        }
                     },
                 ))
                 .child(layout::divider());
@@ -288,7 +287,7 @@ impl MultiChart {
             bar = bar.child(
                 wyck_ui_kit::button::quiet("draw-opacity")
                     .icon(IconName::Droplet)
-                    .label(format!("{}%", (opacity * 100.0).round() as u32))
+                    .label(format!("{}%", f32_to_u32((opacity * 100.0).round())))
                     .tooltip("Opacity of the lines (click to step down)")
                     .toggled(opacity < 0.99)
                     .on_click(cx.listener(move |this, _event, _window, cx| {
@@ -303,6 +302,10 @@ impl MultiChart {
 }
 
 /// What the style bar knows of the selected drawing, gathered once for the pieces that build it.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a snapshot of the flags of the selected drawing, each read by its own control"
+)]
 pub(super) struct BarState {
     pub(super) style: wyck_drawings::model::style::Style,
     pub(super) tool: Tool,

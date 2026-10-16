@@ -4,14 +4,15 @@
 //! What a drawing is and how the pointer makes one lives in [`wyck_drawings`]; this
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
-pub mod bar_options;
+pub(crate) mod bar_options;
 pub(super) mod bar_place;
-pub mod style_bar;
+pub(crate) mod style_bar;
 
 use super::MultiChart;
 use crate::chart::object_tree::tool_icon;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
+use std::rc::Rc;
 use wyck_drawings::model::tool::{Group, Tool};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Disableable;
@@ -23,7 +24,7 @@ const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 const MAX_FOUND: usize = 40;
 
 /// The width of the rail of tools: a rail button and room on each side.
-pub fn rail_width() -> f32 {
+pub(crate) fn rail_width() -> f32 {
     tokens::height::rail() + 2.0 * tokens::space::sm()
 }
 
@@ -32,13 +33,6 @@ fn rail_rule() -> gpui::Div {
     wyck_ui_kit::layout::rule_h()
         .my_1()
         .w(px(tokens::height::compact()))
-}
-
-fn group_tools(group: Group) -> Vec<Tool> {
-    Tool::ALL
-        .into_iter()
-        .filter(|tool| tool.group() == group)
-        .collect()
 }
 
 /// The keys that pick a drawing tool, or `None` for a tool with none.
@@ -64,11 +58,11 @@ fn swatch_color(color: u32) -> gpui::Rgba {
 
 impl MultiChart {
     /// The tool a family shows on its button: the last one used, or its first.
-    fn group_tool(&self, group: Group) -> Tool {
+    fn group_tool(&self, group: Group) -> Option<Tool> {
         self.last_tool
             .get(&group)
             .copied()
-            .unwrap_or_else(|| group_tools(group)[0])
+            .or_else(|| Tool::ALL.into_iter().find(|tool| tool.group() == group))
     }
 
     /// The vertical strip of tools: the families of drawing tools on top, and under them, apart,
@@ -109,7 +103,7 @@ impl MultiChart {
         tools = tools.child(
             wyck_ui_kit::button::rail("draw-search")
                 .icon(IconName::Search)
-                .tooltip(gpui::SharedString::from(format!(
+                .tooltip(SharedString::from(format!(
                     "Find a tool{}",
                     wyck_ui_kit::hints::suffix("find_tool")
                 )))
@@ -125,9 +119,11 @@ impl MultiChart {
         );
 
         for group in Group::ALL {
-            let shown = self.group_tool(group);
+            let Some(shown) = self.group_tool(group) else {
+                continue;
+            };
             let active = tool.is_some_and(|t| t.group() == group);
-            let slots = self.rail_slots.clone();
+            let slots = Rc::clone(&self.rail_slots);
             let tip: SharedString = match tool_hint(shown) {
                 Some(keys) => format!(
                     "{} ({keys}). The arrow lists the {}",
@@ -157,7 +153,7 @@ impl MultiChart {
                             move |bounds, _window, _cx| {
                                 slots.borrow_mut().insert(group, bounds);
                             },
-                            |_, _, _, _| {},
+                            |_, (), _, _| {},
                         )
                         .absolute()
                         .size_full(),
@@ -273,7 +269,7 @@ impl MultiChart {
                     })
                     .toggled(all_locked)
                     .disabled(!has_any)
-                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .when(!has_any, Styled::cursor_not_allowed)
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.edit_book(cx, |book, symbol| book.set_all_locked(symbol, !all_locked));
                     })),
@@ -292,7 +288,7 @@ impl MultiChart {
                     })
                     .toggled(some_hidden)
                     .disabled(!has_any)
-                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .when(!has_any, Styled::cursor_not_allowed)
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.edit_book(cx, |book, symbol| {
                             book.set_all_hidden(symbol, !some_hidden)
@@ -303,23 +299,23 @@ impl MultiChart {
             .child(
                 wyck_ui_kit::button::rail("draw-undo")
                     .icon(IconName::Undo2)
-                    .tooltip(gpui::SharedString::from(format!(
+                    .tooltip(SharedString::from(format!(
                         "Undo{}",
                         wyck_ui_kit::hints::suffix("undo_drawing")
                     )))
                     .disabled(!can_undo)
-                    .when(!can_undo, |button| button.cursor_not_allowed())
+                    .when(!can_undo, Styled::cursor_not_allowed)
                     .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
             )
             .child(
                 wyck_ui_kit::button::rail("draw-redo")
                     .icon(IconName::Redo2)
-                    .tooltip(gpui::SharedString::from(format!(
+                    .tooltip(SharedString::from(format!(
                         "Redo{}",
                         wyck_ui_kit::hints::suffix("redo_drawing")
                     )))
                     .disabled(!can_redo)
-                    .when(!can_redo, |button| button.cursor_not_allowed())
+                    .when(!can_redo, Styled::cursor_not_allowed)
                     .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
             )
             .child(
@@ -327,7 +323,7 @@ impl MultiChart {
                     .icon(IconName::Trash)
                     .tooltip("Remove all drawings of this symbol")
                     .disabled(!has_any)
-                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .when(!has_any, Styled::cursor_not_allowed)
                     .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
             );
 
@@ -356,7 +352,6 @@ impl MultiChart {
     /// that pins it. The row is two boxes side by side, not one inside the other: the star must
     /// not also pick the tool.
     fn tool_row(
-        &self,
         tool: Tool,
         current: Option<Tool>,
         favorites: &[Tool],
@@ -494,7 +489,7 @@ impl MultiChart {
                     );
                 }
                 for tool in tools {
-                    list = list.child(self.tool_row(tool, current, &favorites, cx));
+                    list = list.child(Self::tool_row(tool, current, &favorites, cx));
                 }
             }
         } else {
@@ -504,7 +499,7 @@ impl MultiChart {
                 if !self.recent_tools.is_empty() {
                     list = list.child(popup::parts::section_title("Recent"));
                     for tool in self.recent_tools.clone() {
-                        list = list.child(self.tool_row(tool, current, &favorites, cx));
+                        list = list.child(Self::tool_row(tool, current, &favorites, cx));
                     }
                 }
                 list = list.child(
@@ -535,7 +530,7 @@ impl MultiChart {
                     );
                 }
                 for tool in found {
-                    list = list.child(self.tool_row(tool, current, &favorites, cx));
+                    list = list.child(Self::tool_row(tool, current, &favorites, cx));
                 }
             }
         }

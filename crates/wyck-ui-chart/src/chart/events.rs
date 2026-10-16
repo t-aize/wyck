@@ -4,21 +4,21 @@ use super::LineId;
 
 /// A time and price under the pointer.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Hover {
-    pub time_ms: i64,
-    pub price: f64,
+pub(crate) struct Hover {
+    pub(crate) time_ms: i64,
+    pub(crate) price: f64,
 }
 
 /// The times at the left and right edges of the plot.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Span {
-    pub left_ms: i64,
-    pub right_ms: i64,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Span {
+    pub(crate) left_ms: i64,
+    pub(crate) right_ms: i64,
 }
 
 /// What a chart tells the layout around it.
 #[derive(Debug, Clone, PartialEq)]
-pub enum ChartEvent {
+pub(crate) enum ChartEvent {
     /// The user clicked in this chart.
     Activated,
     /// The user clicked a candle to inspect the same time on linked charts.

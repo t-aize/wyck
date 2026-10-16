@@ -15,8 +15,9 @@ pub mod ticket;
 use std::collections::HashMap;
 
 use wyck_app::alerts::AlertBook;
+use wyck_chart::LineId;
 use wyck_drawings::model::style::Dash;
-use wyck_ui_chart::chart::{ChartLine, LineId};
+use wyck_ui_chart::chart::ChartLine;
 
 use self::book::AccountBook;
 

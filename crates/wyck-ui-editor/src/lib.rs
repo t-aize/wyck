@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use std::time::Duration;
+use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_app::workspace::Saver;
 use wyck_indicators::custom::library::registry;
@@ -197,9 +198,12 @@ impl IndicatorEditor {
                 .spawn(async move { store.load_or_default::<Drafts>(DRAFT_DOCUMENT) });
             cx.spawn_in(window, async move |this, cx| {
                 let drafts = load.await;
-                let _ = this.update_in(cx, |editor, window, cx| {
-                    editor.restore_drafts(drafts, window, cx);
-                });
+                lost(
+                    "lib: new",
+                    this.update_in(cx, |editor, window, cx| {
+                        editor.restore_drafts(drafts, window, cx);
+                    }),
+                );
             })
             .detach();
         }
@@ -378,10 +382,13 @@ impl IndicatorEditor {
     pub(crate) fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
         let clear = cx.spawn(async move |this, cx| {
             cx.background_executor().timer(NOTICE_TIME).await;
-            let _ = this.update(cx, |this, cx| {
-                this.notice = None;
-                cx.notify();
-            });
+            lost(
+                "lib: say",
+                this.update(cx, |this, cx| {
+                    this.notice = None;
+                    cx.notify();
+                }),
+            );
         });
         self.notice = Some(Notice {
             ok,

@@ -39,7 +39,7 @@ impl ChartSettingsEditor {
                     Some(IconName::RotateCcw),
                     false,
                     move |_window, cx| {
-                        edit_chart(&chart, cx, |s| s.colors = ChartColors::default())
+                        edit_chart(&chart, cx, |s| s.colors = ChartColors::default());
                     },
                 ),
             ));
@@ -133,7 +133,7 @@ impl ChartSettingsEditor {
                 |s, on| s.trading.protection = on,
             ),
             self.switch_row("trading-alerts", "Price alerts", None, t.alerts, |s, on| {
-                s.trading.alerts = on
+                s.trading.alerts = on;
             }),
         ];
         let mut page = form::page().child(form::group(
@@ -171,7 +171,7 @@ impl ChartSettingsEditor {
     pub(super) fn study_row(&self, index: usize, config: &StudyConfig) -> AnyElement {
         let spec = config.spec();
         let button = |id: &str, icon: IconName, tip: &'static str| {
-            wyck_ui_kit::button::quiet(SharedString::from(format!("{id}-{index}")))
+            button::quiet(SharedString::from(format!("{id}-{index}")))
                 .icon(icon)
                 .tooltip(tip)
         };
@@ -182,7 +182,7 @@ impl ChartSettingsEditor {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(wyck_ui_kit::tokens::height::row()))
+            .h(px(tokens::height::row()))
             .child(
                 div()
                     .flex_none()

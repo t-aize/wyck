@@ -10,6 +10,7 @@ use gpui::{Context, SharedString};
 use std::sync::Arc;
 use wyck_app::broker::session::{SessionEvent, SessionState};
 use wyck_app::broker::{Error as ApiError, Event};
+use wyck_app::lost::lost;
 use wyck_app::market_data::live::{PEEK_OWNER, Wish};
 use wyck_app::system::runtime;
 use wyck_app::system::runtime::RecvError;
@@ -115,22 +116,25 @@ impl Dashboard {
                 Ok::<_, ApiError>(Catalog::build(symbols, categories, classes, assets))
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                match loaded {
-                    Ok(Ok(catalog)) => this.catalog_loaded(Arc::new(catalog), cx),
-                    Ok(Err(error)) => {
-                        tracing::warn!(%error, "could not load the symbol list");
-                        this.catalog = Load::Failed(error.to_string().into());
-                        // Ask again the next time the session comes back.
-                        this.catalog_requested = false;
+            lost(
+                "session: load_catalog",
+                this.update(cx, |this, cx| {
+                    match loaded {
+                        Ok(Ok(catalog)) => this.catalog_loaded(Arc::new(catalog), cx),
+                        Ok(Err(error)) => {
+                            tracing::warn!(%error, "could not load the symbol list");
+                            this.catalog = Load::Failed(error.to_string().into());
+                            // Ask again the next time the session comes back.
+                            this.catalog_requested = false;
+                        }
+                        Err(_) => {
+                            this.catalog = Load::Failed("the background runtime stopped".into());
+                            this.catalog_requested = false;
+                        }
                     }
-                    Err(_) => {
-                        this.catalog = Load::Failed("the background runtime stopped".into());
-                        this.catalog_requested = false;
-                    }
-                }
-                cx.notify();
-            });
+                    cx.notify();
+                }),
+            );
         })
         .detach();
     }
@@ -196,7 +200,7 @@ impl Dashboard {
         }
         let symbol = self.symbol_ref(&entry);
         self.multi
-            .update(cx, |multi, cx| multi.set_symbol(target, symbol, cx));
+            .update(cx, |multi, cx| multi.set_symbol(target, &symbol, cx));
         self.ensure_details(entry.id, cx);
         self.refresh_active(cx);
     }
@@ -239,29 +243,32 @@ impl Dashboard {
                     .ok_or_else(|| ApiError::Protocol("the broker sent no details".into()))
             })
             .await;
-            let _ = this.update(cx, |this, cx| match fetched {
-                Ok(Ok(symbol)) => {
-                    let digits = u32::try_from(symbol.digits).unwrap_or(5);
-                    let pip_position = symbol.pip_position;
-                    let hours = wyck_market::TradingHours::from_symbol(&symbol);
-                    this.multi
-                        .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
-                    this.details
-                        .insert(id, super::details::Detail::Ready(symbol));
-                    this.multi.update(cx, |multi, cx| {
-                        multi.set_quote_details(id, digits, pip_position, cx)
-                    });
-                    this.refresh_active(cx);
-                }
-                Ok(Err(error)) => {
-                    tracing::warn!(%error, symbol_id = id, "could not load a symbol's details");
-                    this.details
-                        .insert(id, super::details::Detail::Failed(error.to_string().into()));
-                }
-                Err(_) => {
-                    this.details.remove(&id);
-                }
-            });
+            lost(
+                "session: ensure_details",
+                this.update(cx, |this, cx| match fetched {
+                    Ok(Ok(symbol)) => {
+                        let digits = u32::try_from(symbol.digits).unwrap_or(5);
+                        let pip_position = symbol.pip_position;
+                        let hours = wyck_market::TradingHours::from_symbol(&symbol);
+                        this.multi
+                            .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
+                        this.details
+                            .insert(id, super::details::Detail::Ready(symbol));
+                        this.multi.update(cx, |multi, cx| {
+                            multi.set_quote_details(id, digits, pip_position, cx)
+                        });
+                        this.refresh_active(cx);
+                    }
+                    Ok(Err(error)) => {
+                        tracing::warn!(%error, symbol_id = id, "could not load a symbol's details");
+                        this.details
+                            .insert(id, super::details::Detail::Failed(error.to_string().into()));
+                    }
+                    Err(_) => {
+                        this.details.remove(&id);
+                    }
+                }),
+            );
         })
         .detach();
     }

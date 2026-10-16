@@ -10,6 +10,7 @@ use wyck_ui_kit::input::InputState;
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
 use wyck_chart::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
+use wyck_core::math::f64_to_u32;
 use wyck_ui_kit::{form, number, tokens};
 
 /// The fields that are typed in.
@@ -36,7 +37,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.session_hours),
         (1.0, 168.0),
         |s, v| {
-            s.tpo.session_hours = v.round() as u32;
+            s.tpo.session_hours = f64_to_u32(v.round());
         },
     );
     let period_minutes = numbers.add(
@@ -44,7 +45,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.period_minutes),
         (1.0, 1_440.0),
         |s, v| {
-            s.tpo.period_minutes = v.round() as u32;
+            s.tpo.period_minutes = f64_to_u32(v.round());
         },
     );
     let row_units = numbers.add(
@@ -52,7 +53,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.row_units),
         (0.0, 1e6),
         |s, v| {
-            s.tpo.row_units = v.round() as u32;
+            s.tpo.row_units = f64_to_u32(v.round());
         },
     );
     let value_area_percent = numbers.add(
@@ -60,7 +61,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.value_area_percent),
         (50.0, 95.0),
         |s, v| {
-            s.tpo.value_area_percent = v.round() as u32;
+            s.tpo.value_area_percent = f64_to_u32(v.round());
         },
     );
     let ib_periods = numbers.add(
@@ -68,7 +69,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.ib_periods),
         (1.0, 24.0),
         |s, v| {
-            s.tpo.ib_periods = v.round() as u32;
+            s.tpo.ib_periods = f64_to_u32(v.round());
         },
     );
     let single_min_rows = numbers.add(
@@ -76,7 +77,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.single_min_rows),
         (1.0, 20.0),
         |s, v| {
-            s.tpo.single_min_rows = v.round() as u32;
+            s.tpo.single_min_rows = f64_to_u32(v.round());
         },
     );
     let mut subscriptions = numbers.subscriptions;

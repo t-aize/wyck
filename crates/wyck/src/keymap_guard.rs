@@ -1,6 +1,6 @@
 //! Keeps every keyboard shortcut in one place.
 //!
-//! - Every binding is declared in the table of `ui::shell::keymap`. A `KeyBinding::new` or a
+//! - Every binding is declared in the table of `wyck_ui_shell::keymap`. A `KeyBinding::new` or a
 //!   `bind_keys` anywhere else would be a shortcut the settings page does not show and the clash
 //!   tests do not see.
 //! - A screen that reads keys by hand (`keystroke.key`, `on_key_down`) must be one of the files

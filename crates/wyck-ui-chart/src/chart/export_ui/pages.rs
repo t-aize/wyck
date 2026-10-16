@@ -75,7 +75,7 @@ impl ExportDialog {
                 o.order,
                 |o, v| o.order = v,
             ),
-            self.switch(
+            Self::switch(
                 cx,
                 "export-forming",
                 "Leave out the forming row",
@@ -133,7 +133,7 @@ impl ExportDialog {
                     .py_2()
                     .child(
                         div()
-                            .w(px(wyck_ui_kit::tokens::field::select()))
+                            .w(px(tokens::field::select()))
                             .flex_none()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
@@ -220,7 +220,7 @@ impl ExportDialog {
                     .child(format!("+ {}", source.column_name(key))),
             );
         }
-        let reset = this.clone();
+        let reset = this;
         let standard = wyck_ui_kit::button::quiet("col-standard")
             .label("Standard columns")
             .on_click(move |_, _, cx| {
@@ -301,7 +301,7 @@ impl ExportDialog {
         }
         page.child(form::group(
             IconName::Eye,
-            format!("First {} rows", PREVIEW_ROWS),
+            format!("First {PREVIEW_ROWS} rows"),
             [form::block(code)],
         ))
         .into_any_element()

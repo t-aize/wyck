@@ -9,6 +9,7 @@ use wyck_chart::ChartKind;
 use wyck_chart::Series;
 use wyck_chart::supports;
 use wyck_chart::{Geometry, axis_h, axis_w};
+use wyck_core::math::{f32_of, i64_to_f64};
 use wyck_market::format_price;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{anim, button, controls, icon, theme, tokens};
@@ -97,7 +98,8 @@ impl Chart {
             kind_text.push_str(self.settings.kind.label());
         }
         if self.display.box_size > 0 && self.settings.kind != ChartKind::LineBreak {
-            kind_text.push_str(&format!(" {}", format_price(self.display.box_size, digits)));
+            kind_text.push(' ');
+            kind_text.push_str(&format_price(self.display.box_size, digits));
         }
         if self.settings.kind == ChartKind::Footprint && self.timeframe.bar_ms().is_some() {
             kind_text.push_str(if supports(self.timeframe) {
@@ -157,7 +159,7 @@ impl Chart {
                         .map_or(bar.open, |b| b.close);
                     let change = bar.close - previous;
                     let pct = if previous != 0 {
-                        change as f64 / previous as f64 * 100.0
+                        i64_to_f64(change) / i64_to_f64(previous) * 100.0
                     } else {
                         0.0
                     };
@@ -213,8 +215,8 @@ impl Chart {
             .filter(|line| self.settings.trading.shows(line.id))
         {
             let raw = self.line_price(line.id, line.raw_price());
-            let y = map.y(raw) as f32;
-            if !(main.top as f32 + 2.0..=main.bottom() as f32 - 2.0).contains(&y) {
+            let y = f32_of(map.y(raw));
+            if !(f32_of(main.top) + 2.0..=f32_of(main.bottom()) - 2.0).contains(&y) {
                 continue;
             }
             let id = line.id;
@@ -319,41 +321,40 @@ impl Chart {
                     )
                     .into_any_element(),
             ),
-            Load::Failed(message) => out.push(
-                centered()
-                    .child(icon::tinted(
-                        IconName::CircleAlert,
-                        26.,
-                        theme::destructive(),
-                    ))
-                    .child(
-                        div()
-                            .text_size(px(tokens::text::title()))
-                            .text_color(theme::chart_fg())
-                            .child("Could not load the chart"),
-                    )
-                    .child(
-                        div()
-                            .max_w(px(wyck_ui_kit::tokens::measure::note()))
-                            .text_center()
-                            .text_size(px(tokens::text::body()))
-                            .text_color(theme::chart_muted())
-                            .child(message.clone()),
-                    )
-                    .child(
-                        div()
-                            .pt_1()
-                            .w(px(wyck_ui_kit::tokens::measure::action()))
-                            .child(button::primary(
+            Load::Failed(message) => {
+                out.push(
+                    centered()
+                        .child(icon::tinted(
+                            IconName::CircleAlert,
+                            26.,
+                            theme::destructive(),
+                        ))
+                        .child(
+                            div()
+                                .text_size(px(tokens::text::title()))
+                                .text_color(theme::chart_fg())
+                                .child("Could not load the chart"),
+                        )
+                        .child(
+                            div()
+                                .max_w(px(tokens::measure::note()))
+                                .text_center()
+                                .text_size(px(tokens::text::body()))
+                                .text_color(theme::chart_muted())
+                                .child(message.clone()),
+                        )
+                        .child(div().pt_1().w(px(tokens::measure::action())).child(
+                            button::primary(
                                 ("chart-retry", self.id),
-                                wyck_ui_kit::button::Fill::Accent,
-                                wyck_ui_kit::button::Size::Md,
+                                button::Fill::Accent,
+                                button::Size::Md,
                                 "Try again",
                                 cx.listener(|this, _event, _window, cx| this.retry(cx)),
-                            )),
-                    )
-                    .into_any_element(),
-            ),
+                            ),
+                        ))
+                        .into_any_element(),
+                );
+            }
             Load::Ready if self.series.is_empty() => out.push(
                 centered()
                     .child(
@@ -370,7 +371,7 @@ impl Chart {
             out.push(
                 div()
                     .absolute()
-                    .left(px(wyck_ui_kit::tokens::space::md()))
+                    .left(px(tokens::space::md()))
                     .bottom(px(axis_h() + 8.0))
                     .flex()
                     .flex_row()

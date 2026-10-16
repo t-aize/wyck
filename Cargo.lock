@@ -10008,7 +10008,6 @@ name = "wyck-ui-chart"
 version = "0.2.1"
 dependencies = [
  "ab_glyph",
- "anyhow",
  "gpui-pre",
  "thiserror 2.0.21",
  "tiny-skia 0.12.0",

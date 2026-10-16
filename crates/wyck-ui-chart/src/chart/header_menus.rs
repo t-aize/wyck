@@ -19,10 +19,9 @@ const QUICK: usize = 8;
 impl Chart {
     /// The entry of a menu that runs `run` on this chart.
     fn menu_entry(
-        &self,
         menu: &Menu,
         entry: Entry,
-        run: impl Fn(&mut Chart, &mut Window, &mut Context<Chart>) + 'static,
+        run: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) -> Item {
         let (chart, menu) = (cx.entity(), menu.clone());
@@ -40,16 +39,14 @@ impl Chart {
         for (title, kinds) in KIND_SECTIONS {
             let mut items = Vec::new();
             for kind in kinds.iter().copied() {
-                items.push(
-                    self.menu_entry(
-                        menu,
-                        Entry::new(kind.label())
-                            .icon(kind_icon(kind))
-                            .checked(self.settings.kind == kind),
-                        move |this, _, cx| this.set_kind(kind, cx),
-                        cx,
-                    ),
-                );
+                items.push(Self::menu_entry(
+                    menu,
+                    Entry::new(kind.label())
+                        .icon(kind_icon(kind))
+                        .checked(self.settings.kind == kind),
+                    move |this, _, cx| this.set_kind(kind, cx),
+                    cx,
+                ));
             }
             groups.push(Section::new(title, items));
         }
@@ -57,7 +54,7 @@ impl Chart {
     }
 
     /// The starred and the recent indicators, one click to add, and the ways to the rest.
-    pub fn indicator_items(&self, menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
+    pub fn indicator_items(menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
         let prefs = indicators::prefs(cx);
         let all = catalog::items();
         let mut groups: Vec<Section> = Vec::new();
@@ -87,20 +84,18 @@ impl Chart {
                         item.config(),
                         item.key(),
                     );
-                    items.push(
-                        self.menu_entry(
-                            menu,
-                            Entry::new(item.label.clone())
-                                .icon(icon)
-                                .hint(item.short.clone()),
-                            move |this, _, cx| {
-                                this.add_study(config.clone(), cx);
-                                let key = key.clone();
-                                indicators::update_prefs(cx, |p| p.note_recent(&key));
-                            },
-                            cx,
-                        ),
-                    );
+                    items.push(Self::menu_entry(
+                        menu,
+                        Entry::new(item.label.clone())
+                            .icon(icon)
+                            .hint(item.short.clone()),
+                        move |this, _, cx| {
+                            this.add_study(config.clone(), cx);
+                            let key = key.clone();
+                            indicators::update_prefs(cx, |p| p.note_recent(&key));
+                        },
+                        cx,
+                    ));
                 }
                 groups.push(Section::new(title, items));
             };
@@ -109,17 +104,17 @@ impl Chart {
         groups.push(Section::new(
             "Add",
             vec![
-                self.menu_entry(
+                Self::menu_entry(
                     menu,
                     Entry::new("All indicators...").icon(IconName::ChartSpline),
                     |_, window, cx| indicator_picker::open(cx.entity(), window, cx),
                     cx,
                 ),
-                self.menu_entry(
+                Self::menu_entry(
                     menu,
                     Entry::new("On this chart...").icon(IconName::ListTree),
                     |_, window, cx| {
-                        super::chart_settings_ui::open_indicators(cx.entity(), window, cx)
+                        super::chart_settings_ui::open_indicators(cx.entity(), window, cx);
                     },
                     cx,
                 ),
@@ -129,7 +124,7 @@ impl Chart {
     }
 
     /// Opens the picker of indicators for `chart`.
-    pub fn open_indicator_picker(chart: &Entity<Chart>, window: &mut Window, cx: &mut gpui::App) {
+    pub fn open_indicator_picker(chart: &Entity<Self>, window: &mut Window, cx: &mut gpui::App) {
         indicator_picker::open(chart.clone(), window, cx);
     }
 }

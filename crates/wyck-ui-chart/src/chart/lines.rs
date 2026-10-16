@@ -10,9 +10,10 @@
 use wyck_market::PRICE_SCALE;
 
 use wyck_chart::PriceMark;
+use wyck_core::math::i64_to_f64;
 use wyck_drawings::model::style::Dash;
 
-pub use wyck_chart::LineId;
+use wyck_chart::LineId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartLine {
@@ -34,12 +35,12 @@ pub struct ChartLine {
 
 impl ChartLine {
     /// The price in the chart's raw units.
-    pub fn raw_price(&self) -> f64 {
-        self.price * PRICE_SCALE as f64
+    pub(crate) fn raw_price(&self) -> f64 {
+        self.price * i64_to_f64(PRICE_SCALE)
     }
 
     /// The line as the scene draws it.
-    pub fn mark(&self) -> PriceMark {
+    pub(crate) fn mark(&self) -> PriceMark {
         PriceMark {
             price: self.raw_price(),
             color: self.color,
@@ -56,8 +57,8 @@ impl ChartLine {
 }
 
 /// A raw price as a real one.
-pub fn to_real(raw: f64) -> f64 {
-    raw / PRICE_SCALE as f64
+pub(crate) fn to_real(raw: f64) -> f64 {
+    raw / i64_to_f64(PRICE_SCALE)
 }
 
 #[cfg(test)]
@@ -69,7 +70,7 @@ mod tests {
         let line = ChartLine {
             id: LineId::Alert(1),
             price: 1.08412,
-            color: 0xffb900,
+            color: 0x00ff_b900,
             label: "Alert".into(),
             detail: None,
             dash: Dash::Dashed,

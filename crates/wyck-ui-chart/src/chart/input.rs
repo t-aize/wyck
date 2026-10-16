@@ -12,13 +12,15 @@ use gpui::{Context, CursorStyle};
 
 use super::Chart;
 use super::events::ChartEvent;
-use super::lines::{LineId, to_real};
+use super::lines::to_real;
+use wyck_chart::LineId;
 use wyck_chart::PriceScale;
+use wyck_core::math::{f32_of, i64_to_f64};
 use wyck_drawings::book::Grab;
 
 /// Where a position is on the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Region {
+pub(crate) enum Region {
     /// The plot, in band `n` (0 is the prices).
     Plot(usize),
     /// The price axis of band `n`.
@@ -28,7 +30,7 @@ pub enum Region {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DragKind {
+pub(crate) enum DragKind {
     /// The plot moved by the pointer: in time, and in price only while the price scale is Manual.
     /// `free` says whether vertical movement has passed the threshold.
     Pan {
@@ -46,13 +48,13 @@ pub enum DragKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Drag {
-    pub kind: DragKind,
+pub(crate) struct Drag {
+    pub(crate) kind: DragKind,
     /// Where the press was, and where the pointer was at the last move.
-    pub start: (f32, f32),
-    pub last: (f32, f32),
+    pub(crate) start: (f32, f32),
+    pub(crate) last: (f32, f32),
     /// Whether the pointer moved since the press.
-    pub moved: bool,
+    pub(crate) moved: bool,
 }
 
 /// How far the pointer must move vertically before a Manual scale pans too.
@@ -132,7 +134,7 @@ impl Chart {
     }
 
     /// Switches between fitting visible prices and keeping the current price range.
-    pub fn toggle_auto_price_scale(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_auto_price_scale(&mut self, cx: &mut Context<Self>) {
         match self.view.price {
             PriceScale::Auto => {
                 if let Some(map) = self.main_map() {
@@ -148,12 +150,12 @@ impl Chart {
     }
 
     pub fn pan_keys(&mut self, forward: bool, cx: &mut Context<Self>) {
-        let step = (self.view.bar_px * 6.0) as f32;
+        let step = f32_of(self.view.bar_px * 6.0);
         self.pan_by(if forward { -step } else { step }, cx);
     }
 
     pub fn zoom_keys(&mut self, magnify: bool, cx: &mut Context<Self>) {
-        let anchor = self.geometry().plot_w() as f32;
+        let anchor = f32_of(self.geometry().plot_w());
         self.zoom_by(if magnify { 1.25 } else { 0.8 }, anchor, cx);
     }
 
@@ -171,7 +173,7 @@ impl Chart {
         self.lines
             .iter()
             .filter(|line| line.draggable && self.settings.trading.shows(line.id))
-            .map(|line| (line, (map.y(line.raw_price()) as f32 - y).abs()))
+            .map(|line| (line, (f32_of(map.y(line.raw_price())) - y).abs()))
             .filter(|(_, distance)| *distance <= LINE_REACH)
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(line, _)| (line.id, line.raw_price()))
@@ -181,7 +183,7 @@ impl Chart {
     /// decimals.
     pub(super) fn price_at(&self, y: f32) -> Option<f64> {
         let map = self.main_map()?;
-        let unit = self.unit() as f64;
+        let unit = i64_to_f64(self.unit());
         Some((map.price(f64::from(y)) / unit).round() * unit)
     }
 
@@ -267,9 +269,8 @@ impl Chart {
                 free: false,
             },
             Region::PriceAxis(0) => DragKind::Price,
-            Region::PriceAxis(_) => return,
+            Region::PriceAxis(_) | Region::Corner => return,
             Region::TimeAxis => DragKind::Time,
-            Region::Corner => return,
         };
         self.drag = Some(Drag {
             kind,
@@ -330,7 +331,7 @@ impl Chart {
                 }
                 DragKind::Price => self.zoom_price_by((-f64::from(dy) * 0.006).exp(), None, cx),
                 DragKind::Time => {
-                    let anchor = self.geometry().plot_w() as f32;
+                    let anchor = f32_of(self.geometry().plot_w());
                     self.zoom_by((f64::from(dx) * 0.006).exp(), anchor, cx);
                 }
                 DragKind::Separator(index) => self.drag_separator(index, dy, cx),
@@ -381,8 +382,10 @@ impl Chart {
             let mut set = |band: usize, weight: f32| {
                 if band == 0 {
                     settings.main_weight = weight;
-                } else if let Some(pane) = panes.get(band - 1) {
-                    settings.studies[pane.study].weight = weight;
+                } else if let Some(pane) = panes.get(band - 1)
+                    && let Some(study) = settings.studies.get_mut(pane.study)
+                {
+                    study.weight = weight;
                 }
             };
             set(index, a);
@@ -443,7 +446,7 @@ impl Chart {
                     self.pan_by(if shift { dy } else { dx }, cx);
                 } else {
                     let anchor = if region == Region::TimeAxis {
-                        self.geometry().plot_w() as f32
+                        f32_of(self.geometry().plot_w())
                     } else {
                         x
                     };
@@ -496,8 +499,7 @@ impl Chart {
             }
             if let Some(over) = self.over_drawing {
                 return match over {
-                    Grab::Body => CursorStyle::PointingHand,
-                    Grab::Grip => CursorStyle::PointingHand,
+                    Grab::Body | Grab::Grip => CursorStyle::PointingHand,
                     Grab::GripVertical => CursorStyle::ResizeUpDown,
                     Grab::GripHorizontal => CursorStyle::ResizeLeftRight,
                     Grab::GripDiagonalDown => CursorStyle::ResizeUpLeftDownRight,
@@ -508,9 +510,8 @@ impl Chart {
         match region {
             Region::Plot(_) => CursorStyle::Crosshair,
             Region::PriceAxis(0) => CursorStyle::ResizeUpDown,
-            Region::PriceAxis(_) => CursorStyle::Arrow,
+            Region::PriceAxis(_) | Region::Corner => CursorStyle::Arrow,
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
-            Region::Corner => CursorStyle::Arrow,
         }
     }
 }

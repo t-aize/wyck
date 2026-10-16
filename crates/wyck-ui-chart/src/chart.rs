@@ -9,12 +9,12 @@
 //! | Module | Role |
 //! |---|---|
 //! | this file | the entity, what it shows, and what it tells the layout around it |
-//! | [`history`] | loading the history, older pages, refilling after a reconnect, live prices |
-//! | [`input`] | the pointer and the keys: scrolling, zooming, dragging scales, panes and lines |
-//! | [`follow`] | following other charts: shared crosshair, time and range |
-//! | [`glue`] | the drawings: handing presses and moves to the drawing book |
-//! | [`paint`] | the canvas: turning a frame's commands into gpui quads, paths and text |
-//! | [`overlay`] | what sits over the canvas: legend, toolbar, menus, line labels, status |
+//! | `history` | loading the history, older pages, refilling after a reconnect, live prices |
+//! | `input` | the pointer and the keys: scrolling, zooming, dragging scales, panes and lines |
+//! | `follow` | following other charts: shared crosshair, time and range |
+//! | `glue` | the drawings: handing presses and moves to the drawing book |
+//! | `paint` | the canvas: turning a frame's commands into gpui quads, paths and text |
+//! | `overlay` | what sits over the canvas: legend, toolbar, menus, line labels, status |
 //! | `scene` | the frame itself, as plain drawing commands, tested without a window |
 //! | `display` | what is drawn: the series of the chart type, and the indicators' values |
 //! | `flow`, `flow_sync` | the order flow of a footprint: counting quotes into bars, and loading it |
@@ -50,12 +50,12 @@
 //! Open API has no trade tape, so the side and the volume of each unit are inferred from the
 //! quotes, and the chart says so.
 
-pub mod api;
+pub(crate) mod api;
 mod chart_settings_ui;
 mod construction_ui;
 mod corner;
 mod custom_runs;
-pub mod drawing_props;
+pub(crate) mod drawing_props;
 pub mod events;
 mod export_ui;
 mod flow_sync;
@@ -66,13 +66,13 @@ mod header_menus;
 mod history;
 mod indicator_picker;
 mod input;
-pub mod lines;
-pub mod object_tree;
+pub(crate) mod lines;
+pub(crate) mod object_tree;
 mod overlay;
 mod paint;
-pub mod palette;
+pub(crate) mod palette;
 mod path_pieces;
-pub mod raster;
+pub(crate) mod raster;
 mod settings_rows;
 mod study_settings;
 mod tpo_ui;
@@ -81,8 +81,8 @@ mod volume_ui;
 pub use self::chart_settings_ui::open as open_chart_settings;
 use self::events::{ChartEvent, Hover};
 use self::flow_sync::{FlowLoad, HeldQuote};
-pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
-pub use self::lines::{ChartLine, LineId};
+pub(crate) use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
+pub use self::lines::ChartLine;
 pub use self::overlay::kind_icon;
 use self::study::config::StudyConfig;
 use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
@@ -97,59 +97,68 @@ use wyck_app::market_data::live::LiveHub;
 use wyck_chart::Display;
 use wyck_chart::Flow;
 use wyck_chart::Geometry;
+use wyck_chart::LineId;
 use wyck_chart::Series;
 use wyck_chart::View;
-pub use wyck_chart::{ChartKind, ChartSettings};
+use wyck_chart::{ChartKind, ChartSettings};
 use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceMap, geometry, main_map, quote_unit, supports};
+use wyck_core::math::f64_to_i64;
 use wyck_indicators as study;
-pub use wyck_market::{GROUPS, Timeframe, Unit};
+use wyck_market::Timeframe;
 
-gpui::actions!(
-    wyck_chart,
-    [
-        ChartPanBack,
-        ChartPanForward,
-        ChartZoomIn,
-        ChartZoomOut,
-        ChartLatest,
-        ChartResetScale,
-        DeleteDrawing,
-        FinishDrawing,
-        Favorite1,
-        Favorite2,
-        Favorite3,
-        Favorite4,
-        Favorite5,
-        Favorite6,
-        Favorite7,
-        Favorite8,
-        Favorite9,
-        UndoDrawing,
-        RedoDrawing,
-        DuplicateDrawing,
-        ChartScreenshot,
-        ChartScreenshotAll,
-        ChartAddAlert,
-        ChartCopyIndicators,
-        ChartPaste,
-        SelectAllDrawings,
-        FindTool,
-        NudgeUp,
-        NudgeDown,
-        NudgeBackFast,
-        NudgeForwardFast,
-        NudgeUpFast,
-        NudgeDownFast,
-        ToolTrendLine,
-        ToolHorizontal,
-        ToolVertical,
-        ToolFib,
-        ToolRectangle,
-        ToolText,
-        ToolMeasure,
-        ToolBrush,
-    ]
-);
+#[expect(
+    clippy::derive_partial_eq_without_eq,
+    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
+)]
+mod action {
+    gpui::actions!(
+        wyck_chart,
+        [
+            ChartPanBack,
+            ChartPanForward,
+            ChartZoomIn,
+            ChartZoomOut,
+            ChartLatest,
+            ChartResetScale,
+            DeleteDrawing,
+            FinishDrawing,
+            Favorite1,
+            Favorite2,
+            Favorite3,
+            Favorite4,
+            Favorite5,
+            Favorite6,
+            Favorite7,
+            Favorite8,
+            Favorite9,
+            UndoDrawing,
+            RedoDrawing,
+            DuplicateDrawing,
+            ChartScreenshot,
+            ChartScreenshotAll,
+            ChartAddAlert,
+            ChartCopyIndicators,
+            ChartPaste,
+            SelectAllDrawings,
+            FindTool,
+            NudgeUp,
+            NudgeDown,
+            NudgeBackFast,
+            NudgeForwardFast,
+            NudgeUpFast,
+            NudgeDownFast,
+            ToolTrendLine,
+            ToolHorizontal,
+            ToolVertical,
+            ToolFib,
+            ToolRectangle,
+            ToolText,
+            ToolMeasure,
+            ToolBrush,
+        ]
+    );
+}
+pub use action::*;
 
 /// A chart smaller than this shows fewer numbers and a smaller toolbar.
 const COMPACT_WIDTH: f32 = 640.0;
@@ -157,11 +166,11 @@ const COMPACT_HEIGHT: f32 = 300.0;
 
 /// The symbol on the chart.
 #[derive(Debug, Clone)]
-pub struct Symbol {
-    pub id: i64,
-    pub name: SharedString,
-    pub digits: u32,
-    pub pip_position: Option<i64>,
+pub(crate) struct Symbol {
+    pub(crate) id: i64,
+    pub(crate) name: SharedString,
+    pub(crate) digits: u32,
+    pub(crate) pip_position: Option<i64>,
 }
 
 enum Load {
@@ -183,13 +192,13 @@ enum Older {
 
 /// The menus that open from the chart's own toolbar and legend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Menu {
+pub(crate) enum Menu {
     Zone,
 }
 
 impl Chart {
     /// Closes the menu that is open, if any. Returns whether there was one.
-    pub fn close_menu(&mut self, cx: &mut Context<Self>) -> bool {
+    pub(crate) fn close_menu(&mut self, cx: &mut Context<Self>) -> bool {
         let was_open = self.menu.take().is_some();
         if was_open {
             cx.notify();
@@ -200,6 +209,10 @@ impl Chart {
 
 impl EventEmitter<ChartEvent> for Chart {}
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own piece of interface state (selected, shown symbol, pending requests); grouping them would only hide the names"
+)]
 pub struct Chart {
     session: Session,
     hub: Rc<LiveHub>,
@@ -233,7 +246,7 @@ pub struct Chart {
     custom: custom_runs::Custom,
     /// The ids of the symbols of the account by name (see `key_of`), for the indicators that read
     /// the prices of a second symbol.
-    symbol_ids: std::sync::Arc<std::collections::HashMap<String, i64>>,
+    symbol_ids: std::sync::Arc<HashMap<String, i64>>,
     _library: gpui::Subscription,
     /// What traded at each price of each bar, for the footprint chart type.
     flow: Flow,
@@ -268,7 +281,7 @@ pub struct Chart {
     drawings: Option<Entity<Drawings>>,
     /// How many charts the layout holds, for what only makes sense with several.
     layout_charts: usize,
-    _drawings_observe: Option<gpui::Subscription>,
+    drawings_observe: Option<gpui::Subscription>,
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
     /// Whether the pointer is over a drawing, for the mouse cursor.
@@ -287,7 +300,7 @@ pub struct Chart {
 }
 
 impl Chart {
-    pub fn new(
+    pub(crate) fn new(
         session: Session,
         hub: Rc<LiveHub>,
         id: u64,
@@ -356,7 +369,7 @@ impl Chart {
             drag: None,
             drawings: None,
             layout_charts: 1,
-            _drawings_observe: None,
+            drawings_observe: None,
             drawing_drag: false,
             over_drawing: None,
             settings_for: None,
@@ -391,7 +404,7 @@ impl Chart {
 
     /// One quote unit in raw price units.
     fn unit(&self) -> i64 {
-        quote_unit(self.digits()).max(1.0) as i64
+        f64_to_i64(quote_unit(self.digits()).max(1.0))
     }
 
     /// Recomputes what is drawn from the prices. Keeps what the user looks at in place when the

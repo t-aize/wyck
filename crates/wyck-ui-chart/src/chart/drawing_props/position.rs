@@ -5,6 +5,7 @@ use super::{
     Swatch, controls, div, form, number, px, theme, tokens,
 };
 use gpui::prelude::*;
+use wyck_core::math::i64_to_f64;
 use wyck_ui_kit::field;
 
 impl DrawingProps {
@@ -21,16 +22,12 @@ impl DrawingProps {
         }
         let drawing = resolved.as_ref().unwrap_or(drawing);
         let p = &drawing.style.position;
-        let real = |raw: f64| raw / PRICE_SCALE as f64;
-        let tick = 10f64.powi(-(self.digits as i32));
-        let stats = drawing.points.get(2).and_then(|_| {
-            p.stats(
-                real(drawing.points[0].p),
-                real(drawing.points[1].p),
-                real(drawing.points[2].p),
-                tick,
-            )
-        });
+        let real = |raw: f64| raw / i64_to_f64(PRICE_SCALE);
+        let tick = 10f64.powi(-i32::try_from(self.digits).unwrap_or(i32::MAX));
+        let stats = match drawing.points.as_slice() {
+            [entry, stop, target, ..] => p.stats(real(entry.p), real(stop.p), real(target.p), tick),
+            _ => None,
+        };
         let Some(stats) = stats else {
             return vec![form::block(form::note(
                 "Nothing to size: the stop sits on the entry.",
@@ -160,7 +157,7 @@ impl DrawingProps {
                         mode_this.update(cx, |editor, cx| {
                             editor.change(cx, |d| {
                                 d.style.position.atr_stop = (choice == 1).then(|| atr_seed.clone());
-                            })
+                            });
                         });
                     },
                 ),
@@ -176,7 +173,7 @@ impl DrawingProps {
                         target_this.update(cx, |editor, cx| {
                             editor.change(cx, |d| {
                                 d.style.position.target_rr = (choice == 1).then_some(2.0);
-                            })
+                            });
                         });
                     },
                 ),
@@ -184,7 +181,7 @@ impl DrawingProps {
         ];
         if let Some(atr) = &p.atr_stop {
             let smooth_this = this.clone();
-            let bar_this = this.clone();
+            let bar_this = this;
             let smooth_index = Smoothing::ALL
                 .iter()
                 .position(|m| *m == atr.smoothing)
@@ -209,10 +206,12 @@ impl DrawingProps {
                     move |choice, _, cx| {
                         smooth_this.update(cx, |editor, cx| {
                             editor.change(cx, |d| {
-                                if let Some(atr) = &mut d.style.position.atr_stop {
-                                    atr.smoothing = Smoothing::ALL[choice];
+                                if let Some(atr) = &mut d.style.position.atr_stop
+                                    && let Some(&smoothing) = Smoothing::ALL.get(choice)
+                                {
+                                    atr.smoothing = smoothing;
                                 }
-                            })
+                            });
                         });
                     },
                 ),
@@ -239,7 +238,7 @@ impl DrawingProps {
                                 if let Some(atr) = &mut d.style.position.atr_stop {
                                     atr.current_bar = choice == 1;
                                 }
-                            })
+                            });
                         });
                     },
                 ),
@@ -266,7 +265,7 @@ impl DrawingProps {
                     on: bool,
                     cx: &mut Context<Self>,
                     set: fn(&mut Drawing, bool)| {
-            form::field(label, hint, self.switch(id, on, cx, set))
+            form::field(label, hint, Self::switch(id, on, cx, set))
         };
         let stats = form::group(
             IconName::ListChecks,
@@ -370,7 +369,7 @@ impl DrawingProps {
         let p = &style.position;
         let this = cx.entity();
 
-        let dash_this = this.clone();
+        let dash_this = this;
         let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
         let lines = form::group(
             IconName::PenLine,
@@ -389,9 +388,11 @@ impl DrawingProps {
                             "props-dash",
                             dash_index,
                             move |choice, _w, cx| {
-                                dash_this.update(cx, |e, cx| {
-                                    e.change(cx, |d| d.style.dash = DASHES[choice])
-                                });
+                                if let Some(&dash) = DASHES.get(choice) {
+                                    dash_this.update(cx, |e, cx| {
+                                        e.change(cx, |d| d.style.dash = dash);
+                                    });
+                                }
                             },
                         ))
                         .child(self.swatch(Swatch::Entry, p.entry_color, "props-entry-color", cx)),
@@ -416,7 +417,7 @@ impl DrawingProps {
                 form::field(
                     "Zones",
                     Some("Colors the profit and the loss zones"),
-                    self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
+                    Self::switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
                 ),
                 form::field("Zone opacity", Some("In percent"), self.opacity.clone()),
             ],
@@ -429,8 +430,8 @@ impl DrawingProps {
                 form::field(
                     "Show the tags",
                     Some("The words on the levels"),
-                    self.switch("props-labels", style.labels, cx, |d, on| {
-                        d.style.labels = on
+                    Self::switch("props-labels", style.labels, cx, |d, on| {
+                        d.style.labels = on;
                     }),
                 ),
                 form::field(
@@ -438,7 +439,7 @@ impl DrawingProps {
                     Some("Dark on the colored tags unless you pick one"),
                     self.swatch(
                         Swatch::Text,
-                        style.text_color.unwrap_or(0x0a0a0a),
+                        style.text_color.unwrap_or(0x000a_0a0a),
                         "props-text-color",
                         cx,
                     ),
@@ -451,7 +452,7 @@ impl DrawingProps {
                 form::field(
                     "Bold",
                     None,
-                    self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
+                    Self::switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
                 ),
             ],
         );

@@ -2,20 +2,23 @@
 //! the indicators with their buttons), the toolbar, its menus, the labels of the order and alert
 //! lines, the right-click menu, and the loading, failed and empty states.
 
-pub mod headline;
-pub mod legend;
-pub mod menus;
+pub(crate) mod headline;
+pub(crate) mod legend;
+pub(crate) mod menus;
 
 use super::{Chart, paint};
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, Window, div};
+use std::rc::Rc;
 use wyck_chart::ChartKind;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::menu::{self as popup};
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
     match kind {
-        ChartKind::Candles | ChartKind::Hollow => IconName::ChartCandlestick,
+        ChartKind::Candles | ChartKind::Hollow | ChartKind::VolumeCandles => {
+            IconName::ChartCandlestick
+        }
         ChartKind::HeikinAshi => IconName::ChartNoAxesCombined,
         ChartKind::Bars => IconName::ChartNoAxesColumn,
         ChartKind::Line => IconName::ChartLine,
@@ -28,7 +31,6 @@ pub fn kind_icon(kind: ChartKind) -> IconName {
         ChartKind::PointFigure => IconName::Grid3x3,
         ChartKind::Range => IconName::ChartColumnBig,
         ChartKind::Footprint => IconName::Rows3,
-        ChartKind::VolumeCandles => IconName::ChartCandlestick,
         ChartKind::VolumeBars => IconName::ChartBarBig,
         ChartKind::Tpo => IconName::ChartNoAxesGantt,
     }
@@ -99,7 +101,7 @@ impl Render for Chart {
             .min_h_0()
             .overflow_hidden()
             .bg(self.palette().bg)
-            .child(paint::surface(&entity, self.bounds.clone()))
+            .child(paint::surface(&entity, Rc::clone(&self.bounds)))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
             .children(self.corner(cx))

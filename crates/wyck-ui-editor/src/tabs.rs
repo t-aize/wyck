@@ -2,6 +2,7 @@
 
 use super::{CHECK_DELAY, Doc, IndicatorEditor, new_state, show_diagnostics};
 use gpui::{Context, Window};
+use wyck_app::lost::lost;
 use wyck_indicators::custom::Problem;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::run::Script;
@@ -119,12 +120,15 @@ impl IndicatorEditor {
                 .background_executor()
                 .spawn(async move { Script::compile(&source).map(|script| script.warnings) })
                 .await;
-            let _ = this.update(cx, |this, cx| {
-                let problems = match result {
-                    Ok(warnings) | Err(warnings) => warnings,
-                };
-                this.checked(&script, &text, problems, cx);
-            });
+            lost(
+                "tabs: text_changed",
+                this.update(cx, |this, cx| {
+                    let problems = match result {
+                        Ok(warnings) | Err(warnings) => warnings,
+                    };
+                    this.checked(&script, &text, problems, cx);
+                }),
+            );
         }));
         self.queue_drafts(cx);
         cx.notify();

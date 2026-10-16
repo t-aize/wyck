@@ -28,6 +28,7 @@ use super::details::{self, Detail};
 use super::lists::{self, ListEditor, Scope};
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use wyck_app::broker::Error as ApiError;
+use wyck_app::lost::lost;
 use wyck_app::system::runtime;
 use wyck_ui_kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
@@ -426,24 +427,30 @@ impl Dashboard {
                 })
                 .unwrap_or(false);
             if !still_wanted {
-                let _ = this.update(cx, |this, _cx| {
-                    if matches!(this.details.get(&id), Some(Detail::Loading)) {
-                        this.details.remove(&id);
-                    }
-                });
+                lost(
+                    "picker: schedule_details",
+                    this.update(cx, |this, _cx| {
+                        if matches!(this.details.get(&id), Some(Detail::Loading)) {
+                            this.details.remove(&id);
+                        }
+                    }),
+                );
                 return;
             }
 
             // Follow the highlighted symbol's price while the picker shows it (the charts
             // follow their own).
-            let _ = this.update(cx, |this, cx| {
-                let shown = this.multi.read(cx).symbol_ids(cx);
-                if shown.contains(&id) {
-                    this.drop_peek();
-                } else {
-                    this.peek_at(id);
-                }
-            });
+            lost(
+                "picker: schedule_details",
+                this.update(cx, |this, cx| {
+                    let shown = this.multi.read(cx).symbol_ids(cx);
+                    if shown.contains(&id) {
+                        this.drop_peek();
+                    } else {
+                        this.peek_at(id);
+                    }
+                }),
+            );
 
             let fetched = runtime::spawn(async move {
                 let client = session.client().ok_or(ApiError::Closed)?;
@@ -456,7 +463,7 @@ impl Dashboard {
                     .ok_or_else(|| ApiError::Protocol("the broker sent no details".into()))
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
+            lost("picker: schedule_details", this.update(cx, |this, cx| {
                 let detail = match fetched {
                     Ok(Ok(symbol)) => Detail::Ready(symbol),
                     Ok(Err(error)) => {
@@ -467,7 +474,7 @@ impl Dashboard {
                 };
                 this.details.insert(id, detail);
                 cx.notify();
-            });
+            }));
         })
         .detach();
     }

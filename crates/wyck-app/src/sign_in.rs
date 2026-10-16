@@ -2,7 +2,7 @@
 //! the choice of an account, and handing a [`Connection`] to the shell.
 //!
 //! [`SignIn`] is an entity without a view. It owns the configuration, holds the pure
-//! [`SignInState`] and runs the network steps in the background; the modal in `ui::shell` shows
+//! [`SignInState`] and runs the network steps in the background; the modal in `wyck-ui-shell` shows
 //! its phase and calls its methods. A step that finishes after the user cancelled finds that the
 //! attempt number changed and does nothing, and cancelling aborts the wait for the redirect, so
 //! the local port is free again at once.

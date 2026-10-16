@@ -4,7 +4,9 @@ use super::links::Follow;
 use super::{MultiChart, MultiChartEvent, SymbolRef};
 use crate::chart::Chart;
 use crate::chart::events::ChartEvent;
+use crate::chart::raster::PICTURE_SCALE;
 use gpui::{Context, Entity};
+use wyck_core::math::u32_to_f32;
 
 impl MultiChart {
     /// Takes a picture of the active chart.
@@ -22,7 +24,6 @@ impl MultiChart {
             self.picture(cx);
             return;
         }
-        use crate::chart::raster::PICTURE_SCALE;
         let (rects, _) = self.tree.place(self.slots.len());
         let mut tiles = Vec::new();
         let mut background = None;
@@ -40,8 +41,8 @@ impl MultiChart {
             };
             background.get_or_insert(bg);
             let (tile_w, tile_h) = (
-                pixmap.width() as f32 / PICTURE_SCALE,
-                pixmap.height() as f32 / PICTURE_SCALE,
+                u32_to_f32(pixmap.width()) / PICTURE_SCALE,
+                u32_to_f32(pixmap.height()) / PICTURE_SCALE,
             );
             // The area was not measured yet (nothing was drawn): the charts say how big it is.
             width = width.max(tile_w / rect.w.max(f32::EPSILON));
@@ -80,15 +81,16 @@ impl MultiChart {
                     .iter()
                     .map(|slot| slot.chart.read(cx).symbol().map(|s| s.id))
                     .collect();
-                for (index, follow) in super::links::route(&self.sync, from, &symbols, event) {
-                    self.slots[index]
-                        .chart
-                        .update(cx, |chart, cx| match follow {
-                            Follow::Pointer(pointer) => chart.show_remote_pointer(pointer, cx),
-                            Follow::Span(span) => chart.follow_span(span, cx),
-                            Follow::RightEdge(right) => chart.follow_right_edge(right, cx),
-                            Follow::PickedTime(time) => chart.follow_picked_time(time, cx),
-                        });
+                for (index, follow) in super::links::route(self.sync, from, &symbols, event) {
+                    let Some(slot) = self.slots.get(index) else {
+                        continue;
+                    };
+                    slot.chart.update(cx, |chart, cx| match follow {
+                        Follow::Pointer(pointer) => chart.show_remote_pointer(pointer, cx),
+                        Follow::Span(span) => chart.follow_span(span, cx),
+                        Follow::RightEdge(right) => chart.follow_right_edge(right, cx),
+                        Follow::PickedTime(time) => chart.follow_picked_time(time, cx),
+                    });
                 }
             }
             ChartEvent::LookChanged(look) => {

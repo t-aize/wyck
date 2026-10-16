@@ -9,6 +9,7 @@ use wyck_app::chart_export as store;
 use wyck_chart::ColumnKey;
 use wyck_chart::Content;
 use wyck_chart::ExportOptions;
+use wyck_core::math::f64_to_u32;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
 
@@ -45,11 +46,11 @@ impl ExportDialog {
                 &o.from,
                 "2026-01-05 09:30",
                 |o, t| {
-                    o.from = t.to_owned();
+                    t.clone_into(&mut o.from);
                 },
             ),
             to: text_input(window, cx, &mut subs, &o.to, "2026-01-06", |o, t| {
-                o.to = t.to_owned();
+                t.clone_into(&mut o.to);
             }),
             last: number_input(
                 window,
@@ -57,7 +58,7 @@ impl ExportDialog {
                 &mut subs,
                 f64::from(o.last),
                 (1.0, 1e7),
-                |o, v| o.last = v.round() as u32,
+                |o, v| o.last = f64_to_u32(v.round()),
             ),
             every: number_input(
                 window,
@@ -65,7 +66,7 @@ impl ExportDialog {
                 &mut subs,
                 f64::from(o.every),
                 (1.0, 1e6),
-                |o, v| o.every = v.round() as u32,
+                |o, v| o.every = f64_to_u32(v.round()),
             ),
             limit: number_input(
                 window,
@@ -73,7 +74,7 @@ impl ExportDialog {
                 &mut subs,
                 f64::from(o.limit),
                 (0.0, 1e8),
-                |o, v| o.limit = v.round() as u32,
+                |o, v| o.limit = f64_to_u32(v.round()),
             ),
             custom_delimiter: text_input(
                 window,
@@ -81,7 +82,7 @@ impl ExportDialog {
                 &mut subs,
                 &o.custom_delimiter,
                 "One character",
-                |o, t| o.custom_delimiter = t.to_owned(),
+                |o, t| t.clone_into(&mut o.custom_delimiter),
             ),
             time_pattern: text_input(
                 window,
@@ -89,7 +90,7 @@ impl ExportDialog {
                 &mut subs,
                 &o.time_pattern,
                 "%Y-%m-%d %H:%M:%S",
-                |o, t| o.time_pattern = t.to_owned(),
+                |o, t| t.clone_into(&mut o.time_pattern),
             ),
             date_pattern: text_input(
                 window,
@@ -98,7 +99,7 @@ impl ExportDialog {
                 &o.date_pattern,
                 "%Y-%m-%d",
                 |o, t| {
-                    o.date_pattern = t.to_owned();
+                    t.clone_into(&mut o.date_pattern);
                 },
             ),
             clock_pattern: text_input(
@@ -108,7 +109,7 @@ impl ExportDialog {
                 &o.clock_pattern,
                 "%H:%M:%S",
                 |o, t| {
-                    o.clock_pattern = t.to_owned();
+                    t.clone_into(&mut o.clock_pattern);
                 },
             ),
             fixed_digits: number_input(
@@ -117,7 +118,7 @@ impl ExportDialog {
                 &mut subs,
                 f64::from(o.fixed_digits),
                 (0.0, 12.0),
-                |o, v| o.fixed_digits = v.round() as u32,
+                |o, v| o.fixed_digits = f64_to_u32(v.round()),
             ),
             value_digits: number_input(
                 window,
@@ -125,10 +126,10 @@ impl ExportDialog {
                 &mut subs,
                 f64::from(o.value_digits),
                 (0.0, 12.0),
-                |o, v| o.value_digits = v.round() as u32,
+                |o, v| o.value_digits = f64_to_u32(v.round()),
             ),
             table_name: text_input(window, cx, &mut subs, &o.table_name, "bars", |o, t| {
-                o.table_name = t.to_owned();
+                t.clone_into(&mut o.table_name);
             }),
             file_name: text_input(
                 window,
@@ -136,7 +137,7 @@ impl ExportDialog {
                 &mut subs,
                 &o.file_name,
                 "{symbol}_{timeframe}_{from}_{to}",
-                |o, t| o.file_name = t.to_owned(),
+                |o, t| t.clone_into(&mut o.file_name),
             ),
             preset_name: cx.new(|cx| InputState::new(window, cx).placeholder("Name this preset")),
         };
@@ -150,7 +151,7 @@ impl ExportDialog {
             names: BTreeMap::new(),
             preview: Preview::default(),
             busy: false,
-            _subscriptions: subs,
+            subscriptions: subs,
         };
         dialog.preview = dialog.build_preview();
         dialog
@@ -182,7 +183,7 @@ impl ExportDialog {
                         this.edited(cx);
                     }
                 });
-            self._subscriptions.push(subscription);
+            self.subscriptions.push(subscription);
             self.names.insert(code, state);
         }
     }

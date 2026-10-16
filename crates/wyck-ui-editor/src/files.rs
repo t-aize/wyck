@@ -2,6 +2,7 @@
 
 use super::{ConsoleTab, IndicatorEditor, show_diagnostics};
 use gpui::{Context, Entity, Window};
+use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_app::scripts::folder::LibraryError;
 use wyck_indicators::custom::library::registry;
@@ -28,7 +29,10 @@ impl IndicatorEditor {
         };
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
-            let _ = this.update_in(cx, |this, _window, cx| this.saved(&id, text, result, cx));
+            lost(
+                "files: save",
+                this.update_in(cx, |this, _window, cx| this.saved(&id, text, result, cx)),
+            );
         })
         .detach();
     }
@@ -99,30 +103,33 @@ impl IndicatorEditor {
         };
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
-            let _ = this.update_in(cx, |editor, _window, cx| {
-                let saved = result.as_ref().is_some_and(Result::is_ok);
-                editor.saved(&id, text, result, cx);
-                if !saved || !registry::get(&id).is_some_and(|entry| entry.is_ready()) {
-                    return;
-                }
-                let held = chart
-                    .read(cx)
-                    .settings()
-                    .studies
-                    .iter()
-                    .any(|s| s.script.as_deref() == Some(id.as_str()));
-                if held {
-                    editor.say(true, "It is on the chart already: it was updated.", cx);
-                } else {
-                    let study = wyck_indicators::config::StudyConfig::for_script(&id);
-                    chart.update(cx, |chart, cx| chart.add_study(study, cx));
-                    indicators::update_prefs(cx, |prefs| {
-                        prefs.note_recent(&format!("script:{id}"));
-                    });
-                    editor.say(true, "Added to the chart.", cx);
-                }
-                editor.console = ConsoleTab::Output;
-            });
+            lost(
+                "files: add_to_chart",
+                this.update_in(cx, |editor, _window, cx| {
+                    let saved = result.as_ref().is_some_and(Result::is_ok);
+                    editor.saved(&id, text, result, cx);
+                    if !saved || !registry::get(&id).is_some_and(|entry| entry.is_ready()) {
+                        return;
+                    }
+                    let held = chart
+                        .read(cx)
+                        .settings()
+                        .studies
+                        .iter()
+                        .any(|s| s.script.as_deref() == Some(id.as_str()));
+                    if held {
+                        editor.say(true, "It is on the chart already: it was updated.", cx);
+                    } else {
+                        let study = wyck_indicators::config::StudyConfig::for_script(&id);
+                        chart.update(cx, |chart, cx| chart.add_study(study, cx));
+                        indicators::update_prefs(cx, |prefs| {
+                            prefs.note_recent(&format!("script:{id}"));
+                        });
+                        editor.say(true, "Added to the chart.", cx);
+                    }
+                    editor.console = ConsoleTab::Output;
+                }),
+            );
         })
         .detach();
     }

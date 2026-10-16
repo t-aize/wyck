@@ -11,13 +11,14 @@ use super::study::kind::StudyKind;
 use super::{Chart, drawing_props, object_tree};
 use wyck_app::drawings::Drawings;
 use wyck_chart::ChartProjection;
+use wyck_core::math::{f64_to_usize, i64_to_f64};
 use wyck_drawings::book::{Book, Order, Press};
 use wyck_drawings::model::tool::Tool;
 use wyck_trading::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DrawingCommand {
+pub(crate) enum DrawingCommand {
     Duplicate,
     Order(Order),
     Hidden(bool),
@@ -28,8 +29,8 @@ pub enum DrawingCommand {
 
 impl Chart {
     /// Shows and edits the drawings of this entity, redrawing when they change.
-    pub fn attach_drawings(&mut self, drawings: Entity<Drawings>, cx: &mut Context<Self>) {
-        self._drawings_observe = Some(cx.observe(&drawings, |this, _drawings, cx| {
+    pub(crate) fn attach_drawings(&mut self, drawings: Entity<Drawings>, cx: &mut Context<Self>) {
+        self.drawings_observe = Some(cx.observe(&drawings, |this, _drawings, cx| {
             this.request_drawing_atr(cx);
             cx.notify();
         }));
@@ -62,29 +63,35 @@ impl Chart {
         &self,
         drawing: &wyck_drawings::model::Drawing,
     ) -> Option<wyck_drawings::model::Drawing> {
-        if !drawing.tool.is_position() || drawing.points.len() < 3 {
+        let [first, _, _, ..] = drawing.points.as_slice() else {
+            return Some(drawing.clone());
+        };
+        if !drawing.tool.is_position() {
             return Some(drawing.clone());
         }
         let mut result = drawing.clone();
         let settings = &drawing.style.position;
-        let entry = drawing.points[0].p / PRICE_SCALE as f64;
+        let entry = first.p / i64_to_f64(PRICE_SCALE);
         let buy = drawing.tool == Tool::LongPosition;
         if let Some(config) = &settings.atr_stop {
             let fresh = self
                 .atr_value(config)
                 .and_then(|atr| config.stop(entry, buy, atr));
             // Where it was saved when it never had a stop from its ATR.
-            if let Some(stop) = last_stop(&self.atr_stops, drawing.id, fresh) {
-                result.points[1].p = stop * PRICE_SCALE as f64;
+            if let Some(stop) = last_stop(&self.atr_stops, drawing.id, fresh)
+                && let Some(point) = result.points.get_mut(1)
+            {
+                point.p = stop * i64_to_f64(PRICE_SCALE);
             }
         }
         if let Some(rr) = settings.target_rr {
-            let distance = (entry - result.points[1].p / PRICE_SCALE as f64).abs();
+            let stop = result.points.get(1)?.p / i64_to_f64(PRICE_SCALE);
+            let distance = (entry - stop).abs();
             if !distance.is_finite() || distance <= 0.0 {
                 return None;
             }
             let target = entry + if buy { rr * distance } else { -rr * distance };
-            result.points[2].p = target * PRICE_SCALE as f64;
+            result.points.get_mut(2)?.p = target * i64_to_f64(PRICE_SCALE);
         }
         Some(result)
     }
@@ -120,8 +127,8 @@ impl Chart {
             .iter()
             .find(|study| study.kind == StudyKind::Atr)?;
         Some(AtrStop {
-            length: (study.input("length") as usize).clamp(1, 1_000),
-            smoothing: match study.input("smoothing") as usize {
+            length: f64_to_usize(study.input("length")).clamp(1, 1_000),
+            smoothing: match f64_to_usize(study.input("smoothing")) {
                 1 => Smoothing::Sma,
                 2 => Smoothing::Ema,
                 3 => Smoothing::Wma,
@@ -238,13 +245,13 @@ impl Chart {
     }
 
     /// Ctrl+A: selects every drawing of the symbol that shows on this timeframe.
-    pub fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
         let timeframe = self.timeframe.code();
         self.edit_drawings(cx, |book, symbol| book.select_all(symbol, &timeframe));
     }
 
     /// Keeps a copy of the selected drawings. Returns whether there was anything selected.
-    pub fn copy_selected_drawings(&mut self, cx: &mut Context<Self>) -> bool {
+    pub(crate) fn copy_selected_drawings(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(drawings) = self.drawings.clone() else {
             return false;
         };
@@ -257,7 +264,7 @@ impl Chart {
     }
 
     /// Pastes the copied drawings on this chart's symbol. Returns whether anything was copied.
-    pub fn paste_drawings(&mut self, cx: &mut Context<Self>) -> bool {
+    pub(crate) fn paste_drawings(&mut self, cx: &mut Context<Self>) -> bool {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return false;
         };
@@ -274,7 +281,7 @@ impl Chart {
 
     /// The arrow keys with something selected: moves it by `bars` bars and `steps` hundredths of the
     /// price span. Returns whether there was a selection, in which case the arrow does not pan.
-    pub fn nudge_selected(&mut self, bars: f64, steps: f64, cx: &mut Context<Self>) -> bool {
+    pub(crate) fn nudge_selected(&mut self, bars: f64, steps: f64, cx: &mut Context<Self>) -> bool {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return false;
         };
@@ -294,7 +301,7 @@ impl Chart {
     }
 
     /// Duplicates the selected drawing, a little to the side.
-    pub fn duplicate_selected(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn duplicate_selected(&mut self, cx: &mut Context<Self>) {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return;
         };
@@ -319,7 +326,7 @@ impl Chart {
     }
 
     /// The drawing under `(x, y)` on the prices, if any.
-    pub fn drawing_under(&self, x: f32, y: f32, cx: &App) -> Option<u64> {
+    pub(crate) fn drawing_under(&self, x: f32, y: f32, cx: &App) -> Option<u64> {
         let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
         let timeframe = self.timeframe.code();
         self.with_projection(|projection| {
@@ -345,12 +352,12 @@ impl Chart {
     }
 
     /// Removes every drawing of the symbol that is not locked, as one undo step.
-    pub fn clear_drawings(&mut self, cx: &mut Context<Self>) {
-        self.edit_drawings(cx, |book, symbol| book.clear(symbol));
+    pub(crate) fn clear_drawings(&mut self, cx: &mut Context<Self>) {
+        self.edit_drawings(cx, Book::clear);
     }
 
     /// Selects a drawing, as a click on it would.
-    pub fn select_drawing(&self, id: u64, cx: &mut Context<Self>) {
+    pub(crate) fn select_drawing(&self, id: u64, cx: &mut Context<Self>) {
         self.edit_drawings(cx, |book, _| {
             book.select(Some(id));
             true
@@ -374,7 +381,12 @@ impl Chart {
         aborted
     }
 
-    pub fn drawing_command(&mut self, id: u64, command: DrawingCommand, cx: &mut Context<Self>) {
+    pub(crate) fn drawing_command(
+        &mut self,
+        id: u64,
+        command: DrawingCommand,
+        cx: &mut Context<Self>,
+    ) {
         match command {
             DrawingCommand::Duplicate => {
                 self.select_drawing(id, cx);
@@ -439,26 +451,29 @@ impl Chart {
         let Some(raw) = drawings.read(cx).book().get(&own, id) else {
             return PlanState::Gone;
         };
-        if !raw.tool.is_position() || raw.points.len() < 3 {
+        if !raw.tool.is_position() {
             return PlanState::Gone;
         }
         let Some(drawing) = self.resolved_position(raw) else {
             return PlanState::Waiting;
         };
-        let real = |raw: f64| raw / PRICE_SCALE as f64;
+        let [entry, stop_loss, take_profit, ..] = drawing.points.as_slice() else {
+            return PlanState::Gone;
+        };
+        let real = |raw: f64| raw / i64_to_f64(PRICE_SCALE);
         PlanState::Ready(PositionPlan {
             drawing: id,
             buy: drawing.tool == Tool::LongPosition,
-            entry: real(drawing.points[0].p),
-            stop_loss: real(drawing.points[1].p),
-            take_profit: real(drawing.points[2].p),
+            entry: real(entry.p),
+            stop_loss: real(stop_loss.p),
+            take_profit: real(take_profit.p),
             atr: raw.style.position.atr_stop.clone(),
             rr: raw.style.position.target_rr,
         })
     }
 
     /// The order a long or short position drawing stands for, for the ticket.
-    pub fn position_order(&self, id: u64, cx: &App) -> Option<ChartAction> {
+    pub(crate) fn position_order(&self, id: u64, cx: &App) -> Option<ChartAction> {
         let symbol = self.symbol_name()?;
         let PlanState::Ready(plan) = self.position_plan(id, &symbol, cx) else {
             return None;
@@ -477,7 +492,7 @@ impl Chart {
     }
 
     /// Opens the order ticket filled from a position drawing.
-    pub fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
+    pub(crate) fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
         if let Some(action) = self.position_order(id, cx) {
             cx.emit(ChartEvent::Action(action));
         } else if let (Some(drawings), Some(symbol)) = (&self.drawings, self.symbol_name())
@@ -499,7 +514,12 @@ impl Chart {
 }
 
 /// Opens the settings of drawing `id` of the symbol of `chart`.
-pub fn open_drawing_settings(chart: &Entity<Chart>, id: u64, window: &mut Window, cx: &mut App) {
+pub(crate) fn open_drawing_settings(
+    chart: &Entity<Chart>,
+    id: u64,
+    window: &mut Window,
+    cx: &mut App,
+) {
     if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
         let atr_seed = chart.read(cx).atr_seed();
         drawing_props::open(
@@ -519,7 +539,7 @@ pub fn open_drawing_settings(chart: &Entity<Chart>, id: u64, window: &mut Window
 }
 
 /// Opens the list of the drawings of the symbol of `chart`.
-pub fn open_object_tree(chart: &Entity<Chart>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open_object_tree(chart: &Entity<Chart>, window: &mut Window, cx: &mut App) {
     if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
         object_tree::open(
             drawings,

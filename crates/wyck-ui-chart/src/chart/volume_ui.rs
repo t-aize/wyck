@@ -13,6 +13,7 @@ use wyck_chart::PricePath;
 use wyck_chart::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
+use wyck_core::math::{f32_of, f64_to_u32};
 use wyck_ui_kit::{controls, form, number, tokens};
 
 /// The numbers that are typed in.
@@ -46,20 +47,20 @@ pub(super) fn inputs<T: 'static>(
         number::Kind::Share,
         f64::from(candles.min_width) * 100.0,
         (5.0, 100.0),
-        |s, v| s.volume_candles.min_width = (v / 100.0) as f32,
+        |s, v| s.volume_candles.min_width = f32_of(v / 100.0),
     );
     let max_width = numbers.add(
         number::Kind::Share,
         f64::from(candles.max_width) * 100.0,
         (10.0, 100.0),
-        |s, v| s.volume_candles.max_width = (v / 100.0) as f32,
+        |s, v| s.volume_candles.max_width = f32_of(v / 100.0),
     );
     let wick = numbers.add(
         number::Kind::LineWidth,
         f64::from(candles.wick_width),
         (1.0, 4.0),
         |s, v| {
-            s.volume_candles.wick_width = v as f32;
+            s.volume_candles.wick_width = f32_of(v);
         },
     );
     let size = numbers.add(
@@ -69,7 +70,7 @@ pub(super) fn inputs<T: 'static>(
         |s, v| {
             s.volume_bars.size = match s.volume_bars.size {
                 VolumeSize::Fixed { .. } => VolumeSize::Fixed {
-                    volume: v.round().clamp(1.0, 1e9) as u32,
+                    volume: f64_to_u32(v.round().clamp(1.0, 1e9)),
                 },
                 VolumeSize::Average { .. } => VolumeSize::Average { multiple: v },
             };

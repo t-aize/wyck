@@ -136,7 +136,7 @@ impl MultiChart {
             .occlude()
             .opacity(IDLE_OPACITY)
             .hover(|s| s.opacity(1.0))
-            .child(self.bar_grip(Movable::Favorites, cx))
+            .child(Self::bar_grip(Movable::Favorites, cx))
             .child(div().flex_none().px_1().child(icon::tinted(
                 IconName::StarFill,
                 13.,
@@ -267,7 +267,7 @@ impl MultiChart {
         let pill = pill.relative().left(px(dx)).child(
             canvas(
                 move |bounds_now, _window, _cx| bounds.set(Some(bounds_now)),
-                |_, _, _, _| {},
+                |_, (), _, _| {},
             )
             .absolute()
             .size_full(),

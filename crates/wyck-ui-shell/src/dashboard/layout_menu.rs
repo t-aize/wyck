@@ -5,10 +5,11 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 
 use super::{Dashboard, MenuKind};
+use wyck_app::workspace::LinksPref;
+use wyck_app::workspace::layouts;
+use wyck_app::workspace::layouts::LayoutKey;
 use wyck_ui_chart::multichart::icon::layout_icon;
-use wyck_ui_chart::multichart::layouts;
-use wyck_ui_chart::multichart::layouts::LayoutKey;
-use wyck_ui_chart::multichart::links::{Link, Links};
+use wyck_ui_chart::multichart::links::Link;
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::{controls, menu, theme, tokens};
 
@@ -204,10 +205,10 @@ fn link_row(
     link: Option<Link>,
     title: &str,
     hint: &str,
-    links: Links,
+    links: LinksPref,
     cx: &mut Context<Dashboard>,
 ) -> impl IntoElement + use<> {
-    let on = link.is_none_or(|link| link.is_on(&links));
+    let on = link.is_none_or(|link| link.is_on(links));
     div()
         .id(SharedString::from(format!("layout-link-{index}")))
         .flex()

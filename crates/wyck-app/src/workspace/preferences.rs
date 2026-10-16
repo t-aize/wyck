@@ -250,7 +250,7 @@ pub struct Preferences {
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
-    /// The keyboard shortcuts the user changed (see `ui::shell::keymap` for the defaults).
+    /// The keyboard shortcuts the user changed (see `wyck_ui_shell::keymap` for the defaults).
     #[serde(default)]
     pub shortcuts: ShortcutPrefs,
 }

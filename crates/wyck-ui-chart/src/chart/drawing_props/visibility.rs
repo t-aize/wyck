@@ -2,9 +2,10 @@
 
 use super::helpers::every_timeframe;
 use super::{
-    AnyElement, Context, Drawing, DrawingProps, GROUPS, IconName, SharedString, controls, div, form,
+    AnyElement, Context, Drawing, DrawingProps, IconName, SharedString, controls, div, form,
 };
 use gpui::prelude::*;
+use wyck_market::GROUPS;
 use wyck_ui_kit::field;
 
 impl DrawingProps {
@@ -18,12 +19,12 @@ impl DrawingProps {
                 form::field(
                     "Hidden",
                     Some("Keeps the drawing but does not show it"),
-                    self.switch("props-hidden", drawing.hidden, cx, |d, on| d.hidden = on),
+                    Self::switch("props-hidden", drawing.hidden, cx, |d, on| d.hidden = on),
                 ),
                 form::field(
                     "Locked",
                     Some("Stops it from being moved, changed or deleted"),
-                    self.switch("props-locked", drawing.locked, cx, |d, on| d.locked = on),
+                    Self::switch("props-locked", drawing.locked, cx, |d, on| d.locked = on),
                 ),
                 form::field(
                     "Name",
@@ -36,7 +37,7 @@ impl DrawingProps {
         let mut rows: Vec<AnyElement> = vec![form::field(
             "On every timeframe",
             None,
-            self.switch("props-all-tf", all, cx, |d, on| {
+            Self::switch("props-all-tf", all, cx, |d, on| {
                 d.timeframes = if on { None } else { Some(every_timeframe()) };
             }),
         )];
@@ -96,7 +97,9 @@ impl DrawingProps {
                             &label_refs,
                             &selected,
                             move |index, _window, cx| {
-                                let code = codes_for_click[index].clone();
+                                let Some(code) = codes_for_click.get(index).cloned() else {
+                                    return;
+                                };
                                 chip_this.update(cx, |e, cx| {
                                     e.change(cx, |d| {
                                         let mut list = d.timeframes.clone().unwrap_or_default();

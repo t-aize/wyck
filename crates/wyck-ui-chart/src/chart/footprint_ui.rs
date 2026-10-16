@@ -9,6 +9,7 @@ use wyck_ui_kit::input::InputState;
 use super::Chart;
 use wyck_chart::ChartSettings;
 use wyck_chart::{CellMode, FootprintSettings, HeatScope};
+use wyck_core::math::f64_to_u32;
 use wyck_ui_kit::{controls, form, number, tokens};
 
 /// The numbers of the footprint that are typed in.
@@ -103,7 +104,9 @@ pub(super) fn inputs<T: 'static>(
         subscriptions.push(number::watch(&state, cx, move |_this, value, cx| {
             if value >= 0.0 {
                 chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |s| field.set(&mut s.footprint, value.round() as u32));
+                    chart.edit_settings(cx, |s| {
+                        field.set(&mut s.footprint, f64_to_u32(value.round()));
+                    });
                 });
             }
         }));
@@ -158,9 +161,9 @@ pub(super) fn groups(
                 &mode_labels,
                 mode_index,
                 move |choice, _window, cx| {
-                    edit(&mode_chart, cx, |s| {
-                        s.footprint.mode = CellMode::ALL[choice]
-                    });
+                    if let Some(&mode) = CellMode::ALL.get(choice) {
+                        edit(&mode_chart, cx, |s| s.footprint.mode = mode);
+                    }
                 },
             ),
         ),
@@ -182,9 +185,9 @@ pub(super) fn groups(
                 &scope_labels,
                 scope_index,
                 move |choice, _window, cx| {
-                    edit(&scope_chart, cx, |s| {
-                        s.footprint.heat_scope = HeatScope::ALL[choice];
-                    });
+                    if let Some(&scope) = HeatScope::ALL.get(choice) {
+                        edit(&scope_chart, cx, |s| s.footprint.heat_scope = scope);
+                    }
                 },
             ),
         ),

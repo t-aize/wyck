@@ -15,6 +15,7 @@ use crate::sign_in_gate::SignInGate;
 use wyck_app::appearance;
 use wyck_app::broker::session::Session;
 use wyck_app::broker::{ConnectionConfig, Environment};
+use wyck_app::lost::lost;
 use wyck_app::sign_in::config::load_config;
 use wyck_app::sign_in::{Connection, SignIn, SignInEvent};
 use wyck_app::storage::ProfileId;
@@ -176,9 +177,12 @@ impl AppView {
             let Some(window) = cx.active_window() else {
                 return;
             };
-            let _ = window.update(cx, |_, window, cx| {
-                gate.update(cx, |gate, cx| gate.prefill(with_secret, window, cx));
-            });
+            lost(
+                "app_view: show_gate_again",
+                window.update(cx, |_, window, cx| {
+                    gate.update(cx, |gate, cx| gate.prefill(with_secret, window, cx));
+                }),
+            );
         });
     }
 

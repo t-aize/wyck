@@ -33,7 +33,7 @@ impl Dashboard {
             Vec::new()
         };
         let quick_items = if quick_menu.is_open(cx) {
-            chart.update(cx, |chart, cx| chart.indicator_items(&quick_menu, cx))
+            chart.update(cx, |_, cx| Chart::indicator_items(&quick_menu, cx))
         } else {
             Vec::new()
         };

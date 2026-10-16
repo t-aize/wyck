@@ -24,6 +24,7 @@ use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
 use super::study::custom::other::{OtherBars, OtherSymbols};
 use super::study::custom::{self, Problem, Severity};
+use wyck_app::lost::lost;
 use wyck_app::market_data::load::{self, Loaded};
 use wyck_app::market_data::now_ms;
 use wyck_app::scripts as indicators;
@@ -86,15 +87,15 @@ impl Slot {
 }
 
 /// What the legend and the editor's console can say about an indicator that is a script.
-pub struct Status<'a> {
-    pub running: bool,
-    pub problems: &'a [Problem],
-    pub log: &'a [String],
-    pub elapsed: Option<Duration>,
+pub(crate) struct Status<'a> {
+    pub(crate) running: bool,
+    pub(crate) problems: &'a [Problem],
+    pub(crate) log: &'a [String],
+    pub(crate) elapsed: Option<Duration>,
 }
 
 impl Status<'_> {
-    pub fn first_error(&self) -> Option<&Problem> {
+    pub(crate) fn first_error(&self) -> Option<&Problem> {
         self.problems.iter().find(|p| p.severity == Severity::Error)
     }
 }
@@ -102,7 +103,7 @@ impl Status<'_> {
 /// The prices of another symbol a script reads, on the timeframe of the chart.
 enum Other {
     /// Being loaded. Dropping it stops the load.
-    Loading(#[allow(dead_code)] Task<()>),
+    Loading(#[expect(dead_code, reason = "held so that dropping it stops the load")] Task<()>),
     Ready(Arc<OtherBars>),
     Failed(String),
 }
@@ -199,7 +200,7 @@ impl Custom {
                     .position(|s| s.as_ref().is_some_and(|s| s.script == id))
             };
             let slot = found
-                .and_then(|at| old[at].take())
+                .and_then(|at| old.get_mut(at).and_then(Option::take))
                 .filter(|_| study.is_script())
                 .unwrap_or_else(|| {
                     self.next_serial += 1;
@@ -243,13 +244,14 @@ impl Chart {
         }
         let limits = indicators::limits(cx);
         let mut input = None;
-        for index in 0..self.settings.studies.len() {
-            let config = self.settings.studies[index].clone();
+        for (index, config) in self.settings.studies.clone().into_iter().enumerate() {
             if !config.is_script() {
                 continue;
             }
             let id = config.script.clone().unwrap_or_default();
-            let slot = &mut self.custom.slots[index];
+            let Some(slot) = self.custom.slots.get_mut(index) else {
+                continue;
+            };
             let serial = slot.serial;
             if !config.visible {
                 continue;
@@ -267,7 +269,7 @@ impl Chart {
             let Some(script) = entry.script.clone() else {
                 slot.output = None;
                 slot.computed = None;
-                slot.problems = entry.problems.clone();
+                slot.problems.clone_from(&entry.problems);
                 continue;
             };
             let print = Fingerprint {
@@ -283,22 +285,21 @@ impl Chart {
             if slot.computed.as_ref() == Some(&print) {
                 continue;
             }
-            let bars = input
-                .get_or_insert_with(|| {
-                    Arc::new(study_input(
-                        self.display.shown(&self.series),
-                        self.settings.zone,
-                    ))
-                })
-                .clone();
+            let bars = Arc::clone(input.get_or_insert_with(|| {
+                Arc::new(study_input(
+                    self.display.shown(&self.series),
+                    self.settings.zone,
+                ))
+            }));
             let wanted = script.symbols_wanted(&config.texts);
             let mut others = match self.other_symbols(&wanted, cx) {
                 Others::Ready(others) => others,
                 Others::Waiting => continue,
                 Others::Failed(message) => {
-                    let slot = &mut self.custom.slots[index];
-                    slot.output = None;
-                    slot.problems = vec![Problem::error(0, 0, message)];
+                    if let Some(slot) = self.custom.slots.get_mut(index) {
+                        slot.output = None;
+                        slot.problems = vec![Problem::error(0, 0, message)];
+                    }
                     continue;
                 }
             };
@@ -311,10 +312,15 @@ impl Chart {
             if let Some(own) = own {
                 others.insert(own, OtherBars::from_input(&bars));
             }
-            let slot = &mut self.custom.slots[index];
+            let Some(slot) = self.custom.slots.get_mut(index) else {
+                continue;
+            };
             let cancel = Arc::new(AtomicBool::new(false));
-            let (flag, values, texts) =
-                (cancel.clone(), config.inputs.clone(), config.texts.clone());
+            let (flag, values, texts) = (
+                Arc::clone(&cancel),
+                config.inputs.clone(),
+                config.texts.clone(),
+            );
             let task = cx.spawn({
                 let print = print.clone();
                 async move |this, cx| {
@@ -331,9 +337,12 @@ impl Chart {
                             )
                         })
                         .await;
-                    let _ = this.update(cx, |this, cx| {
-                        this.custom_done(serial, print, result, cx);
-                    });
+                    lost(
+                        "custom_runs: schedule_customs",
+                        this.update(cx, |this, cx| {
+                            this.custom_done(serial, print, result, cx);
+                        }),
+                    );
                 }
             });
             slot.running = Some(Running {
@@ -395,9 +404,12 @@ impl Chart {
                     async move { load::initial(&session, id, timeframe, now_ms()).await },
                 )
                 .await;
-            let _ = this.update(cx, |this, cx| {
-                this.other_loaded(epoch, name, super::flatten(result), cx);
-            });
+            lost(
+                "custom_runs: load_other",
+                this.update(cx, |this, cx| {
+                    this.other_loaded(epoch, name, super::flatten(result), cx);
+                }),
+            );
         });
         self.custom.others.insert(key, Other::Loading(task));
     }
@@ -441,7 +453,9 @@ impl Chart {
         let Some(index) = self.custom.slots.iter().position(|s| s.serial == serial) else {
             return;
         };
-        let slot = &mut self.custom.slots[index];
+        let Some(slot) = self.custom.slots.get_mut(index) else {
+            return;
+        };
         slot.running = None;
         match result {
             Ok(done) => {

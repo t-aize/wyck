@@ -4,10 +4,10 @@ use super::layouts::{LayoutKey, layout};
 use super::links::Link;
 use super::split::Node;
 use super::{MultiChart, MultiChartEvent};
-use crate::chart::ChartSettings;
 use gpui::{Context, MouseButton, MouseMoveEvent};
 use wyck_app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
 use wyck_chart::ChartContent;
+use wyck_chart::ChartSettings;
 use wyck_market::Timeframe;
 
 impl MultiChart {
@@ -20,10 +20,10 @@ impl MultiChart {
             let timeframe = if self.sync.interval {
                 self.active_timeframe(cx)
             } else {
-                Timeframe::from_code(
-                    NEW_CHART_TIMEFRAMES[self.slots.len() % NEW_CHART_TIMEFRAMES.len()],
-                )
-                .unwrap_or(Timeframe::DEFAULT)
+                NEW_CHART_TIMEFRAMES
+                    .get(self.slots.len() % NEW_CHART_TIMEFRAMES.len())
+                    .and_then(|code| Timeframe::from_code(code))
+                    .unwrap_or(Timeframe::DEFAULT)
             };
             // A new chart looks as the others do, and has their indicators when those are linked.
             let active = self.active_chart().read(cx).settings();
@@ -92,7 +92,7 @@ impl MultiChart {
             Link::Symbol if self.sync.symbol => {
                 if let Some(symbol) = self.active_symbol(cx) {
                     let active = self.active;
-                    self.set_symbol(active, symbol, cx);
+                    self.set_symbol(active, &symbol, cx);
                 }
             }
             // Unlinking the crosshair clears the ones drawn from other charts.

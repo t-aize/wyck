@@ -34,7 +34,12 @@ impl DrawingProps {
                 .child(head("POINT".into(), Some(110.)))
                 .child(head("PRICE".into(), Some(130.)))
                 .child(head(
-                    format!("TIME ({})", self.zone.label(drawing.points[0].t)).into(),
+                    format!(
+                        "TIME ({})",
+                        self.zone
+                            .label(drawing.points.first().map_or(0, |point| point.t))
+                    )
+                    .into(),
                     None,
                 ))
                 .into_any_element(),
@@ -47,7 +52,7 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(wyck_ui_kit::tokens::height::row()))
+                    .h(px(tokens::height::row()))
                     .child(
                         div()
                             .w(px(tokens::field::number()))

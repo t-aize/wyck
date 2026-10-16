@@ -10,6 +10,7 @@ use super::{
 
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
+use wyck_app::lost::lost;
 use wyck_chart::ScaleMode;
 use wyck_market::{PRICE_SCALE, format_price};
 use wyck_ui_chart::chart;
@@ -88,10 +89,13 @@ impl Render for Dashboard {
             .then(|| {
                 let this = cx.entity().downgrade();
                 deferred(wyck_ui_kit::menu::parts::backdrop(move |_, cx| {
-                    let _ = this.update(cx, |this, cx| {
-                        this.close_menus();
-                        cx.notify();
-                    });
+                    lost(
+                        "view: render",
+                        this.update(cx, |this, cx| {
+                            this.close_menus();
+                            cx.notify();
+                        }),
+                    );
                 }))
                 .with_priority(0)
             });

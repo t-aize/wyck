@@ -7,6 +7,7 @@ use gpui::Context;
 use super::Chart;
 use super::events::{ChartEvent, Hover, Span};
 use super::input::Region;
+use wyck_core::math::{count_f64, f64_to_usize};
 
 impl Chart {
     pub(super) fn focus_pending_time(&mut self, cx: &mut Context<Self>) {
@@ -27,7 +28,7 @@ impl Chart {
     }
 
     /// Center a picked time from another chart, fetching older bars if needed.
-    pub fn follow_picked_time(&mut self, time_ms: i64, cx: &mut Context<Self>) {
+    pub(crate) fn follow_picked_time(&mut self, time_ms: i64, cx: &mut Context<Self>) {
         self.pending_focus = Some(time_ms);
         self.focus_pending_time(cx);
         self.load_older_if_needed(cx);
@@ -61,11 +62,10 @@ impl Chart {
         let series = self.shown();
         let len = series.len();
         let plot_w = self.geometry().plot_w();
-        let index = self
-            .view
-            .index_at(f64::from(x), len, plot_w)
-            .round()
-            .clamp(0.0, len.checked_sub(1)? as f64) as usize;
+        let index = nearest_point(
+            self.view.index_at(f64::from(x), len, plot_w),
+            len.checked_sub(1)?,
+        );
         let map = self.main_map()?;
         Some(Hover {
             time_ms: series.time_at(index)?,
@@ -74,7 +74,7 @@ impl Chart {
     }
 
     /// Another chart was scrolled: show the same time at the right edge. Does not tell anyone.
-    pub fn follow_right_edge(&mut self, right_ms: i64, cx: &mut Context<Self>) {
+    pub(crate) fn follow_right_edge(&mut self, right_ms: i64, cx: &mut Context<Self>) {
         self.pending_focus = None;
         let step = self.step_ms();
         let series = self.shown();
@@ -82,14 +82,14 @@ impl Chart {
         let Some(index) = series.index_of_time(right_ms, step) else {
             return;
         };
-        self.view.offset = index + 0.5 - len as f64;
+        self.view.offset = index + 0.5 - count_f64(len);
         self.view.clamp(len, self.geometry().plot_w());
         cx.notify();
         self.load_older_if_needed(cx);
     }
 
     /// Another chart was scrolled or zoomed: show the same span of time. Does not tell anyone.
-    pub fn follow_span(&mut self, span: Span, cx: &mut Context<Self>) {
+    pub(crate) fn follow_span(&mut self, span: Span, cx: &mut Context<Self>) {
         self.pending_focus = None;
         let step = self.step_ms();
         let series = self.shown();
@@ -106,14 +106,14 @@ impl Chart {
         }
         let plot_w = self.geometry().plot_w();
         self.view.bar_px = plot_w / points;
-        self.view.offset = right + 0.5 - len as f64;
+        self.view.offset = right + 0.5 - count_f64(len);
         self.view.clamp(len, plot_w);
         cx.notify();
         self.load_older_if_needed(cx);
     }
 
     /// The pointer of another chart, drawn here as a crosshair.
-    pub fn show_remote_pointer(&mut self, pointer: Option<Hover>, cx: &mut Context<Self>) {
+    pub(crate) fn show_remote_pointer(&mut self, pointer: Option<Hover>, cx: &mut Context<Self>) {
         if self.remote != pointer {
             self.remote = pointer;
             cx.notify();
@@ -130,17 +130,20 @@ impl Chart {
             .filter(|(x, y)| matches!(self.region(*x, *y), Region::Plot(_)))
         else {
             if let Some(remote) = self.remote {
-                let index = series
-                    .index_of_time(remote.time_ms, self.step_ms())?
-                    .round();
-                return Some(index.clamp(0.0, last as f64) as usize);
+                let index = series.index_of_time(remote.time_ms, self.step_ms())?;
+                return Some(nearest_point(index, last));
             }
             return Some(last);
         };
-        let index = self
-            .view
-            .index_at(f64::from(x), len, self.geometry().plot_w())
-            .round();
-        Some(index.clamp(0.0, last as f64) as usize)
+        Some(nearest_point(
+            self.view
+                .index_at(f64::from(x), len, self.geometry().plot_w()),
+            last,
+        ))
     }
+}
+
+/// The point a fractional index falls on, kept between the first point and the `last` one.
+fn nearest_point(index: f64, last: usize) -> usize {
+    f64_to_usize(index.round().clamp(0.0, count_f64(last)))
 }

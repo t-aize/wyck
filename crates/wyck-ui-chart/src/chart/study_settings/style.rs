@@ -108,7 +108,9 @@ impl StudyEditor {
                 &WIDTHS,
                 width_index,
                 move |choice, _window, cx| {
-                    width_target.plot(key, cx, |s| s.width = WIDTHS[choice]);
+                    if let Some(&width) = WIDTHS.get(choice) {
+                        width_target.plot(key, cx, |s| s.width = width);
+                    }
                 },
             );
             // The presets, and a field for any other width.
@@ -136,7 +138,9 @@ impl StudyEditor {
                             SharedString::from("profile-poc-dash"),
                             dash_index,
                             move |choice, _window, cx| {
-                                dash_target.plot(key, cx, |s| s.dash = DASHES[choice])
+                                if let Some(&dash) = DASHES.get(choice) {
+                                    dash_target.plot(key, cx, |s| s.dash = dash);
+                                }
                             },
                         ),
                     ));
@@ -154,7 +158,9 @@ impl StudyEditor {
                                 SharedString::from(format!("plot-dash-{key}")),
                                 dash_index,
                                 move |choice, _window, cx| {
-                                    dash_target.plot(key, cx, |s| s.dash = DASHES[choice]);
+                                    if let Some(&dash) = DASHES.get(choice) {
+                                        dash_target.plot(key, cx, |s| s.dash = dash);
+                                    }
                                 },
                             ),
                         ));
@@ -185,10 +191,10 @@ impl StudyEditor {
                                             Some(key)
                                         };
                                         cx.notify();
-                                    })
+                                    });
                                 },
                                 move |color, _window, cx| {
-                                    up_target.plot(key, cx, |s| s.up_color = Some(color))
+                                    up_target.plot(key, cx, |s| s.up_color = Some(color));
                                 },
                             ),
                         ));
@@ -210,10 +216,10 @@ impl StudyEditor {
                                             Some(key)
                                         };
                                         cx.notify();
-                                    })
+                                    });
                                 },
                                 move |color, _window, cx| {
-                                    down_target.plot(key, cx, |s| s.down_color = Some(color))
+                                    down_target.plot(key, cx, |s| s.down_color = Some(color));
                                 },
                             ),
                         ));
@@ -253,7 +259,7 @@ impl StudyEditor {
                             Some(index)
                         };
                         cx.notify();
-                    })
+                    });
                 },
                 move |color, _window, cx| pick.level(index, cx, |s| s.color = color),
             );
@@ -294,7 +300,9 @@ impl StudyEditor {
                         SharedString::from(format!("level-dash-{index}")),
                         dash_index,
                         move |choice, _window, cx| {
-                            dash_target.level(index, cx, |s| s.dash = DASHES[choice])
+                            if let Some(&dash) = DASHES.get(choice) {
+                                dash_target.level(index, cx, |s| s.dash = dash);
+                            }
                         },
                     ),
                 )
@@ -333,10 +341,10 @@ impl StudyEditor {
                             Some(index)
                         };
                         cx.notify();
-                    })
+                    });
                 },
                 move |color, _window, cx| {
-                    color_target.fill(index, default, cx, |s| s.color = color)
+                    color_target.fill(index, default, cx, |s| s.color = color);
                 },
             );
             let mut rows = vec![form::field("Color", None, color).into_any_element()];
@@ -356,10 +364,10 @@ impl StudyEditor {
                                 Some(index)
                             };
                             cx.notify();
-                        })
+                        });
                     },
                     move |color, _window, cx| {
-                        other_target.fill(index, default, cx, |s| s.other = Some(color))
+                        other_target.fill(index, default, cx, |s| s.other = Some(color));
                     },
                 );
                 rows.push(form::field("Other color", None, other).into_any_element());
@@ -385,10 +393,10 @@ impl StudyEditor {
             let style = config.band.unwrap_or(default);
             let shown_target = self.target.clone();
             let shown = controls::toggle("band-visible", style.visible, move |on, _window, cx| {
-                shown_target.band(default, cx, |s| s.visible = on)
+                shown_target.band(default, cx, |s| s.visible = on);
             });
             let color_target = self.target.clone();
-            let owner = this.clone();
+            let owner = this;
             let color = controls::color_swatch(
                 "band-color",
                 style.color,
@@ -398,7 +406,7 @@ impl StudyEditor {
                     owner.update(cx, |e, cx| {
                         e.band_color_open = !e.band_color_open;
                         cx.notify();
-                    })
+                    });
                 },
                 move |color, _window, cx| color_target.band(default, cx, |s| s.color = color),
             );

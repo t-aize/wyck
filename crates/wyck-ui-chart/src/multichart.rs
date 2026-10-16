@@ -6,26 +6,25 @@
 //! [`links`], as plain data, and this view only applies what they say.
 //!
 //! The charts do not know about each other. Each one reports what the user did as a
-//! [`ChartEvent`](crate::chart::events::ChartEvent), and this view applies the links, which keeps a chart free of loops: a chart
+//! `ChartEvent`, and this view applies the links, which keeps a chart free of loops: a chart
 //! that is made to follow another never reports it. What the rest of the app acts on (a symbol to
 //! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
-pub mod charts;
-pub mod clipboard;
-pub mod drawing_cmds;
+pub(crate) mod charts;
+pub(crate) mod clipboard;
+pub(crate) mod drawing_cmds;
 mod drawing_ui;
-pub mod events;
+pub(crate) mod events;
 mod favorites;
 pub mod icon;
-pub mod layout;
+pub(crate) mod layout;
 pub mod links;
-pub mod split;
+pub(crate) mod split;
 
 use self::layouts::{LayoutKey, layout};
-use self::links::Links;
 use self::split::{Divider, Node};
 use crate::chart::events::{ChartAction, EditorRequest};
-use crate::chart::{Chart, ChartLine, LineId};
+use crate::chart::{Chart, ChartLine};
 use gpui::prelude::*;
 use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
@@ -37,8 +36,10 @@ use std::rc::Rc;
 use wyck_app::broker::session::Session;
 use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
-pub use wyck_app::workspace::layouts;
+use wyck_app::workspace::LinksPref;
+use wyck_app::workspace::layouts;
 use wyck_app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
+use wyck_chart::LineId;
 use wyck_drawings::model::tool::{Group, Tool};
 use wyck_indicators::config::StudyConfig;
 use wyck_market::LiveBarTracker;
@@ -50,7 +51,7 @@ const MAX_RECENT_TOOLS: usize = 8;
 const MAX_RECENT_COLORS: usize = 6;
 
 /// The symbol of a chart: its id, name and number of decimals.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolRef {
     pub id: i64,
     pub name: SharedString,
@@ -108,7 +109,7 @@ pub struct MultiChart {
     tree: Node,
     slots: Vec<Slot>,
     active: usize,
-    sync: Links,
+    sync: LinksPref,
     /// The indicators copied last, for Ctrl+V.
     clipboard: Option<Vec<StudyConfig>>,
     syncing_studies: bool,
@@ -174,27 +175,27 @@ impl MultiChart {
             });
         });
         let text_input = cx.new(|cx| TextInput::new(cx, "Text"));
-        let _text_observe = cx.observe(&text_input, |this, _input, cx| this.on_text_edited(cx));
+        let text_observe = cx.observe(&text_input, |this, _input, cx| this.on_text_edited(cx));
         let search_input = cx.new(|cx| TextInput::new(cx, "Search the tools"));
-        let _search_observe = cx.observe(&search_input, |_, _input, cx| cx.notify());
-        let _drawings_observe = cx.observe(&drawings, |this, _drawings, cx| {
+        let search_observe = cx.observe(&search_input, |_, _input, cx| cx.notify());
+        let drawings_observe = cx.observe(&drawings, |this, _drawings, cx| {
             this.on_drawings_changed(cx);
         });
         let mut multi = Self {
             drawings,
-            _drawings_observe,
+            _drawings_observe: drawings_observe,
             text_input,
-            _text_observe,
+            _text_observe: text_observe,
             flyout: None,
             tool_search: false,
             search_input,
-            _search_observe,
+            _search_observe: search_observe,
             recent_tools: Vec::new(),
             recent_colors: Vec::new(),
             rail_slots: Rc::default(),
             root_bounds: Rc::new(Cell::new(None)),
             color_open: None,
-            bar: Default::default(),
+            bar: drawing_ui::bar_place::BarPlace::default(),
             pill: drawing_ui::bar_place::BarPlace::at_bottom(
                 favorites::PILL_BOTTOM,
                 (prefs.favorites_place[0], prefs.favorites_place[1]),
@@ -270,7 +271,7 @@ impl MultiChart {
         self.key
     }
 
-    pub fn sync(&self) -> Links {
+    pub fn sync(&self) -> LinksPref {
         self.sync
     }
 
@@ -284,6 +285,10 @@ impl MultiChart {
         self.slots.len()
     }
 
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "a layout always holds a chart and `active` is kept inside it"
+    )]
     pub fn active_chart(&self) -> &Entity<Chart> {
         &self.slots[self.active].chart
     }
@@ -332,7 +337,12 @@ impl MultiChart {
     pub fn step_active(&mut self, delta: isize, cx: &mut Context<Self>) {
         let count = self.slots.len();
         if count > 1 {
-            let next = (self.active as isize + delta).rem_euclid(count as isize) as usize;
+            let steps = delta.unsigned_abs() % count;
+            let next = if delta >= 0 {
+                (self.active + steps) % count
+            } else {
+                (self.active + count - steps) % count
+            };
             self.activate(next, cx);
         }
     }
@@ -354,7 +364,7 @@ impl MultiChart {
         }
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| {
-                book.set_drawing_limit(limits.drawings_per_symbol)
+                book.set_drawing_limit(limits.drawings_per_symbol);
             });
         });
         cx.notify();
@@ -376,7 +386,7 @@ impl Render for MultiChart {
         // A text drawing that was just made takes the keyboard, so its words can be typed.
         if self.drawings.read(cx).book().wants_text_focus() {
             self.drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.take_text_focus());
+                drawings.edit(cx, wyck_drawings::book::Book::take_text_focus);
             });
             window.focus(&gpui::Focusable::focus_handle(&self.text_input, cx), cx);
         }
@@ -390,7 +400,9 @@ impl Render for MultiChart {
             .iter()
             .map(|slot| slot.chart.read(cx).symbol().map(|s| s.name.to_string()))
             .collect();
-        let show_symbol = names.iter().any(|name| *name != names[0]);
+        let show_symbol = names
+            .split_first()
+            .is_some_and(|(first, rest)| rest.iter().any(|name| name != first));
         let floor = if self.favorites_shown(cx) {
             favorites::PILL_TOP
         } else {
@@ -457,7 +469,7 @@ impl Render for MultiChart {
                             } else if several {
                                 theme::border_hairline()
                             } else {
-                                gpui::rgba(0x00000000)
+                                gpui::rgba(0x0000_0000)
                             })
                             .child(slot.chart.clone()),
                     )
@@ -506,7 +518,7 @@ impl Render for MultiChart {
                 let line = div().bg(if lit {
                     theme::accent()
                 } else {
-                    gpui::rgba(0x00000000)
+                    gpui::rgba(0x0000_0000)
                 });
                 if divider.vertical {
                     base.left(relative(divider.from))
@@ -532,8 +544,8 @@ impl Render for MultiChart {
         let rail = self.render_rail(cx);
         let favorites = self.render_favorites(window, cx);
         let flyout = self.render_flyout(cx);
-        let area_cell = self.area.clone();
-        let root_cell = self.root_bounds.clone();
+        let area_cell = Rc::clone(&self.area);
+        let root_cell = Rc::clone(&self.root_bounds);
 
         div()
             .relative()
@@ -547,7 +559,7 @@ impl Render for MultiChart {
             .child(
                 canvas(
                     move |bounds, _window, _cx| root_cell.set(Some(bounds)),
-                    |_, _, _, _| {},
+                    |_, (), _, _| {},
                 )
                 .absolute()
                 .size_full(),
@@ -575,7 +587,7 @@ impl Render for MultiChart {
                         .child(
                             canvas(
                                 move |bounds, _window, _cx| area_cell.set(Some(bounds)),
-                                |_, _, _, _| {},
+                                |_, (), _, _| {},
                             )
                             .absolute()
                             .size_full(),

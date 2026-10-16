@@ -143,6 +143,16 @@ pub const fn i64_to_f32(value: i64) -> f32 {
     value as f32
 }
 
+/// A `u32` (a cell of a grid, a pixel count) as an `f32` for a position or a size on the screen.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a cell or a pixel count is far below 2^24, so the conversion is exact"
+)]
+#[must_use]
+pub const fn u32_to_f32(value: u32) -> f32 {
+    value as f32
+}
+
 /// A count as an `i64`. A length never comes near `i64::MAX`; past it the result clamps.
 #[must_use]
 pub fn count_i64(count: usize) -> i64 {
@@ -878,6 +888,7 @@ mod tests {
         assert_eq!(f32_to_u32(9.9), 9);
         assert_eq!(u64_to_f32(3), 3.0);
         assert_eq!(i64_to_f32(-3), -3.0);
+        assert_eq!(u32_to_f32(7), 7.0);
     }
 
     #[test]

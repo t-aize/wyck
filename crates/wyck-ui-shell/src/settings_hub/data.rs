@@ -8,6 +8,7 @@ use super::{
     confirm, div, form, icon, indicators, px, theme, tokens,
 };
 use gpui::prelude::*;
+use wyck_app::lost::lost;
 use wyck_app::storage::backup::Contents;
 use wyck_app::storage::backup::store::BackupStore;
 use wyck_app::storage::scripts::ScriptStore;
@@ -319,17 +320,20 @@ impl SettingsHub {
             let scripts = ScriptStore::new(scripts_dir);
             let result =
                 backup::staged::export_to_file(dir, Some(&scripts), &path, None, VERSION, &created);
-            let _ = this.update(cx, |this, cx| match result {
-                Ok(b) => {
-                    let count = b.files.len() + b.scripts.len();
-                    this.say(
-                        true,
-                        format!("Saved {count} item(s) to {}.", path.display()),
-                        cx,
-                    );
-                }
-                Err(error) => this.say(false, error.to_string(), cx),
-            });
+            lost(
+                "data: export",
+                this.update(cx, |this, cx| match result {
+                    Ok(b) => {
+                        let count = b.files.len() + b.scripts.len();
+                        this.say(
+                            true,
+                            format!("Saved {count} item(s) to {}.", path.display()),
+                            cx,
+                        );
+                    }
+                    Err(error) => this.say(false, error.to_string(), cx),
+                }),
+            );
         })
         .detach();
     }
@@ -354,10 +358,13 @@ impl SettingsHub {
                 return;
             };
             let result = backup::staged::stage_import_file(dir, &path, None);
-            let _ = this.update(cx, |this, cx| match result {
-                Ok(b) => this.staged(&b, cx),
-                Err(error) => this.say(false, error.to_string(), cx),
-            });
+            lost(
+                "data: import",
+                this.update(cx, |this, cx| match result {
+                    Ok(b) => this.staged(&b, cx),
+                    Err(error) => this.say(false, error.to_string(), cx),
+                }),
+            );
         })
         .detach();
     }

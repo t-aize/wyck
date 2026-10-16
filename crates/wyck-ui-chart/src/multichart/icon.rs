@@ -4,6 +4,7 @@ use gpui::prelude::*;
 use gpui::{div, px};
 
 use super::layouts::Layout;
+use wyck_core::math::u32_to_f32;
 use wyck_ui_kit::theme;
 
 /// The corner of one chart in the icon of a layout.
@@ -13,7 +14,7 @@ const ICON_RADIUS: f32 = 3.0;
 
 /// A layout drawn as its cells. A selected one is filled, so it stands out in the picker.
 pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> impl IntoElement {
-    let (cols, rows) = (layout.cols as f32, layout.rows as f32);
+    let (cols, rows) = (u32_to_f32(layout.cols), u32_to_f32(layout.rows));
     let (ink, paper) = if selected {
         (theme::bg(), Some(theme::fg()))
     } else {
@@ -24,10 +25,10 @@ pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> 
         let cell_h = height / rows;
         div()
             .absolute()
-            .left(px(cell.x as f32 * cell_w + 1.0))
-            .top(px(cell.y as f32 * cell_h + 1.0))
-            .w(px(cell.w as f32 * cell_w - 2.0))
-            .h(px(cell.h as f32 * cell_h - 2.0))
+            .left(px(u32_to_f32(cell.x) * cell_w + 1.0))
+            .top(px(u32_to_f32(cell.y) * cell_h + 1.0))
+            .w(px(u32_to_f32(cell.w) * cell_w - 2.0))
+            .h(px(u32_to_f32(cell.h) * cell_h - 2.0))
             .border_1()
             .border_color(ink)
             .rounded(px(CELL_RADIUS))
@@ -38,6 +39,6 @@ pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> 
         .w(px(width))
         .h(px(height))
         .rounded(px(ICON_RADIUS))
-        .when_some(paper, |el, paper| el.bg(paper))
+        .when_some(paper, Styled::bg)
         .children(cells)
 }

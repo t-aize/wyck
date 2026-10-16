@@ -4,10 +4,10 @@
 //! Every change shows on the charts at once. OK keeps the changes as one undo step, Cancel puts
 //! the drawing back as it was, and Escape or the close button keep them.
 
-pub mod actions;
-pub mod chrome;
+pub(crate) mod actions;
+pub(crate) mod chrome;
 mod coordinates;
-pub mod helpers;
+pub(crate) mod helpers;
 mod levels;
 mod position;
 mod style;
@@ -15,11 +15,11 @@ mod text;
 mod visibility;
 
 use super::Chart;
-use super::GROUPS;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use wyck_app::drawings::Drawings;
 use wyck_chart::Zone;
+use wyck_core::math::{count_f64, f32_of, f64_to_u32, f64_to_usize, i64_to_f64};
 use wyck_drawings::ICONS;
 use wyck_drawings::icon_key;
 use wyck_drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
@@ -35,15 +35,15 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::{InputEvent, InputState, Textarea, TextareaState};
 use wyck_ui_kit::{controls, form, modal, number, theme, tokens};
 
-pub struct PropsContext {
-    pub zone: Zone,
-    pub digits: u32,
-    pub atr_seed: Option<AtrStop>,
-    pub chart: Option<Entity<Chart>>,
+pub(crate) struct PropsContext {
+    pub(crate) zone: Zone,
+    pub(crate) digits: u32,
+    pub(crate) atr_seed: Option<AtrStop>,
+    pub(crate) chart: Option<Entity<Chart>>,
 }
 
 /// Opens the settings of drawing `id` of `symbol`.
-pub fn open(
+pub(crate) fn open(
     drawings: Entity<Drawings>,
     symbol: String,
     id: u64,
@@ -140,7 +140,7 @@ struct DrawingProps {
     /// The list of fonts of the Text tab, made when it is first opened.
     font_picker: Option<Entity<FontPicker>>,
     font_open: bool,
-    _font_subscription: Option<Subscription>,
+    font_subscription: Option<Subscription>,
     text: Entity<TextareaState>,
     /// The number fields of a long or short position, when the drawing is one.
     pos: Option<PositionFields>,
@@ -155,7 +155,7 @@ struct DrawingProps {
     /// Set when levels were added or removed: their fields are made again at the next render.
     levels_changed: bool,
     _subscriptions: Vec<Subscription>,
-    _level_subscriptions: Vec<Subscription>,
+    level_subscriptions: Vec<Subscription>,
 }
 
 /// The fields of what a position is sized with.
@@ -276,21 +276,23 @@ impl DrawingProps {
             cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
             cx.subscribe(&opacity, |this, _, event: &ValueChanged, cx| {
                 let value = event.0;
-                this.change(cx, |d| d.style.fill_opacity = (value / 100.0) as f32);
+                this.change(cx, |d| d.style.fill_opacity = f32_of(value / 100.0));
             }),
             cx.subscribe(&line_opacity, |this, _, event: &ValueChanged, cx| {
                 let value = event.0;
                 this.change(cx, |d| {
-                    d.style.opacity = (value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0) as f32
+                    d.style.opacity =
+                        f32_of((value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0));
                 });
             }),
             number::watch(&text_size, cx, |this, value, cx| {
-                this.change(cx, |d| d.style.text_size = value as f32);
+                this.change(cx, |d| d.style.text_size = f32_of(value));
             }),
             cx.subscribe(&tag_opacity, |this, _, event: &ValueChanged, cx| {
                 let value = event.0;
                 this.change(cx, |d| {
-                    d.style.text_layout.background_opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                    d.style.text_layout.background_opacity =
+                        f32_of((value / 100.0).clamp(0.05, 1.0));
                 });
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
@@ -321,7 +323,7 @@ impl DrawingProps {
                     InputState::new(window, cx).default_value(helpers::format_real(point.p, digits))
                 });
                 subscriptions.push(number::watch(&price, cx, move |this, value, cx| {
-                    let raw = value * PRICE_SCALE as f64;
+                    let raw = value * i64_to_f64(PRICE_SCALE);
                     this.change(cx, |d| helpers::set_point(d, index, None, Some(raw)));
                 }));
                 let time = cx.new(|cx| {
@@ -334,7 +336,7 @@ impl DrawingProps {
                     cx,
                     |this, text| this.zone.parse(text),
                     move |this, t, cx| {
-                        this.change(cx, |d| helpers::set_point(d, index, Some(t), None))
+                        this.change(cx, |d| helpers::set_point(d, index, Some(t), None));
                     },
                 ));
                 prices.push(price);
@@ -349,7 +351,7 @@ impl DrawingProps {
                 .or_else(|| atr_seed.clone())
                 .unwrap_or_default();
             let atr_length = cx.new(|cx| {
-                number::state(number::Kind::Count, atr.length as f64, window, cx)
+                number::state(number::Kind::Count, count_f64(atr.length), window, cx)
                     .min(1.0)
                     .max(1_000.0)
             });
@@ -400,7 +402,7 @@ impl DrawingProps {
             }));
             subscriptions.push(number::watch(&leverage, cx, |this, value, cx| {
                 this.change(cx, |d| {
-                    d.style.position.leverage = value.clamp(1.0, 10_000.0)
+                    d.style.position.leverage = value.clamp(1.0, 10_000.0);
                 });
             }));
             subscriptions.push(number::watch(&point_value, cx, |this, value, cx| {
@@ -408,7 +410,8 @@ impl DrawingProps {
             }));
             subscriptions.push(number::watch(&qty_precision, cx, |this, value, cx| {
                 this.change(cx, |d| {
-                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
+                    d.style.position.qty_precision =
+                        u8::try_from(f64_to_u32(value.clamp(0.0, 8.0))).unwrap_or(8);
                 });
             }));
             subscriptions.push(
@@ -422,7 +425,7 @@ impl DrawingProps {
             subscriptions.push(number::watch(&atr_length, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     if let Some(atr) = &mut d.style.position.atr_stop {
-                        atr.length = (value as usize).clamp(1, 1_000);
+                        atr.length = f64_to_usize(value).clamp(1, 1_000);
                     }
                 });
             }));
@@ -495,7 +498,7 @@ impl DrawingProps {
             tag_opacity,
             font_picker: None,
             font_open: false,
-            _font_subscription: None,
+            font_subscription: None,
             text,
             pos,
             atr_seed,
@@ -507,7 +510,7 @@ impl DrawingProps {
             level_widths: Vec::new(),
             levels_changed: false,
             _subscriptions: subscriptions,
-            _level_subscriptions: Vec::new(),
+            level_subscriptions: Vec::new(),
         };
         this.make_level_fields(drawing, window, cx);
         this
@@ -520,7 +523,7 @@ impl DrawingProps {
         cx: &mut Context<Self>,
     ) {
         self.levels.clear();
-        self._level_subscriptions.clear();
+        self.level_subscriptions.clear();
         self.level_widths.clear();
         for (index, level) in drawing.levels().iter().enumerate() {
             let state = cx.new(|cx| {
@@ -528,7 +531,7 @@ impl DrawingProps {
                     .min(-100.0)
                     .max(100.0)
             });
-            self._level_subscriptions
+            self.level_subscriptions
                 .push(number::watch(&state, cx, move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
@@ -541,12 +544,12 @@ impl DrawingProps {
             let width = cx.new(|cx| {
                 number::state(number::Kind::LineWidth, f64::from(level.width), window, cx)
             });
-            self._level_subscriptions
+            self.level_subscriptions
                 .push(number::watch(&width, cx, move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
                         if let Some(level) = d.levels.get_mut(index) {
-                            level.width = value.clamp(0.0, 40.0) as f32;
+                            level.width = f32_of(value.clamp(0.0, 40.0));
                         }
                     });
                 }));

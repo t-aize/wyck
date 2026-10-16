@@ -10,6 +10,7 @@ use super::settings_rows::{Numbers, choice, named, number, switch};
 use wyck_chart::ChartKind;
 use wyck_chart::PricePath;
 use wyck_chart::TransformSettings;
+use wyck_core::math::{f32_of, f64_to_u32};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {
@@ -35,7 +36,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.renko_reversal),
         (1.0, 10.0),
         |s, v| {
-            s.transform.renko_reversal = v.round() as u32;
+            s.transform.renko_reversal = f64_to_u32(v.round());
         },
     );
     let brick_width = numbers.add(
@@ -43,21 +44,21 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.brick_width) * 100.0,
         (20.0, 100.0),
         |s, v| {
-            s.transform.brick_width = (v / 100.0) as f32;
+            s.transform.brick_width = f32_of(v / 100.0);
         },
     );
     let brick_opacity = numbers.add(
         wyck_ui_kit::number::Kind::Share,
         f64::from(t.brick_opacity) * 100.0,
         (10.0, 100.0),
-        |s, v| s.transform.brick_opacity = (v / 100.0) as f32,
+        |s, v| s.transform.brick_opacity = f32_of(v / 100.0),
     );
     let kagi_thick = numbers.add(
         wyck_ui_kit::number::Kind::LineWidth,
         f64::from(t.kagi_thick),
         (0.5, 8.0),
         |s, v| {
-            s.transform.kagi_thick = v as f32;
+            s.transform.kagi_thick = f32_of(v);
         },
     );
     let kagi_thin = numbers.add(
@@ -65,7 +66,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.kagi_thin),
         (0.5, 8.0),
         |s, v| {
-            s.transform.kagi_thin = v as f32;
+            s.transform.kagi_thin = f32_of(v);
         },
     );
     let pnf_glyph = numbers.add(
@@ -73,7 +74,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.pnf_glyph) * 100.0,
         (30.0, 100.0),
         |s, v| {
-            s.transform.pnf_glyph = (v / 100.0) as f32;
+            s.transform.pnf_glyph = f32_of(v / 100.0);
         },
     );
     let pnf_line = numbers.add(
@@ -81,7 +82,7 @@ pub(super) fn inputs<T: 'static>(
         f64::from(t.pnf_line),
         (0.0, 6.0),
         |s, v| {
-            s.transform.pnf_line = v as f32;
+            s.transform.pnf_line = f32_of(v);
         },
     );
     (

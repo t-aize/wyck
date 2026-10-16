@@ -18,7 +18,7 @@ const FONT_PREVIEW_HEIGHT: f32 = 52.0;
 
 impl DrawingProps {
     /// What the levels are called on the chart, and the side their labels stand on.
-    pub(super) fn captions_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+    pub(super) fn captions_group(drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
         let style = &drawing.style;
         let this = cx.entity();
         let labels: Vec<&str> = LevelText::ALL.iter().map(|t| t.label()).collect();
@@ -34,9 +34,11 @@ impl DrawingProps {
                 &labels,
                 index,
                 move |choice, _window, cx| {
-                    this.update(cx, |e, cx| {
-                        e.change(cx, |d| d.style.level_text = LevelText::ALL[choice]);
-                    });
+                    if let Some(&text) = LevelText::ALL.get(choice) {
+                        this.update(cx, |e, cx| {
+                            e.change(cx, |d| d.style.level_text = text);
+                        });
+                    }
                 },
             ),
         )];
@@ -98,12 +100,14 @@ impl DrawingProps {
                 HAlign::End => 2,
             },
             move |choice, _window, cx| {
-                along_this.update(cx, |e, cx| {
-                    e.change(cx, |d| {
-                        d.style.text_layout.align =
-                            [HAlign::Start, HAlign::Center, HAlign::End][choice];
+                if let Some(align) = [HAlign::Start, HAlign::Center, HAlign::End]
+                    .get(choice)
+                    .copied()
+                {
+                    along_this.update(cx, |e, cx| {
+                        e.change(cx, |d| d.style.text_layout.align = align);
                     });
-                });
+                }
             },
         );
         let across = field::icon_choice(
@@ -119,12 +123,14 @@ impl DrawingProps {
                 VAlign::Bottom => 2,
             },
             move |choice, _window, cx| {
-                across_this.update(cx, |e, cx| {
-                    e.change(cx, |d| {
-                        d.style.text_layout.valign =
-                            [VAlign::Top, VAlign::Middle, VAlign::Bottom][choice];
+                if let Some(valign) = [VAlign::Top, VAlign::Middle, VAlign::Bottom]
+                    .get(choice)
+                    .copied()
+                {
+                    across_this.update(cx, |e, cx| {
+                        e.change(cx, |d| d.style.text_layout.valign = valign);
                     });
-                });
+                }
             },
         );
         let mut placement = vec![
@@ -141,8 +147,8 @@ impl DrawingProps {
             form::field(
                 "Background",
                 Some("Puts the words on a filled tag"),
-                self.switch("label-background", layout.background, cx, |d, on| {
-                    d.style.text_layout.background = on
+                Self::switch("label-background", layout.background, cx, |d, on| {
+                    d.style.text_layout.background = on;
                 }),
             ),
         ];
@@ -152,7 +158,7 @@ impl DrawingProps {
                 None,
                 self.swatch(
                     Swatch::TextBackground,
-                    layout.background_color.unwrap_or(0x1b1d24),
+                    layout.background_color.unwrap_or(0x001b_1d24),
                     "label-background-color",
                     cx,
                 ),
@@ -163,7 +169,7 @@ impl DrawingProps {
                     .reset(
                         (layout.tag_opacity() - wyck_drawings::look::DEFAULT_TAG_OPACITY).abs()
                             > 0.005,
-                        self.restore(cx, |d, built_in| {
+                        Self::restore(cx, |d, built_in| {
                             d.style.text_layout.background_opacity =
                                 built_in.text_layout.background_opacity;
                         }),
@@ -208,7 +214,7 @@ impl DrawingProps {
         if self.font_open && self.font_picker.is_none() {
             let current = self.current(cx).and_then(|d| d.style.font);
             let picker = cx.new(|cx| FontPicker::new(current, "interface font", window, cx));
-            self._font_subscription = Some(cx.subscribe(
+            self.font_subscription = Some(cx.subscribe(
                 &picker,
                 |this, _picker, event: &FontChosen, cx| {
                     let font = event.0.clone();
@@ -249,13 +255,13 @@ impl DrawingProps {
             .position(|size| (*size - style.text_size).abs() < 0.01);
         let labels: Vec<String> = SIZES.iter().map(|size| format!("{size}")).collect();
         let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
-        let size_this = this.clone();
+        let size_this = this;
         rows.push(
             Row::new("Size")
                 .hint("Pick a size or type one")
                 .reset(
                     (style.text_size - tool_default_size(drawing)).abs() > 0.01,
-                    self.restore(cx, |d, built_in| d.style.text_size = built_in.text_size),
+                    Self::restore(cx, |d, built_in| d.style.text_size = built_in.text_size),
                 )
                 .control(
                     div()
@@ -268,10 +274,12 @@ impl DrawingProps {
                             &label_refs,
                             index.unwrap_or(usize::MAX),
                             move |choice, window, cx| {
-                                size_this.update(cx, |e, cx| {
-                                    e.change(cx, |d| d.style.text_size = SIZES[choice]);
-                                    e.set_fields(window, cx);
-                                });
+                                if let Some(&text_size) = SIZES.get(choice) {
+                                    size_this.update(cx, |e, cx| {
+                                        e.change(cx, |d| d.style.text_size = text_size);
+                                        e.set_fields(window, cx);
+                                    });
+                                }
                             },
                         ))
                         .child(field::unit(&self.text_size, "pt", tokens::field::number())),
@@ -285,21 +293,21 @@ impl DrawingProps {
         rows.push(form::field(
             "Bold",
             None,
-            self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
+            Self::switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
         ));
         rows.push(form::field(
             "Italic",
             None,
-            self.switch("props-italic", style.italic, cx, |d, on| {
-                d.style.italic = on
+            Self::switch("props-italic", style.italic, cx, |d, on| {
+                d.style.italic = on;
             }),
         ));
-        rows.push(form::block(self.font_preview(drawing)));
+        rows.push(form::block(Self::font_preview(drawing)));
         form::group(IconName::Type, "Font", rows)
     }
 
     /// A line of words in the font in force, to see a change before leaving.
-    fn font_preview(&self, drawing: &Drawing) -> gpui::Div {
+    fn font_preview(drawing: &Drawing) -> gpui::Div {
         let style = &drawing.style;
         let mut line = div()
             .h(px(FONT_PREVIEW_HEIGHT))

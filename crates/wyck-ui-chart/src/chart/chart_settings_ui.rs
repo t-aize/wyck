@@ -7,8 +7,8 @@
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
-pub mod data_pages;
-pub mod look_pages;
+pub(crate) mod data_pages;
+pub(crate) mod look_pages;
 
 use super::{Chart, construction_ui, footprint_ui, tpo_ui, volume_ui};
 use gpui::prelude::*;
@@ -17,6 +17,7 @@ use wyck_chart::ChartColors;
 use wyck_chart::Rgba;
 use wyck_chart::{BoxSize, TransformSettings};
 use wyck_chart::{ChartKind, ChartSettings};
+use wyck_core::math::{f32_to_u32, f64_to_u32};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
@@ -40,12 +41,12 @@ pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
 }
 
 /// Opens the price scale, the lines and the grid of `chart`.
-pub fn open_scales(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open_scales(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     open_at(chart, Page::Scales, window, cx);
 }
 
 /// Opens the indicators of `chart`.
-pub fn open_indicators(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open_indicators(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     open_at(chart, Page::Indicators, window, cx);
 }
 
@@ -192,9 +193,7 @@ impl ColorKey {
             Self::Down => palette.down,
             Self::Line => palette.line,
             Self::Background => palette.bg,
-            Self::Grid => palette.text,
-            Self::Text => palette.text,
-            Self::Crosshair => palette.text,
+            Self::Grid | Self::Text | Self::Crosshair => palette.text,
             Self::KagiYang => palette.kagi_yang,
             Self::KagiYin => palette.kagi_yin,
             Self::PnfUp => palette.pnf_up,
@@ -209,7 +208,7 @@ impl ColorKey {
 }
 
 fn rgb_u32(color: Rgba) -> u32 {
-    let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u32;
+    let byte = |v: f32| f32_to_u32((v.clamp(0.0, 1.0) * 255.0).round());
     byte(color.r) << 16 | byte(color.g) << 8 | byte(color.b)
 }
 
@@ -227,9 +226,8 @@ impl SizeField {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Renko => "Box size",
+            Self::Renko | Self::PointFigure => "Box size",
             Self::Kagi => "Reversal",
-            Self::PointFigure => "Box size",
             Self::Range => "Range of a bar",
         }
     }
@@ -315,7 +313,7 @@ impl ChartSettingsEditor {
                     edit_chart(&this.chart, cx, |s| {
                         let size = match field.get(&s.transform) {
                             BoxSize::Atr { .. } => BoxSize::Atr {
-                                length: value.round().max(1.0) as u32,
+                                length: f64_to_u32(value.round().max(1.0)),
                             },
                             BoxSize::Fixed { .. } => BoxSize::Fixed { price: value },
                             BoxSize::Percent { .. } => BoxSize::Percent { percent: value },
@@ -338,7 +336,7 @@ impl ChartSettingsEditor {
         });
         subscriptions.push(number::watch(&line_break, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
-                s.transform.line_break = value.round() as u32;
+                s.transform.line_break = f64_to_u32(value.round());
             });
         }));
         let reversal = cx.new(|cx| {
@@ -353,7 +351,7 @@ impl ChartSettingsEditor {
         });
         subscriptions.push(number::watch(&reversal, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
-                s.transform.pnf_reversal = value.round() as u32;
+                s.transform.pnf_reversal = f64_to_u32(value.round());
             });
         }));
         let (footprint, footprint_subscriptions) = footprint_ui::inputs(&chart, window, cx);
@@ -418,7 +416,9 @@ impl ChartSettingsEditor {
             label,
             hint,
             controls::segmented(id, &names, index, move |choice, _window, cx| {
-                let value = options[choice].0;
+                let Some(value) = options.get(choice).map(|option| option.0) else {
+                    return;
+                };
                 edit_chart(&chart, cx, |s| change(s, value));
             }),
         )
@@ -455,7 +455,7 @@ impl ChartSettingsEditor {
             },
         );
         let back = value.is_some().then(|| {
-            wyck_ui_kit::button::quiet(SharedString::from(format!("chart-color-reset-{key:?}")))
+            button::quiet(SharedString::from(format!("chart-color-reset-{key:?}")))
                 .icon(IconName::RotateCcw)
                 .tooltip("Back to the color of the theme")
                 .on_click(move |_, _window, cx| {
@@ -551,7 +551,7 @@ impl Render for ChartSettingsEditor {
                 })
                 .into_any_element(),
                 button::action("chart-ok", "OK", None, true, |window, cx| {
-                    modal::close(window, cx)
+                    modal::close(window, cx);
                 })
                 .into_any_element(),
             ],
@@ -563,7 +563,9 @@ impl Render for ChartSettingsEditor {
             active,
             move |index, _window, cx| {
                 this.update(cx, |e, cx| {
-                    e.page = Page::ALL[index];
+                    if let Some(page) = Page::ALL.get(index) {
+                        e.page = *page;
+                    }
                     e.color_open = None;
                     cx.notify();
                 });

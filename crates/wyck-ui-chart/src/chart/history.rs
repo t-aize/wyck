@@ -12,13 +12,15 @@ use wyck_app::broker::Result as ApiResult;
 use wyck_market::Tick;
 
 use super::{Chart, Load, Older, empty_series, flatten};
+use wyck_app::lost::lost;
 use wyck_app::market_data::live::{LiveUpdate, Wish};
 use wyck_app::market_data::load;
 use wyck_app::market_data::load::Loaded;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
-use wyck_chart::View;
+use wyck_chart::{Display, View};
 use wyck_chart::{MAX_BARS, MAX_TICKS, Series};
+use wyck_core::math::count_f64;
 use wyck_market::Timeframe;
 
 impl Chart {
@@ -27,8 +29,7 @@ impl Chart {
         let timeframe = settings
             .timeframe
             .as_deref()
-            .map(Timeframe::from_code)
-            .unwrap_or(Some(self.timeframe))?;
+            .map_or(Some(self.timeframe), Timeframe::from_code)?;
         let bars = if timeframe == self.timeframe {
             match &self.series {
                 Series::Bars(bars) => bars,
@@ -79,17 +80,20 @@ impl Chart {
                     async move { load::initial(&session, key.0, timeframe, now_ms()).await },
                 )
                 .await;
-            let _ = this.update(cx, |this, cx| {
-                this.atr_loading.remove(&key);
-                let bars = match flatten(result) {
-                    Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) => Some(bars),
-                    _ => None,
-                };
-                if let Some(bars) = bars {
-                    this.atr_history.insert(key, (bars, now_ms()));
-                }
-                cx.notify();
-            });
+            lost(
+                "history: request_atr",
+                this.update(cx, |this, cx| {
+                    this.atr_loading.remove(&key);
+                    let bars = match flatten(result) {
+                        Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) => Some(bars),
+                        _ => None,
+                    };
+                    if let Some(bars) = bars {
+                        this.atr_history.insert(key, (bars, now_ms()));
+                    }
+                    cx.notify();
+                }),
+            );
         })
         .detach();
     }
@@ -99,7 +103,7 @@ impl Chart {
         self.epoch += 1;
         let epoch = self.epoch;
         self.series = empty_series(self.timeframe);
-        self.display = Default::default();
+        self.display = Display::default();
         self.view = View::new(super::bar_px_for(&self.settings, self.timeframe));
         self.pending_focus = None;
         self.reset_flow();
@@ -131,9 +135,12 @@ impl Chart {
                     async move { load::initial(&session, id, timeframe, now_ms()).await },
                 )
                 .await;
-            let _ = this.update(cx, |this, cx| {
-                this.initial_loaded(epoch, flatten(result), cx);
-            });
+            lost(
+                "history: reload",
+                this.update(cx, |this, cx| {
+                    this.initial_loaded(epoch, flatten(result), cx);
+                }),
+            );
         })
         .detach();
     }
@@ -182,13 +189,13 @@ impl Chart {
     }
 
     /// "Now" for anything the chart draws that means "the current moment".
-    pub(super) fn now_for_display(&self) -> i64 {
+    pub(super) fn now_for_display() -> i64 {
         now_ms()
     }
 
     /// The session is connected (again): fetch what was missed, or start over if the first
     /// load never made it.
-    pub fn on_ready(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn on_ready(&mut self, cx: &mut Context<Self>) {
         match self.load {
             Load::Failed(_) => self.reload(cx),
             Load::Ready => self.refill(cx),
@@ -223,15 +230,18 @@ impl Chart {
             let result =
                 runtime::spawn(async move { load::gap(&session, id, timeframe, from, to).await })
                     .await;
-            let _ = this.update(cx, |this, cx| {
-                if epoch != this.epoch {
-                    return;
-                }
-                match flatten(result) {
-                    Ok(loaded) => this.gap_loaded(loaded, from, to, cx),
-                    Err(error) => tracing::warn!(%error, "could not fill the gap in the chart"),
-                }
-            });
+            lost(
+                "history: refill",
+                this.update(cx, |this, cx| {
+                    if epoch != this.epoch {
+                        return;
+                    }
+                    match flatten(result) {
+                        Ok(loaded) => this.gap_loaded(loaded, from, to, cx),
+                        Err(error) => tracing::warn!(%error, "could not fill the gap in the chart"),
+                    }
+                }),
+            );
         })
         .detach();
     }
@@ -282,7 +292,7 @@ impl Chart {
         let seeking_older = self
             .pending_focus
             .is_some_and(|time| self.series.first_time().is_some_and(|oldest| time < oldest));
-        if !seeking_older && (first as f64) > self.view.span(plot_w) * 0.5 {
+        if !seeking_older && count_f64(first) > self.view.span(plot_w) * 0.5 {
             return;
         }
         let (Some(symbol), Some(oldest)) = (&self.symbol, self.series.first_time()) else {
@@ -296,7 +306,10 @@ impl Chart {
             let result =
                 runtime::spawn(async move { load::older(&session, id, timeframe, oldest).await })
                     .await;
-            let _ = this.update(cx, |this, cx| this.older_loaded(epoch, flatten(result), cx));
+            lost(
+                "history: load_older_if_needed",
+                this.update(cx, |this, cx| this.older_loaded(epoch, flatten(result), cx)),
+            );
         })
         .detach();
     }
@@ -344,7 +357,7 @@ impl Chart {
     }
 
     /// A price event (with its live bars corrected) from the session.
-    pub fn on_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {
+    pub(crate) fn on_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {
         let Some(id) = self.symbol.as_ref().map(|s| s.id) else {
             return;
         };

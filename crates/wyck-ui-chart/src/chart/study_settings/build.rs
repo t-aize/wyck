@@ -3,6 +3,7 @@
 use super::{App, Context, Entity, InputEvent, InputKind, InputState, StudyConfig, Window, number};
 use super::{Chart, Page, StudyEditor, Target};
 use gpui::prelude::*;
+use wyck_core::math::{f32_of, f64_to_u32};
 
 impl StudyEditor {
     pub(super) fn new(
@@ -83,7 +84,7 @@ impl StudyEditor {
             });
             let key = plot.key;
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                let value = (value / 100.0).clamp(0.05, 1.0) as f32;
+                let value = f32_of((value / 100.0).clamp(0.05, 1.0));
                 this.target
                     .clone()
                     .plot(key, cx, |style| style.opacity = value);
@@ -102,7 +103,7 @@ impl StudyEditor {
             });
             let key = plot.key;
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                let value = value.clamp(0.5, 20.0) as f32;
+                let value = f32_of(value.clamp(0.5, 20.0));
                 this.target
                     .clone()
                     .plot(key, cx, |style| style.width = value);
@@ -124,7 +125,7 @@ impl StudyEditor {
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
-                    .plot(key, cx, |style| style.bar_width = (value / 100.0) as f32);
+                    .plot(key, cx, |style| style.bar_width = f32_of(value / 100.0));
             }));
             bar_widths.push((key, state));
         }
@@ -147,7 +148,7 @@ impl StudyEditor {
             subscriptions.push(number::watch(&width, cx, move |this, value, cx| {
                 this.target
                     .clone()
-                    .level(index, cx, |style| style.width = value as f32);
+                    .level(index, cx, |style| style.width = f32_of(value));
             }));
             level_widths.push((index, width));
             let opacity = cx.new(|cx| {
@@ -161,7 +162,7 @@ impl StudyEditor {
             subscriptions.push(number::watch(&opacity, cx, move |this, value, cx| {
                 this.target
                     .clone()
-                    .level(index, cx, |style| style.opacity = (value / 100.0) as f32);
+                    .level(index, cx, |style| style.opacity = f32_of(value / 100.0));
             }));
             level_opacity.push((index, opacity));
         }
@@ -181,7 +182,7 @@ impl StudyEditor {
             });
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target.clone().fill(index, default, cx, |style| {
-                    style.opacity = (value / 100.0) as f32
+                    style.opacity = f32_of(value / 100.0);
                 });
             }));
             fill_opacity.push((index, state));
@@ -199,7 +200,7 @@ impl StudyEditor {
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
-                    .band(default, cx, |style| style.opacity = (value / 100.0) as f32);
+                    .band(default, cx, |style| style.opacity = f32_of(value / 100.0));
             }));
             state
         });
@@ -217,7 +218,7 @@ impl StudyEditor {
         let precision = cx.new(|cx| {
             number::state(
                 number::Kind::Count,
-                config.precision.unwrap_or(2) as f64,
+                f64::from(config.precision.unwrap_or(2)),
                 window,
                 cx,
             )
@@ -225,7 +226,7 @@ impl StudyEditor {
         });
         subscriptions.push(number::watch(&precision, cx, |this, value, cx| {
             this.target
-                .edit(cx, |study| study.precision = Some(value as u32));
+                .edit(cx, |study| study.precision = Some(f64_to_u32(value)));
         }));
         Self {
             target,
@@ -283,14 +284,14 @@ impl StudyEditor {
                     .and_then(|s| s.value)
                     .unwrap_or(*value);
                 state.update(cx, |state, cx| {
-                    state.set_value(number::format(value, 3), window, cx)
+                    state.set_value(number::format(value, 3), window, cx);
                 });
             }
         }
         for (index, state) in &self.level_widths {
             let style = config.levels.get(index).copied().unwrap_or_default();
             state.update(cx, |state, cx| {
-                state.set_value(number::format(f64::from(style.width), 1), window, cx)
+                state.set_value(number::format(f64::from(style.width), 1), window, cx);
             });
         }
         for (index, state) in &self.level_opacity {
@@ -300,7 +301,7 @@ impl StudyEditor {
                     number::format(f64::from(style.opacity) * 100.0, 0),
                     window,
                     cx,
-                )
+                );
             });
         }
         for (index, state) in &self.fill_opacity {
@@ -311,7 +312,7 @@ impl StudyEditor {
                         number::format(f64::from(style.opacity) * 100.0, 0),
                         window,
                         cx,
-                    )
+                    );
                 });
             }
         }
@@ -322,14 +323,14 @@ impl StudyEditor {
                     number::format(f64::from(style.opacity) * 100.0, 0),
                     window,
                     cx,
-                )
+                );
             });
         }
         self.name.update(cx, |state, cx| {
-            state.set_value(config.name.clone(), window, cx)
+            state.set_value(config.name.clone(), window, cx);
         });
         self.precision.update(cx, |state, cx| {
-            state.set_value(config.precision.unwrap_or(2).to_string(), window, cx)
+            state.set_value(config.precision.unwrap_or(2).to_string(), window, cx);
         });
     }
 }

@@ -15,6 +15,7 @@ use wyck_app::broker::session::Session;
 use wyck_market::{Quote, QuoteType, merge_sides};
 
 use super::{Chart, Load, flatten};
+use wyck_app::lost::lost;
 use wyck_app::market_data::live::LiveUpdate;
 use wyck_app::market_data::load;
 use wyck_app::market_data::now_ms;
@@ -22,6 +23,7 @@ use wyck_app::system::runtime;
 use wyck_chart::ChartKind;
 use wyck_chart::Flow;
 use wyck_chart::Series;
+use wyck_core::math::f64_to_usize;
 
 /// About how much time one request covers, in bars of the timeframe (at most [`MAX_CHUNK_BARS`]).
 const CHUNK_MS: i64 = 6 * 3_600_000;
@@ -134,9 +136,12 @@ impl Chart {
         cx.spawn(async move |this, cx| {
             let result =
                 runtime::spawn(async move { fetch_quotes(&session, id, from, to).await }).await;
-            let _ = this.update(cx, |this, cx| {
-                this.flow_loaded(chunk, flatten(result), cx);
-            });
+            lost(
+                "flow_sync: ensure_flow",
+                this.update(cx, |this, cx| {
+                    this.flow_loaded(&chunk, flatten(result), cx);
+                }),
+            );
         })
         .detach();
     }
@@ -155,11 +160,12 @@ impl Chart {
         let bar_ms = self.timeframe.bar_ms();
         let per_chunk = bar_ms.map_or(MAX_CHUNK_BARS, |ms| {
             (CHUNK_MS / ms.max(1)).clamp(1, MAX_CHUNK_BARS)
-        }) as usize;
+        });
+        let per_chunk = usize::try_from(per_chunk).unwrap_or(1);
         // The oldest bar the screen (and half a screen more) needs.
         let plot_w = self.geometry().plot_w();
         let (first, _) = self.view.visible(bars.len(), plot_w);
-        let span = self.view.span(plot_w).ceil() as usize;
+        let span = f64_to_usize(self.view.span(plot_w).ceil());
         let want = first.saturating_sub(span / 2 + 2);
         let gap_after = (self.flow.is_loaded() && self.flow_gap).then(|| self.flow.last_ms());
         let held = Held {
@@ -175,7 +181,8 @@ impl Chart {
             chunk: Chunk {
                 epoch: self.epoch,
                 flow_epoch: self.flow_epoch,
-                times: bars[step.start..step.end]
+                times: bars
+                    .get(step.start..step.end)?
                     .iter()
                     .map(|b| b.time_ms)
                     .collect(),
@@ -186,7 +193,12 @@ impl Chart {
         })
     }
 
-    fn flow_loaded(&mut self, chunk: Chunk, result: ApiResult<Vec<Quote>>, cx: &mut Context<Self>) {
+    fn flow_loaded(
+        &mut self,
+        chunk: &Chunk,
+        result: ApiResult<Vec<Quote>>,
+        cx: &mut Context<Self>,
+    ) {
         if chunk.epoch != self.epoch || chunk.flow_epoch != self.flow_epoch {
             return;
         }

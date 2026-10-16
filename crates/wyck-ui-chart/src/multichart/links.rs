@@ -10,7 +10,7 @@
 
 use crate::chart::events::{ChartEvent, Hover, Span};
 
-pub use wyck_app::workspace::LinksPref as Links;
+use wyck_app::workspace::LinksPref;
 
 /// One of the links, for switching it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +25,7 @@ pub enum Link {
 
 impl Link {
     #[cfg(test)]
-    pub const ALL: [Self; 6] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::Symbol,
         Self::Interval,
         Self::Crosshair,
@@ -34,7 +34,7 @@ impl Link {
         Self::Studies,
     ];
 
-    pub fn is_on(self, links: &Links) -> bool {
+    pub fn is_on(self, links: LinksPref) -> bool {
         match self {
             Self::Symbol => links.symbol,
             Self::Interval => links.interval,
@@ -45,7 +45,7 @@ impl Link {
         }
     }
 
-    pub fn toggle(self, links: &mut Links) {
+    pub(crate) fn toggle(self, links: &mut LinksPref) {
         let flag = match self {
             Self::Symbol => &mut links.symbol,
             Self::Interval => &mut links.interval,
@@ -60,7 +60,7 @@ impl Link {
 
 /// What another chart is told.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Follow {
+pub(crate) enum Follow {
     /// Show this pointer as a crosshair (or clear it). The price is left out (`NaN`) when the
     /// charts show different symbols: only the time means something there.
     Pointer(Option<Hover>),
@@ -74,20 +74,21 @@ pub enum Follow {
 
 /// What the other charts are told when chart `from` (of `symbols.len()`) reports `event`.
 /// `symbols` is the symbol of each chart, when it has one.
-pub fn route(
-    links: &Links,
+pub(crate) fn route(
+    links: LinksPref,
     from: usize,
     symbols: &[Option<i64>],
     event: &ChartEvent,
 ) -> Vec<(usize, Follow)> {
     let others = (0..symbols.len()).filter(|&i| i != from);
+    let source = symbols.get(from).copied().flatten();
     match event {
         ChartEvent::TimePicked(time_ms) if links.time || links.range => {
             others.map(|i| (i, Follow::PickedTime(*time_ms))).collect()
         }
         ChartEvent::Hover(pointer) if links.crosshair => others
             .map(|i| {
-                let same = symbols[i].is_some() && symbols[i] == symbols[from];
+                let same = source.is_some() && symbols.get(i).copied().flatten() == source;
                 let pointer = pointer.map(|p| Hover {
                     time_ms: p.time_ms,
                     price: if same { p.price } else { f64::NAN },
@@ -107,7 +108,7 @@ pub fn route(
 
 /// The charts a new timeframe goes to: all of them when the interval is linked, else the one
 /// that asked.
-pub fn timeframe_targets(links: &Links, active: usize, count: usize) -> Vec<usize> {
+pub(crate) fn timeframe_targets(links: LinksPref, active: usize, count: usize) -> Vec<usize> {
     if links.interval {
         (0..count).collect()
     } else {
@@ -117,7 +118,7 @@ pub fn timeframe_targets(links: &Links, active: usize, count: usize) -> Vec<usiz
 
 /// The charts a new symbol goes to: all of them when the symbol is linked, else the one it was
 /// picked for.
-pub fn symbol_targets(links: &Links, target: usize, count: usize) -> Vec<usize> {
+pub(crate) fn symbol_targets(links: LinksPref, target: usize, count: usize) -> Vec<usize> {
     if links.symbol {
         (0..count).collect()
     } else {
@@ -129,8 +130,8 @@ pub fn symbol_targets(links: &Links, target: usize, count: usize) -> Vec<usize> 
 mod tests {
     use super::*;
 
-    fn links() -> Links {
-        Links {
+    fn links() -> LinksPref {
+        LinksPref {
             symbol: true,
             interval: false,
             crosshair: true,
@@ -148,7 +149,7 @@ mod tests {
     #[test]
     fn a_pointer_goes_to_every_other_chart_with_its_price_only_on_the_same_symbol() {
         let symbols = [Some(1), Some(1), Some(2)];
-        let routed = route(&links(), 0, &symbols, &ChartEvent::Hover(Some(POINTER)));
+        let routed = route(links(), 0, &symbols, &ChartEvent::Hover(Some(POINTER)));
         assert_eq!(routed.len(), 2);
         assert_eq!(routed[0], (1, Follow::Pointer(Some(POINTER))));
         match routed[1] {
@@ -159,7 +160,7 @@ mod tests {
             other => panic!("{other:?}"),
         }
         // Leaving the chart clears the others.
-        let cleared = route(&links(), 1, &symbols, &ChartEvent::Hover(None));
+        let cleared = route(links(), 1, &symbols, &ChartEvent::Hover(None));
         assert!(cleared.iter().all(|(_, f)| *f == Follow::Pointer(None)));
         assert!(cleared.iter().all(|(i, _)| *i != 1));
     }
@@ -169,7 +170,7 @@ mod tests {
         let symbols = [Some(1), Some(1), Some(2)];
         let picked = ChartEvent::TimePicked(123_000);
         assert_eq!(
-            route(&links(), 0, &symbols, &picked),
+            route(links(), 0, &symbols, &picked),
             vec![
                 (1, Follow::PickedTime(123_000)),
                 (2, Follow::PickedTime(123_000))
@@ -177,14 +178,14 @@ mod tests {
         );
         let mut unlinked = links();
         unlinked.time = false;
-        assert!(route(&unlinked, 0, &symbols, &picked).is_empty());
+        assert_eq!(route(unlinked, 0, &symbols, &picked), Vec::new());
         unlinked.range = true;
-        assert_eq!(route(&unlinked, 0, &symbols, &picked).len(), 2);
+        assert_eq!(route(unlinked, 0, &symbols, &picked).len(), 2);
     }
 
     #[test]
     fn nothing_is_shared_when_nothing_is_linked() {
-        let none = Links {
+        let none = LinksPref {
             symbol: false,
             interval: false,
             crosshair: false,
@@ -197,8 +198,14 @@ mod tests {
             left_ms: 0,
             right_ms: 9,
         };
-        assert!(route(&none, 0, &symbols, &ChartEvent::Hover(Some(POINTER))).is_empty());
-        assert!(route(&none, 0, &symbols, &ChartEvent::ViewChanged(span)).is_empty());
+        assert_eq!(
+            route(none, 0, &symbols, &ChartEvent::Hover(Some(POINTER))),
+            Vec::new()
+        );
+        assert_eq!(
+            route(none, 0, &symbols, &ChartEvent::ViewChanged(span)),
+            Vec::new()
+        );
     }
 
     #[test]
@@ -208,14 +215,14 @@ mod tests {
             right_ms: 900,
         };
         let symbols = [None, None, None];
-        let time_only = route(&links(), 1, &symbols, &ChartEvent::ViewChanged(span));
+        let time_only = route(links(), 1, &symbols, &ChartEvent::ViewChanged(span));
         assert_eq!(
             time_only,
             vec![(0, Follow::RightEdge(900)), (2, Follow::RightEdge(900))]
         );
         let mut both = links();
         both.range = true;
-        let ranged = route(&both, 1, &symbols, &ChartEvent::ViewChanged(span));
+        let ranged = route(both, 1, &symbols, &ChartEvent::ViewChanged(span));
         assert_eq!(
             ranged,
             vec![(0, Follow::Span(span)), (2, Follow::Span(span))]
@@ -231,21 +238,21 @@ mod tests {
             ChartEvent::PickSymbol,
             ChartEvent::Screenshot,
         ] {
-            assert!(route(&links(), 0, &symbols, &event).is_empty(), "{event:?}");
+            assert!(route(links(), 0, &symbols, &event).is_empty(), "{event:?}");
         }
     }
 
     #[test]
     fn timeframes_and_symbols_go_where_the_links_say() {
         let mut l = links();
-        assert_eq!(timeframe_targets(&l, 2, 4), vec![2]);
+        assert_eq!(timeframe_targets(l, 2, 4), vec![2]);
         l.interval = true;
-        assert_eq!(timeframe_targets(&l, 2, 4), vec![0, 1, 2, 3]);
-        assert_eq!(symbol_targets(&l, 1, 3), vec![0, 1, 2]);
+        assert_eq!(timeframe_targets(l, 2, 4), vec![0, 1, 2, 3]);
+        assert_eq!(symbol_targets(l, 1, 3), vec![0, 1, 2]);
         l.symbol = false;
-        assert_eq!(symbol_targets(&l, 1, 3), vec![1]);
+        assert_eq!(symbol_targets(l, 1, 3), vec![1]);
         assert_eq!(
-            symbol_targets(&l, 9, 3),
+            symbol_targets(l, 9, 3),
             vec![2],
             "an index past the end is the last"
         );
@@ -255,9 +262,9 @@ mod tests {
     fn links_switch_one_at_a_time() {
         let mut l = links();
         for link in Link::ALL {
-            let before = link.is_on(&l);
+            let before = link.is_on(l);
             link.toggle(&mut l);
-            assert_eq!(link.is_on(&l), !before);
+            assert_eq!(link.is_on(l), !before);
         }
     }
 }

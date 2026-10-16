@@ -15,7 +15,6 @@ const TEMPLATE_NAME_WIDTH: f32 = 170.0;
 impl DrawingProps {
     /// A choice of what ends a line, for `set` to apply.
     pub(super) fn cap_picker(
-        &self,
         id: &'static str,
         current: Cap,
         cx: &mut Context<Self>,
@@ -28,7 +27,9 @@ impl DrawingProps {
             &["None", "Arrow", "Dot"],
             caps.iter().position(|c| *c == current).unwrap_or(0),
             move |choice, _window, cx| {
-                this.update(cx, |e, cx| e.change(cx, |d| set(d, caps[choice])));
+                if let Some(&cap) = caps.get(choice) {
+                    this.update(cx, |e, cx| e.change(cx, |d| set(d, cap)));
+                }
             },
         )
     }
@@ -47,7 +48,7 @@ impl DrawingProps {
             .help("How thick the line is drawn. A thin line is precise, a thick one stands out.")
             .reset(
                 (drawing.style.width - default).abs() > 0.01,
-                self.restore(cx, |d, built_in| d.style.width = built_in.width),
+                Self::restore(cx, |d, built_in| d.style.width = built_in.width),
             )
             .control(
                 div()
@@ -60,10 +61,12 @@ impl DrawingProps {
                         &widths,
                         index,
                         move |choice, window, cx| {
-                            this.update(cx, |e, cx| {
-                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
-                                e.set_fields(window, cx);
-                            });
+                            if let Some(&width) = tool.widths().get(choice) {
+                                this.update(cx, |e, cx| {
+                                    e.change(cx, |d| d.style.width = width);
+                                    e.set_fields(window, cx);
+                                });
+                            }
                         },
                     ))
                     .child(field::unit(&self.width, "px", tokens::field::number())),
@@ -71,14 +74,14 @@ impl DrawingProps {
     }
 
     /// The caps of a line, for the tools that have some.
-    pub(super) fn caps_rows(&self, drawing: &Drawing, cx: &mut Context<Self>) -> Vec<AnyElement> {
+    pub(super) fn caps_rows(drawing: &Drawing, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let (tool, caps) = (drawing.tool, drawing.style.caps);
         let mut rows = Vec::new();
         if tool.has_start_cap() {
             rows.push(form::field(
                 "Start of the line",
                 None,
-                self.cap_picker("props-cap-start", caps.start, cx, |d, cap| {
+                Self::cap_picker("props-cap-start", caps.start, cx, |d, cap| {
                     d.style.caps.start = cap;
                 }),
             ));
@@ -87,8 +90,8 @@ impl DrawingProps {
             rows.push(form::field(
                 "End of the line",
                 None,
-                self.cap_picker("props-cap-end", caps.end, cx, |d, cap| {
-                    d.style.caps.end = cap
+                Self::cap_picker("props-cap-end", caps.end, cx, |d, cap| {
+                    d.style.caps.end = cap;
                 }),
             ));
         }
@@ -143,7 +146,7 @@ impl DrawingProps {
         let mut rows: Vec<AnyElement> = Vec::new();
         for (show, id, label, on, set) in flags {
             if show {
-                rows.push(form::field(label, None, self.switch(id, on, cx, set)));
+                rows.push(form::field(label, None, Self::switch(id, on, cx, set)));
             }
         }
         if tool == Tool::Measure {
@@ -215,7 +218,7 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .min_h(px(wyck_ui_kit::tokens::height::row()))
+                    .min_h(px(tokens::height::row()))
                     .child(
                         wyck_ui_kit::button::quiet(("props-template", index))
                             .icon(IconName::Bookmark)
@@ -237,7 +240,7 @@ impl DrawingProps {
                     .into_any_element(),
             );
         }
-        let save = this.clone();
+        let save = this;
         rows.push(form::field(
             "Save this look",
             Some("Under a name, for this tool. The same name replaces it"),
@@ -329,7 +332,7 @@ impl DrawingProps {
                 .hint("The color of the line")
                 .reset(
                     style.color != built_in.color,
-                    self.restore(cx, |d, built_in| d.style.color = built_in.color),
+                    Self::restore(cx, |d, built_in| d.style.color = built_in.color),
                 )
                 .control(self.swatch(Swatch::Line, style.color, "props-line-color", cx)),
             Row::new("Opacity")
@@ -337,7 +340,7 @@ impl DrawingProps {
                 .help("100% is fully visible. Lower it to let the chart show through.")
                 .reset(
                     (style.opacity - built_in.opacity).abs() > 0.005,
-                    self.restore(cx, |d, built_in| d.style.opacity = built_in.opacity),
+                    Self::restore(cx, |d, built_in| d.style.opacity = built_in.opacity),
                 )
                 .control(self.line_opacity.clone()),
         ];
@@ -346,28 +349,30 @@ impl DrawingProps {
         }
         if tool.has_dash() {
             let index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
-            let dash_this = this.clone();
+            let dash_this = this;
             rows.push(form::field(
                 "Line style",
                 None,
                 controls::dash_picker("props-dash", index, move |choice, _window, cx| {
-                    dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = DASHES[choice]));
+                    if let Some(&dash) = DASHES.get(choice) {
+                        dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = dash));
+                    }
                 }),
             ));
         }
-        rows.extend(self.caps_rows(drawing, cx));
+        rows.extend(Self::caps_rows(drawing, cx));
         if tool.has_extend() {
             rows.push(form::field(
                 "Extend left",
                 Some("Past the first point, to the edge of the chart"),
-                self.switch("props-extend-left", style.extend_left, cx, |d, on| {
+                Self::switch("props-extend-left", style.extend_left, cx, |d, on| {
                     d.style.extend_left = on;
                 }),
             ));
             rows.push(form::field(
                 "Extend right",
                 Some("Past the last point, to the edge of the chart"),
-                self.switch("props-extend-right", style.extend_right, cx, |d, on| {
+                Self::switch("props-extend-right", style.extend_right, cx, |d, on| {
                     d.style.extend_right = on;
                 }),
             ));
@@ -376,8 +381,8 @@ impl DrawingProps {
             rows.push(form::field(
                 label,
                 None,
-                self.switch("props-middle", style.middle, cx, |d, on| {
-                    d.style.middle = on
+                Self::switch("props-middle", style.middle, cx, |d, on| {
+                    d.style.middle = on;
                 }),
             ));
         }
@@ -385,8 +390,8 @@ impl DrawingProps {
             rows.push(form::field(
                 label,
                 None,
-                self.switch("props-labels", style.labels, cx, |d, on| {
-                    d.style.labels = on
+                Self::switch("props-labels", style.labels, cx, |d, on| {
+                    d.style.labels = on;
                 }),
             ));
         }
@@ -394,7 +399,7 @@ impl DrawingProps {
             rows.push(form::field(
                 "Reverse",
                 Some("Flips the drawing upside down"),
-                self.switch("props-reverse", drawing.reverse, cx, |d, on| d.reverse = on),
+                Self::switch("props-reverse", drawing.reverse, cx, |d, on| d.reverse = on),
             ));
         }
         form::group(IconName::PenLine, "Line", rows)
@@ -431,7 +436,9 @@ impl DrawingProps {
                     &labels,
                     &[chosen],
                     move |index, _window, cx| {
-                        let key = keys[index].to_owned();
+                        let Some(key) = keys.get(index).map(|key| (*key).to_owned()) else {
+                            return;
+                        };
                         icon_this.update(cx, |e, cx| e.change(cx, |d| d.text = key));
                     },
                 ))],
@@ -439,7 +446,7 @@ impl DrawingProps {
         }
 
         if tool.is_elliott() {
-            let degree_this = this.clone();
+            let degree_this = this;
             let names = wave_names(tool);
             let example: Vec<String> = names
                 .iter()
@@ -456,8 +463,9 @@ impl DrawingProps {
                         &DEGREES,
                         &[usize::from(drawing.degree)],
                         move |index, _window, cx| {
-                            degree_this
-                                .update(cx, |e, cx| e.change(cx, |d| d.degree = index as u8));
+                            degree_this.update(cx, |e, cx| {
+                                e.change(cx, |d| d.degree = u8::try_from(index).unwrap_or(u8::MAX));
+                            });
                         },
                     )),
                     form::block(form::note(format!("Points read {}", example.join(" ")))),
@@ -469,7 +477,7 @@ impl DrawingProps {
             let mut rows = vec![form::field(
                 "Fill",
                 Some("Colors the area inside the shape"),
-                self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
+                Self::switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
             )];
             if !tool.has_levels() {
                 rows.push(form::field(
@@ -483,7 +491,7 @@ impl DrawingProps {
                     .hint("How solid the colored area is")
                     .reset(
                         (style.fill_opacity - tool.default_style().fill_opacity).abs() > 0.005,
-                        self.restore(cx, |d, built_in| {
+                        Self::restore(cx, |d, built_in| {
                             d.style.fill_opacity = built_in.fill_opacity;
                         }),
                     )

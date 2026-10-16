@@ -6,6 +6,8 @@ use crate::chart::{Chart, ChartLine};
 use gpui::Context;
 use gpui::prelude::*;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 use wyck_app::market_data::live::LiveUpdate;
 use wyck_app::workspace::ChartState;
 use wyck_market::SpotEvent;
@@ -14,7 +16,7 @@ use wyck_market::Timeframe;
 impl MultiChart {
     pub(super) fn add_chart(&mut self, state: ChartState, cx: &mut Context<Self>) {
         self.next_id += 1;
-        let (session, hub, id) = (self.session.clone(), self.hub.clone(), self.next_id);
+        let (session, hub, id) = (self.session.clone(), Rc::clone(&self.hub), self.next_id);
         let ChartState {
             timeframe,
             settings,
@@ -30,7 +32,7 @@ impl MultiChart {
         let drawings = self.drawings.clone();
         chart.update(cx, |chart, cx| chart.attach_drawings(drawings, cx));
         if !self.symbol_ids.is_empty() {
-            let ids = self.symbol_ids.clone();
+            let ids = Arc::clone(&self.symbol_ids);
             chart.update(cx, |chart, cx| chart.set_symbol_ids(ids, cx));
         }
         // A linked symbol comes from the charts already open.
@@ -66,9 +68,11 @@ impl MultiChart {
     }
 
     /// Shows a symbol on chart `target`, or on every chart when the symbol is linked.
-    pub fn set_symbol(&mut self, target: usize, symbol: SymbolRef, cx: &mut Context<Self>) {
-        for index in super::links::symbol_targets(&self.sync, target, self.slots.len()) {
-            let slot = &mut self.slots[index];
+    pub fn set_symbol(&mut self, target: usize, symbol: &SymbolRef, cx: &mut Context<Self>) {
+        for index in super::links::symbol_targets(self.sync, target, self.slots.len()) {
+            let Some(slot) = self.slots.get_mut(index) else {
+                continue;
+            };
             slot.wanted_symbol = None;
             let symbol = symbol.clone();
             slot.chart.update(cx, |chart, cx| {
@@ -80,9 +84,10 @@ impl MultiChart {
                     cx,
                 );
             });
-            if let Some(lines) = self.lines.get(&symbol.id).cloned() {
-                self.slots[index]
-                    .chart
+            if let Some(lines) = self.lines.get(&symbol.id).cloned()
+                && let Some(slot) = self.slots.get(index)
+            {
+                slot.chart
                     .update(cx, |chart, cx| chart.set_lines(lines, cx));
             }
         }
@@ -114,9 +119,9 @@ impl MultiChart {
     /// The symbols of the account arrived: `ids` has the id of each by name (see
     /// [`wyck_indicators::custom::other::key_of`]).
     pub fn set_symbol_ids(&mut self, ids: HashMap<String, i64>, cx: &mut Context<Self>) {
-        self.symbol_ids = std::sync::Arc::new(ids);
+        self.symbol_ids = Arc::new(ids);
         for slot in &self.slots {
-            let ids = self.symbol_ids.clone();
+            let ids = Arc::clone(&self.symbol_ids);
             slot.chart
                 .update(cx, |chart, cx| chart.set_symbol_ids(ids, cx));
         }
@@ -124,7 +129,7 @@ impl MultiChart {
 
     /// A symbol's trading hours arrived.
     pub fn set_hours(&mut self, id: i64, hours: wyck_market::TradingHours, cx: &mut Context<Self>) {
-        self.hours.insert(id, std::sync::Arc::new(hours));
+        self.hours.insert(id, Arc::new(hours));
         self.give_hours(cx);
     }
 
@@ -149,17 +154,18 @@ impl MultiChart {
     ) {
         for slot in &self.slots {
             slot.chart.update(cx, |chart, cx| {
-                chart.set_quote_details(id, digits, pip_position, cx)
+                chart.set_quote_details(id, digits, pip_position, cx);
             });
         }
     }
 
     /// Sets the timeframe of the active chart, or of every chart when the interval is linked.
     pub fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
-        for index in super::links::timeframe_targets(&self.sync, self.active, self.slots.len()) {
-            self.slots[index]
-                .chart
-                .update(cx, |chart, cx| chart.set_timeframe(timeframe, cx));
+        for index in super::links::timeframe_targets(self.sync, self.active, self.slots.len()) {
+            if let Some(slot) = self.slots.get(index) {
+                slot.chart
+                    .update(cx, |chart, cx| chart.set_timeframe(timeframe, cx));
+            }
         }
         self.persist(cx);
         cx.notify();
@@ -176,7 +182,7 @@ impl MultiChart {
     pub fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.tracker.clear();
         for slot in &self.slots {
-            slot.chart.update(cx, |chart, cx| chart.on_ready(cx));
+            slot.chart.update(cx, Chart::on_ready);
         }
     }
 

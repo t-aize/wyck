@@ -12,8 +12,8 @@ pub mod price_alerts;
 use super::Dashboard;
 use gpui::prelude::*;
 use gpui::{Context, Window};
+use wyck_chart::LineId;
 use wyck_trading::math;
-use wyck_ui_chart::chart::LineId;
 use wyck_ui_chart::chart::events::{ChartAction, PositionLink};
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::{

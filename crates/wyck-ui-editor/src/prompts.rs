@@ -3,6 +3,7 @@
 use super::{Ask, IndicatorEditor, Prompt};
 use gpui::prelude::*;
 use gpui::{Context, Task, Window};
+use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_app::scripts::folder::LibraryError;
 use wyck_indicators::custom::templates::{TEMPLATES, Template};
@@ -76,18 +77,21 @@ impl IndicatorEditor {
                 let task = indicators::rename(cx, id.clone(), name);
                 cx.spawn_in(window, async move |this, cx| {
                     let result = task.await;
-                    let _ = this.update_in(cx, |this, _window, cx| match result {
-                        Some(Ok(new_id)) => {
-                            for doc in &mut this.docs {
-                                if doc.id == id {
-                                    doc.id.clone_from(&new_id);
+                    lost(
+                        "prompts: commit_prompt",
+                        this.update_in(cx, |this, _window, cx| match result {
+                            Some(Ok(new_id)) => {
+                                for doc in &mut this.docs {
+                                    if doc.id == id {
+                                        doc.id.clone_from(&new_id);
+                                    }
                                 }
+                                this.say(true, format!("Renamed to {new_id}."), cx);
                             }
-                            this.say(true, format!("Renamed to {new_id}."), cx);
-                        }
-                        Some(Err(error)) => this.say(false, error.to_string(), cx),
-                        None => {}
-                    });
+                            Some(Err(error)) => this.say(false, error.to_string(), cx),
+                            None => {}
+                        }),
+                    );
                 })
                 .detach();
             }
@@ -103,14 +107,17 @@ impl IndicatorEditor {
     ) {
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
-            let _ = this.update_in(cx, |this, window, cx| match result {
-                Some(Ok(id)) => {
-                    this.open(&id, window, cx);
-                    this.say(true, format!("Created {id}."), cx);
-                }
-                Some(Err(error)) => this.say(false, error.to_string(), cx),
-                None => {}
-            });
+            lost(
+                "prompts: after_create",
+                this.update_in(cx, |this, window, cx| match result {
+                    Some(Ok(id)) => {
+                        this.open(&id, window, cx);
+                        this.say(true, format!("Created {id}."), cx);
+                    }
+                    Some(Err(error)) => this.say(false, error.to_string(), cx),
+                    None => {}
+                }),
+            );
         })
         .detach();
     }

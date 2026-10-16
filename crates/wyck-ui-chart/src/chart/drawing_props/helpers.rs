@@ -1,9 +1,10 @@
 //! Names and edits of the points of a drawing.
 
-use crate::chart::GROUPS;
+use wyck_core::math::i64_to_f64;
 use wyck_drawings::model::tool::Tool;
 use wyck_drawings::model::{Drawing, Point};
 use wyck_drawings::wave_names;
+use wyck_market::GROUPS;
 use wyck_market::PRICE_SCALE;
 
 /// Every timeframe's code.
@@ -74,13 +75,13 @@ pub(super) fn set_point(
             drawing.style.position.target_rr = None;
         }
     }
-    if drawing.tool.is_position() && drawing.points.len() == 4 {
-        let entry = drawing.points[0];
-        for i in [1, 2] {
-            drawing.points[i].t = entry.t;
-        }
-        drawing.points[3] = Point {
-            t: drawing.points[3].t.max(entry.t + 1),
+    if drawing.tool.is_position()
+        && let [entry, stop, target, last] = drawing.points.as_mut_slice()
+    {
+        stop.t = entry.t;
+        target.t = entry.t;
+        *last = Point {
+            t: last.t.max(entry.t + 1),
             p: entry.p,
         };
     }
@@ -88,7 +89,7 @@ pub(super) fn set_point(
 
 /// A raw price written as a real one with `digits` decimals.
 pub(super) fn format_real(raw: f64, digits: u32) -> String {
-    format!("{:.*}", digits as usize, raw / PRICE_SCALE as f64)
+    format!("{:.*}", digits as usize, raw / i64_to_f64(PRICE_SCALE))
 }
 
 #[cfg(test)]

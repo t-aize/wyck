@@ -18,7 +18,7 @@ impl Chart {
         &self.settings
     }
 
-    pub fn symbol(&self) -> Option<&Symbol> {
+    pub(crate) fn symbol(&self) -> Option<&Symbol> {
         self.symbol.as_ref()
     }
 
@@ -29,7 +29,7 @@ impl Chart {
 
     /// The ids of the symbols of the account by name (see `key_of`), so an indicator that reads
     /// the prices of a second symbol can ask for them.
-    pub fn set_symbol_ids(
+    pub(crate) fn set_symbol_ids(
         &mut self,
         ids: std::sync::Arc<std::collections::HashMap<String, i64>>,
         cx: &mut Context<Self>,
@@ -40,7 +40,7 @@ impl Chart {
     }
 
     /// The trading hours of the chart's symbol (ignored for another symbol).
-    pub fn set_hours(
+    pub(crate) fn set_hours(
         &mut self,
         id: i64,
         hours: Option<std::sync::Arc<wyck_market::TradingHours>>,
@@ -60,7 +60,7 @@ impl Chart {
 
     /// Whether this is the chart the user works on.
     /// Keeps the hint of a drawing tool `floor` pixels off the bottom of the chart.
-    pub fn set_hint_floor(&mut self, floor: f32, cx: &mut Context<Self>) {
+    pub(crate) fn set_hint_floor(&mut self, floor: f32, cx: &mut Context<Self>) {
         if (self.hint_floor - floor).abs() > 0.5 {
             self.hint_floor = floor;
             cx.notify();
@@ -68,14 +68,14 @@ impl Chart {
     }
 
     /// Says whether the legend of the chart names its symbol.
-    pub fn set_show_symbol(&mut self, show: bool, cx: &mut Context<Self>) {
+    pub(crate) fn set_show_symbol(&mut self, show: bool, cx: &mut Context<Self>) {
         if self.show_symbol != show {
             self.show_symbol = show;
             cx.notify();
         }
     }
 
-    pub fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
+    pub(crate) fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
         if self.selected != selected {
             self.selected = selected;
             if !selected {
@@ -86,19 +86,19 @@ impl Chart {
     }
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub fn market_status(&self) -> Option<wyck_market::MarketStatus> {
+    pub(crate) fn market_status(&self) -> Option<wyck_market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(now_ms()))
     }
 
     /// Tells the chart how many charts the layout holds.
-    pub fn set_layout_charts(&mut self, count: usize, cx: &mut Context<Self>) {
+    pub(crate) fn set_layout_charts(&mut self, count: usize, cx: &mut Context<Self>) {
         if self.layout_charts != count {
             self.layout_charts = count;
             cx.notify();
         }
     }
 
-    pub fn set_symbol(
+    pub(crate) fn set_symbol(
         &mut self,
         id: i64,
         name: SharedString,
@@ -129,7 +129,7 @@ impl Chart {
     }
 
     /// The broker said how the symbol is quoted.
-    pub fn set_quote_details(
+    pub(crate) fn set_quote_details(
         &mut self,
         id: i64,
         digits: u32,
@@ -145,7 +145,7 @@ impl Chart {
         }
     }
 
-    pub fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
+    pub(crate) fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
         if self.timeframe == timeframe {
             return;
         }
@@ -173,7 +173,7 @@ impl Chart {
 
     /// Changes the settings with `change`; recomputes what depends on them, redraws, and tells the
     /// layout (which saves them) when they really changed.
-    pub fn edit_settings(
+    pub(crate) fn edit_settings(
         &mut self,
         cx: &mut Context<Self>,
         change: impl FnOnce(&mut ChartSettings),
@@ -222,7 +222,7 @@ impl Chart {
 
     /// Takes the look every chart shares, after another chart changed it. What this chart shows is
     /// left alone, and nothing is announced: the chart that changed it did.
-    pub fn adopt_look(&mut self, look: &ChartLook, cx: &mut Context<Self>) {
+    pub(crate) fn adopt_look(&mut self, look: &ChartLook, cx: &mut Context<Self>) {
         if self.settings.look() == *look {
             return;
         }
@@ -238,7 +238,7 @@ impl Chart {
         cx.notify();
     }
 
-    pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
+    pub(crate) fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
         self.edit_settings(cx, |s| s.kind = kind);
     }
 
@@ -260,16 +260,16 @@ impl Chart {
         self.edit_settings(cx, |s| s.studies.push(config));
     }
 
-    pub fn max_studies(&self) -> usize {
+    pub(crate) fn max_studies(&self) -> usize {
         self.max_studies
     }
 
-    pub fn set_max_studies(&mut self, limit: usize, cx: &mut Context<Self>) {
+    pub(crate) fn set_max_studies(&mut self, limit: usize, cx: &mut Context<Self>) {
         self.max_studies = limit.clamp(1, MAX_STUDIES);
         cx.notify();
     }
 
-    pub fn remove_study(&mut self, index: usize, cx: &mut Context<Self>) {
+    pub(crate) fn remove_study(&mut self, index: usize, cx: &mut Context<Self>) {
         self.edit_settings(cx, |s| {
             if index < s.studies.len() {
                 s.studies.remove(index);
@@ -278,14 +278,14 @@ impl Chart {
     }
 
     /// The orders, positions and alerts to show.
-    pub fn set_lines(&mut self, lines: Vec<ChartLine>, cx: &mut Context<Self>) {
+    pub(crate) fn set_lines(&mut self, lines: Vec<ChartLine>, cx: &mut Context<Self>) {
         if self.lines != lines {
             self.lines = lines;
             cx.notify();
         }
     }
 
-    pub fn digits(&self) -> u32 {
+    pub(crate) fn digits(&self) -> u32 {
         self.symbol.as_ref().map_or(5, |s| s.digits)
     }
 }

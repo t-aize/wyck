@@ -16,7 +16,7 @@ impl MultiChart {
             self.recent_tools.truncate(MAX_RECENT_TOOLS);
         }
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_tool(tool))
+            drawings.edit(cx, |book| book.set_tool(tool));
         });
         cx.notify();
     }
@@ -45,7 +45,7 @@ impl MultiChart {
     pub fn toggle_magnet(&mut self, cx: &mut Context<Self>) {
         let magnet = !self.drawings.read(cx).book().magnet();
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_magnet(magnet))
+            drawings.edit(cx, |book| book.set_magnet(magnet));
         });
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.magnet = magnet);
@@ -55,7 +55,7 @@ impl MultiChart {
     pub fn toggle_keep_drawing(&mut self, cx: &mut Context<Self>) {
         let keep = !self.drawings.read(cx).book().keep_tool();
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_keep_tool(keep))
+            drawings.edit(cx, |book| book.set_keep_tool(keep));
         });
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.keep_drawing = keep);
@@ -75,8 +75,9 @@ impl MultiChart {
 
     /// Enter: ends an arrow path with the points it has. Returns whether it did.
     pub fn finish_drawing(&mut self, cx: &mut Context<Self>) -> bool {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.finish()))
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_drawings::book::Book::finish)
+        })
     }
 
     /// Escape: closes the menu a chart has open (the time zone one). Returns whether one was.
@@ -84,7 +85,7 @@ impl MultiChart {
         let charts: Vec<_> = self.slots.iter().map(|slot| slot.chart.clone()).collect();
         let mut closed = false;
         for chart in charts {
-            closed |= chart.update(cx, |chart, cx| chart.close_menu(cx));
+            closed |= chart.update(cx, super::super::chart::Chart::close_menu);
         }
         closed
     }
@@ -95,8 +96,9 @@ impl MultiChart {
             cx.notify();
             return true;
         }
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.cancel()))
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_drawings::book::Book::cancel)
+        })
     }
 
     /// Opens the order ticket filled from a position drawing of the active chart.
@@ -137,22 +139,24 @@ impl MultiChart {
     }
 
     pub fn undo_drawing(&mut self, cx: &mut Context<Self>) {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.undo()));
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_drawings::book::Book::undo)
+        });
     }
 
     pub fn redo_drawing(&mut self, cx: &mut Context<Self>) {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.redo()));
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_drawings::book::Book::redo)
+        });
     }
 
     pub fn duplicate_drawing(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        chart.update(cx, |chart, cx| chart.duplicate_selected(cx));
+        chart.update(cx, super::super::chart::Chart::duplicate_selected);
     }
 
     pub(crate) fn clear_drawings(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.clear(symbol));
+        self.edit_book(cx, wyck_drawings::book::Book::clear);
     }
 
     pub(crate) fn set_drawing_color(&mut self, color: u32, cx: &mut Context<Self>) {
@@ -179,11 +183,11 @@ impl MultiChart {
     }
 
     pub(crate) fn toggle_drawing_fill(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.toggle_fill(symbol));
+        self.edit_book(cx, wyck_drawings::book::Book::toggle_fill);
     }
 
     pub(crate) fn toggle_drawing_lock(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.toggle_lock(symbol));
+        self.edit_book(cx, wyck_drawings::book::Book::toggle_lock);
     }
 
     /// The words field changed: the selected text drawing says what it says.

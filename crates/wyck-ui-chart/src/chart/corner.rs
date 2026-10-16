@@ -56,7 +56,7 @@ impl Chart {
         let scale = self.settings.scale;
         // The press is the button's, not the chart's under it.
         let stop = |_: &gpui::MouseDownEvent, _: &mut gpui::Window, cx: &mut gpui::App| {
-            cx.stop_propagation()
+            cx.stop_propagation();
         };
 
         let buttons = div()

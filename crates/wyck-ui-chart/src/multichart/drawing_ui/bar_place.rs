@@ -60,7 +60,7 @@ impl BarPlace {
 
     /// The cell the bar reports its bounds to.
     pub(in crate::multichart) fn bounds_cell(&self) -> Rc<Cell<Option<Bounds<Pixels>>>> {
-        self.bounds.clone()
+        Rc::clone(&self.bounds)
     }
 
     pub(in crate::multichart) fn home(&self) -> f32 {
@@ -186,7 +186,6 @@ impl MultiChart {
 
     /// The grip at the left of a bar: hold it to move the bar, double click to bring it back.
     pub(in crate::multichart) fn bar_grip(
-        &self,
         bar: Movable,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {

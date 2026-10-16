@@ -6,6 +6,7 @@ use crate::chart::DrawingCommand;
 use crate::multichart::MultiChart;
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use wyck_core::math::f32_to_u32;
 use wyck_drawings::look::Cap;
 use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::icon::IconName;
@@ -88,12 +89,12 @@ impl MultiChart {
                 )
                 .child(
                     div()
-                        .min_w(px(wyck_ui_kit::tokens::height::tiny()))
+                        .min_w(px(tokens::height::tiny()))
                         .flex()
                         .justify_center()
                         .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
-                        .child(format!("{}", size.round() as u32)),
+                        .child(format!("{}", f32_to_u32(size.round()))),
                 )
                 .child(
                     wyck_ui_kit::button::quiet("draw-text-bigger")
@@ -134,7 +135,6 @@ impl MultiChart {
 
     #[inline(never)]
     pub(super) fn bar_position(
-        &self,
         mut bar: gpui::Div,
         st: &BarState,
         cx: &mut Context<Self>,
@@ -174,7 +174,6 @@ impl MultiChart {
 
     #[inline(never)]
     pub(super) fn bar_look(
-        &self,
         mut bar: gpui::Div,
         st: &BarState,
         window: &mut Window,
@@ -279,7 +278,6 @@ impl MultiChart {
 
     #[inline(never)]
     pub(super) fn bar_actions(
-        &self,
         mut bar: gpui::Div,
         st: &BarState,
         cx: &mut Context<Self>,
@@ -335,7 +333,7 @@ impl MultiChart {
                     .icon(IconName::Trash)
                     .tooltip("Delete (Del)")
                     .disabled(locked)
-                    .when(locked, |button| button.cursor_not_allowed())
+                    .when(locked, Styled::cursor_not_allowed)
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );
         bar

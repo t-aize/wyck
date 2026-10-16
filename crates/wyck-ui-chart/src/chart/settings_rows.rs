@@ -40,7 +40,9 @@ pub(super) fn choice<T: Copy + PartialEq + 'static>(
         label,
         hint,
         controls::segmented(id, &names, index, move |chosen, _window, cx| {
-            edit(&chart, cx, |s| set(s, options[chosen].0));
+            if let Some(value) = options.get(chosen).map(|option| option.0) {
+                edit(&chart, cx, |s| set(s, value));
+            }
         }),
     )
 }
@@ -82,11 +84,11 @@ pub(super) struct Numbers<'a, 'b, T: 'static> {
     chart: &'a Entity<Chart>,
     window: &'a mut Window,
     cx: &'a mut Context<'b, T>,
-    pub subscriptions: Vec<Subscription>,
+    pub(crate) subscriptions: Vec<Subscription>,
 }
 
 impl<'a, 'b, T: 'static> Numbers<'a, 'b, T> {
-    pub fn new(
+    pub(crate) fn new(
         chart: &'a Entity<Chart>,
         window: &'a mut Window,
         cx: &'a mut Context<'b, T>,
@@ -101,7 +103,7 @@ impl<'a, 'b, T: 'static> Numbers<'a, 'b, T> {
 
     /// A field of `kind` holding `value`, between `low` and `high`. What is typed at least `low`
     /// is applied with `apply` (which the settings then repair to what they allow).
-    pub fn add(
+    pub(crate) fn add(
         &mut self,
         kind: number::Kind,
         value: f64,

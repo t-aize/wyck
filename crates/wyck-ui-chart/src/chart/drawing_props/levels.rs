@@ -16,7 +16,6 @@ impl DrawingProps {
     /// The button of a level that picks its line style: the drawing's own, then solid, dashed and
     /// dotted, one click at a time.
     pub(super) fn level_dash_button(
-        &self,
         index: usize,
         current: Option<Dash>,
         cx: &mut Context<Self>,
@@ -78,7 +77,7 @@ impl DrawingProps {
             .gap_1()
             .child(
                 wyck_ui_kit::button::dense("props-level-add")
-                    .when(full, |button| button.cursor_not_allowed())
+                    .when(full, Styled::cursor_not_allowed)
                     .icon(IconName::Plus)
                     .label("Add")
                     .disabled(full)
@@ -115,7 +114,7 @@ impl DrawingProps {
                     .gap_3()
                     .min_h(px(LEVEL_ROW_HEIGHT))
                     .py_2()
-                    .child(self.switch(
+                    .child(Self::switch(
                         &format!("props-level-on-{index}"),
                         level.visible,
                         cx,
@@ -138,7 +137,7 @@ impl DrawingProps {
                             .get(index)
                             .map(|width| number::field(width, tokens::field::narrow())),
                     )
-                    .child(self.level_dash_button(index, level.dash, cx))
+                    .child(Self::level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
                     .child(
                         wyck_ui_kit::button::dense(SharedString::from(format!(
@@ -155,7 +154,7 @@ impl DrawingProps {
             );
         }
         form::page()
-            .child(self.captions_group(drawing, cx))
+            .child(Self::captions_group(drawing, cx))
             .child(form::group_with(
                 IconName::SlidersHorizontal,
                 format!("Levels ({}/{MAX_LEVELS})", levels.len()),

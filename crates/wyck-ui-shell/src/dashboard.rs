@@ -203,7 +203,7 @@ pub struct Dashboard {
     /// The field of the menu where a custom timeframe is typed, made with the window, and the
     /// unit a bare number is in.
     tf_custom: Option<Entity<wyck_ui_kit::input::InputState>>,
-    tf_unit: chart::Unit,
+    tf_unit: wyck_market::Unit,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
     /// The trading account: positions, orders, balance.
@@ -345,7 +345,7 @@ impl Dashboard {
             multi,
             workspace,
             tf_custom: None,
-            tf_unit: chart::Unit::Minutes,
+            tf_unit: wyck_market::Unit::Minutes,
             pending_picker: false,
             trading,
             alerts,

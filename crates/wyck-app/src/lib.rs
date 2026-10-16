@@ -9,7 +9,7 @@ pub mod chart_export;
 pub mod diagnostics;
 pub mod drawings;
 pub mod locations;
-pub(crate) mod lost;
+pub mod lost;
 pub mod market_data;
 pub mod migrations;
 pub mod prefs;

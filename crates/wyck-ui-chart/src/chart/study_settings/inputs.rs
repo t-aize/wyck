@@ -8,6 +8,7 @@ use crate::chart::study::kind::StudyKind;
 use crate::chart::study::spec::{InputKind, SOURCES};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
+use wyck_core::math::{count_f64, f64_to_u32, f64_to_usize};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{button, controls, form, icon, modal, number, theme, tokens};
 
@@ -53,7 +54,7 @@ impl StudyEditor {
                         .iter()
                         .find(|decl| decl.key == input.key)
                 })
-                .is_some_and(|decl| decl.in_style());
+                .is_some_and(wyck_indicators::custom::run::decl::InputDecl::in_style);
             let in_style = script_style
                 || match config.kind {
                     StudyKind::VolumeProfile => matches!(
@@ -80,8 +81,8 @@ impl StudyEditor {
                         controls::segmented(
                             SharedString::from(format!("source-{key}")),
                             &SOURCES,
-                            config.input(key) as usize,
-                            move |choice, _window, cx| target.set_input(key, choice as f64, cx),
+                            f64_to_usize(config.input(key)),
+                            move |choice, _window, cx| target.set_input(key, count_f64(choice), cx),
                         )
                         .into_any_element(),
                     )
@@ -92,8 +93,8 @@ impl StudyEditor {
                         controls::segmented(
                             SharedString::from(format!("choice-{key}")),
                             options,
-                            config.input(key) as usize,
-                            move |choice, _window, cx| target.set_input(key, choice as f64, cx),
+                            f64_to_usize(config.input(key)),
+                            move |choice, _window, cx| target.set_input(key, count_f64(choice), cx),
                         )
                         .into_any_element(),
                     )
@@ -111,7 +112,7 @@ impl StudyEditor {
                                     key,
                                     target.clone(),
                                     state.clone(),
-                                    config.text(key),
+                                    &config.text(key),
                                 )
                                 .child(field)
                                 .into_any_element()
@@ -138,7 +139,7 @@ impl StudyEditor {
                     let open = self.color_open == Some(key);
                     Some(controls::color_swatch(
                         SharedString::from(format!("input-color-{key}")),
-                        config.input(key) as u32,
+                        f64_to_u32(config.input(key)),
                         open,
                         cx,
                         move |_window, cx| {
@@ -211,7 +212,7 @@ impl StudyEditor {
                 .gap_2()
                 .child(
                     div()
-                        .max_w(px(wyck_ui_kit::tokens::measure::caption()))
+                        .max_w(px(tokens::measure::caption()))
                         .truncate()
                         .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())

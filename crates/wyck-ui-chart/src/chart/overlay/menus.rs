@@ -7,8 +7,10 @@ use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
 };
+use wyck_app::lost::lost;
 use wyck_chart::Zone;
 use wyck_chart::{Geometry, axis_h};
+use wyck_core::math::{f32_of, f64_to_i64, i64_to_f64};
 use wyck_drawings::book::Order;
 use wyck_market::format_price;
 use wyck_ui_kit::icon::IconName;
@@ -21,7 +23,7 @@ impl Chart {
     /// The items for the drawing under the pointer, at the top of the right-click menu.
     pub(super) fn drawing_items(
         &self,
-        chart: &Entity<Chart>,
+        chart: &Entity<Self>,
         id: u64,
         cx: &App,
     ) -> Vec<popup::Section> {
@@ -136,7 +138,7 @@ impl Chart {
     /// window coordinates.
     pub(super) fn context_items(
         &self,
-        chart: &Entity<Chart>,
+        chart: &Entity<Self>,
         at: Option<gpui::Point<gpui::Pixels>>,
         cx: &App,
     ) -> Vec<Item> {
@@ -154,10 +156,10 @@ impl Chart {
             groups.extend(self.drawing_items(chart, id, cx));
         }
         if let (Some(raw), true) = (price_raw, self.symbol.is_some()) {
-            let text = format_price(raw.round() as i64, digits);
+            let text = format_price(f64_to_i64(raw.round()), digits);
             let real = to_real(raw);
-            let buy_limit = ask.is_some_and(|ask| raw < ask as f64);
-            let sell_limit = bid.is_some_and(|bid| raw > bid as f64);
+            let buy_limit = ask.is_some_and(|ask| raw < i64_to_f64(ask));
+            let sell_limit = bid.is_some_and(|bid| raw > i64_to_f64(bid));
             let emit = |action: ChartAction| {
                 let chart = chart.clone();
                 move |_: &mut Window, cx: &mut App| {
@@ -227,7 +229,7 @@ impl Chart {
             }
             groups.push(popup::Section::new("Alerts", alerts));
         }
-        let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
+        let on = |f: fn(&mut Self, &mut Window, &mut Context<Self>)| {
             let chart = chart.clone();
             move |window: &mut Window, cx: &mut App| {
                 chart.update(cx, |this, cx| f(this, window, cx));
@@ -240,19 +242,19 @@ impl Chart {
                     Entry::new("Indicators...")
                         .icon(IconName::ChartSpline)
                         .on_click(on(|_, window, cx| {
-                            indicator_picker::open(cx.entity(), window, cx)
+                            indicator_picker::open(cx.entity(), window, cx);
                         }))
                         .into(),
                     Entry::new("Chart settings...")
                         .icon(IconName::Settings2)
                         .on_click(on(|_, window, cx| {
-                            chart_settings_ui::open(cx.entity(), window, cx)
+                            chart_settings_ui::open(cx.entity(), window, cx);
                         }))
                         .into(),
                     Entry::new("Scale settings...")
                         .icon(IconName::Ruler)
                         .on_click(on(|_, window, cx| {
-                            chart_settings_ui::open_scales(cx.entity(), window, cx)
+                            chart_settings_ui::open_scales(cx.entity(), window, cx);
                         }))
                         .into(),
                     Entry::new("Reset chart view")
@@ -340,7 +342,7 @@ impl Chart {
                 popup::parts::card()
                     .id("chart-zone-menu")
                     .w(px(tokens::menu::DROPDOWN_WIDTH))
-                    .max_h(px((geometry.h as f32 - 60.0).max(160.0)))
+                    .max_h(px((f32_of(geometry.h) - 60.0).max(160.0)))
                     .overflow_y_scroll()
                     .child(popup::parts::section_title("Time zone"))
                     .child(list)
@@ -350,7 +352,7 @@ impl Chart {
         // The zone opens from the corner at the bottom right.
         let positioned = div()
             .absolute()
-            .right(px(wyck_ui_kit::tokens::space::xs()))
+            .right(px(tokens::space::xs()))
             .bottom(px(axis_h() + 4.0))
             .child(card);
         Some(
@@ -358,10 +360,13 @@ impl Chart {
                 popup::parts::backdrop({
                     let this = cx.entity().downgrade();
                     move |_, cx| {
-                        let _ = this.update(cx, |this, cx| {
-                            this.menu = None;
-                            cx.notify();
-                        });
+                        lost(
+                            "menus: menu_popup",
+                            this.update(cx, |this, cx| {
+                                this.menu = None;
+                                cx.notify();
+                            }),
+                        );
                     }
                 })
                 .child(positioned.on_mouse_down(MouseButton::Left, |_, _, cx| {

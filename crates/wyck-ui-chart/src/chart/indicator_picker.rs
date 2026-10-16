@@ -25,7 +25,7 @@ use wyck_ui_kit::{
 const SHORT_NAME_WIDTH: f32 = 58.0;
 
 /// Opens the list of indicators for `chart`.
-pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
     window.defer(cx, move |window, cx| {
         let picker = cx.new(|cx| Picker::new(chart, window, cx));
@@ -74,7 +74,7 @@ impl Picker {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search indicators"));
         let subscriptions = vec![
             cx.subscribe(&search, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify()
+                cx.notify();
             }),
             cx.observe(&chart, |_this, _chart, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
@@ -235,7 +235,7 @@ impl Picker {
             .children(script.map(|_| {
                 div()
                     .id(("picker-edit", number))
-                    .size(px(wyck_ui_kit::tokens::height::control()))
+                    .size(px(tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -256,7 +256,7 @@ impl Picker {
             .child(
                 div()
                     .id(("picker-star", number))
-                    .size(px(wyck_ui_kit::tokens::height::control()))
+                    .size(px(tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()

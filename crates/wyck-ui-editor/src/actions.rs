@@ -2,6 +2,7 @@
 
 use super::{ConsoleTab, IndicatorEditor};
 use gpui::{App, Context, SharedString, Window};
+use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_indicators::custom::library::registry;
 use wyck_ui_kit::input::Position;
@@ -99,11 +100,16 @@ impl IndicatorEditor {
                 indicators::on_library(cx, move |library| library.export(&task_id, &path))
             });
             let result = done.await;
-            let _ = this.update(cx, |this, cx| match result {
-                Some(Ok(path)) => this.say(true, format!("Exported to {}.", path.display()), cx),
-                Some(Err(error)) => this.say(false, error.to_string(), cx),
-                None => {}
-            });
+            lost(
+                "actions: export_current",
+                this.update(cx, |this, cx| match result {
+                    Some(Ok(path)) => {
+                        this.say(true, format!("Exported to {}.", path.display()), cx)
+                    }
+                    Some(Err(error)) => this.say(false, error.to_string(), cx),
+                    None => {}
+                }),
+            );
         })
         .detach();
     }
@@ -127,15 +133,18 @@ impl IndicatorEditor {
                 indicators::on_library(cx, move |library| library.export_all(&target))
             });
             let result = done.await;
-            let _ = this.update(cx, |this, cx| match result {
-                Some(Ok(count)) => this.say(
-                    true,
-                    format!("Exported {count} script(s) to {}.", dest.display()),
-                    cx,
-                ),
-                Some(Err(error)) => this.say(false, error.to_string(), cx),
-                None => {}
-            });
+            lost(
+                "actions: export_all",
+                this.update(cx, |this, cx| match result {
+                    Some(Ok(count)) => this.say(
+                        true,
+                        format!("Exported {count} script(s) to {}.", dest.display()),
+                        cx,
+                    ),
+                    Some(Err(error)) => this.say(false, error.to_string(), cx),
+                    None => {}
+                }),
+            );
         })
         .detach();
     }
@@ -157,24 +166,27 @@ impl IndicatorEditor {
                 return;
             };
             let report = done.await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                let Some(report) = report else {
-                    return;
-                };
-                let (added, skipped) = (report.imported.len(), report.skipped.len());
-                let mut text = format!("Imported {added} script(s).");
-                if let Some((path, why)) = report.skipped.first() {
-                    text.push_str(&format!(
-                        " Skipped {skipped}: {} ({why}).",
-                        path.file_name()
-                            .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
-                    ));
-                }
-                this.say(skipped == 0, text, cx);
-                if let Some(first) = report.imported.first() {
-                    this.open(first, window, cx);
-                }
-            });
+            lost(
+                "actions: import",
+                this.update_in(cx, |this, window, cx| {
+                    let Some(report) = report else {
+                        return;
+                    };
+                    let (added, skipped) = (report.imported.len(), report.skipped.len());
+                    let mut text = format!("Imported {added} script(s).");
+                    if let Some((path, why)) = report.skipped.first() {
+                        text.push_str(&format!(
+                            " Skipped {skipped}: {} ({why}).",
+                            path.file_name()
+                                .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
+                        ));
+                    }
+                    this.say(skipped == 0, text, cx);
+                    if let Some(first) = report.imported.first() {
+                        this.open(first, window, cx);
+                    }
+                }),
+            );
         })
         .detach();
     }

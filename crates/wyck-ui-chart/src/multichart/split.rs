@@ -10,18 +10,19 @@
 //! (depth first), which is stable for a given layout.
 
 use super::layouts::{Cell, Layout};
+use wyck_core::math::u32_to_f32;
 
 /// The least share of a split a child keeps when a line is dragged.
 const MIN_SHARE: f32 = 0.08;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Node {
+pub(crate) enum Node {
     /// Chart `n` of the layout.
     Leaf(usize),
     Split {
         /// Children stacked left to right (`false`) or top to bottom (`true`).
         vertical: bool,
-        children: Vec<Node>,
+        children: Vec<Self>,
         /// How much of the split each child takes; they need not add up to anything.
         weights: Vec<f32>,
     },
@@ -29,52 +30,57 @@ pub enum Node {
 
 /// A rectangle as shares of the whole area, from the top left.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Frac {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
+pub(crate) struct Frac {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
+    pub(crate) w: f32,
+    pub(crate) h: f32,
 }
 
 /// A line between two children of a split, where it can be dragged.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Divider {
+pub(crate) struct Divider {
     /// Which split (in depth first order) and which line of it: between child `i` and `i + 1`.
-    pub split: usize,
-    pub index: usize,
-    pub vertical: bool,
+    pub(crate) split: usize,
+    pub(crate) index: usize,
+    pub(crate) vertical: bool,
     /// Where the line is: for a vertical split a horizontal line at `at` from `from` to `to`
     /// across, for a horizontal split the other way round. All shares of the whole area.
-    pub at: f32,
-    pub from: f32,
-    pub to: f32,
+    pub(crate) at: f32,
+    pub(crate) from: f32,
+    pub(crate) to: f32,
     /// The size of the split along its direction, as a share of the whole, for turning a drag in
     /// pixels into a change of weight.
-    pub span: f32,
+    pub(crate) span: f32,
 }
 
 /// The tree of a layout, with weights from the grid (a cell twice as wide weighs twice as much).
-pub fn tree(layout: &Layout) -> Node {
+pub(crate) fn tree(layout: &Layout) -> Node {
     let cells: Vec<(usize, Cell)> = layout.cells.iter().copied().enumerate().collect();
     cut(&cells, 0, 0, layout.cols, layout.rows)
 }
 
-fn cut(cells: &[(usize, Cell)], x: u32, y: u32, w: u32, h: u32) -> Node {
-    if cells.len() == 1 {
-        return Node::Leaf(cells[0].0);
+/// The part of the grid being cut: where it starts and how many columns and rows it spans.
+fn cut(cells: &[(usize, Cell)], col: u32, row: u32, cols: u32, rows: u32) -> Node {
+    if let [(index, _)] = cells {
+        return Node::Leaf(*index);
     }
+    // The span of a cell along the direction of the cut.
+    let span = |vertical: bool, cell: &Cell| {
+        if vertical {
+            (cell.y, cell.y + cell.h)
+        } else {
+            (cell.x, cell.x + cell.w)
+        }
+    };
     // A cut is a line no cell crosses. Try vertical lines (children side by side) first.
     for vertical in [false, true] {
-        let (start, len) = if vertical { (y, h) } else { (x, w) };
+        let (start, len) = if vertical { (row, rows) } else { (col, cols) };
         let mut lines: Vec<u32> = (start + 1..start + len)
             .filter(|line| {
-                cells.iter().all(|(_, c)| {
-                    let (a, b) = if vertical {
-                        (c.y, c.y + c.h)
-                    } else {
-                        (c.x, c.x + c.w)
-                    };
-                    *line <= a || *line >= b
+                cells.iter().all(|(_, cell)| {
+                    let (from, to) = span(vertical, cell);
+                    *line <= from || *line >= to
                 })
             })
             .collect();
@@ -86,28 +92,26 @@ fn cut(cells: &[(usize, Cell)], x: u32, y: u32, w: u32, h: u32) -> Node {
         let mut children = Vec::new();
         let mut weights = Vec::new();
         for pair in lines.windows(2) {
-            let (a, b) = (pair[0], pair[1]);
+            let &[from, to] = pair else {
+                continue;
+            };
             let inside: Vec<(usize, Cell)> = cells
                 .iter()
                 .copied()
-                .filter(|(_, c)| {
-                    let (lo, hi) = if vertical {
-                        (c.y, c.y + c.h)
-                    } else {
-                        (c.x, c.x + c.w)
-                    };
-                    lo >= a && hi <= b
+                .filter(|(_, cell)| {
+                    let (low, high) = span(vertical, cell);
+                    low >= from && high <= to
                 })
                 .collect();
             if inside.is_empty() {
                 continue;
             }
             children.push(if vertical {
-                cut(&inside, x, a, w, b - a)
+                cut(&inside, col, from, cols, to - from)
             } else {
-                cut(&inside, a, y, b - a, h)
+                cut(&inside, from, row, to - from, rows)
             });
-            weights.push((b - a) as f32);
+            weights.push(u32_to_f32(to - from));
         }
         return Node::Split {
             vertical,
@@ -125,14 +129,14 @@ fn cut(cells: &[(usize, Cell)], x: u32, y: u32, w: u32, h: u32) -> Node {
 
 impl Node {
     /// The weights of every split, depth first.
-    pub fn weights(&self) -> Vec<Vec<f32>> {
+    pub(crate) fn weights(&self) -> Vec<Vec<f32>> {
         let mut out = Vec::new();
         self.walk_weights(&mut |weights| out.push(weights.clone()));
         out
     }
 
     fn walk_weights(&self, f: &mut impl FnMut(&Vec<f32>)) {
-        if let Node::Split {
+        if let Self::Split {
             children, weights, ..
         } = self
         {
@@ -144,13 +148,13 @@ impl Node {
     }
 
     /// Puts saved weights back, where each list has the right length and sane numbers.
-    pub fn apply_weights(&mut self, saved: &[Vec<f32>]) {
+    pub(crate) fn apply_weights(&mut self, saved: &[Vec<f32>]) {
         let mut index = 0;
         self.apply_at(saved, &mut index);
     }
 
     fn apply_at(&mut self, saved: &[Vec<f32>], index: &mut usize) {
-        if let Node::Split {
+        if let Self::Split {
             children, weights, ..
         } = self
         {
@@ -168,7 +172,7 @@ impl Node {
     }
 
     /// Where every chart goes, by chart index, and where the lines between them are.
-    pub fn place(&self, count: usize) -> (Vec<Frac>, Vec<Divider>) {
+    pub(crate) fn place(&self, count: usize) -> (Vec<Frac>, Vec<Divider>) {
         let mut rects = vec![
             Frac {
                 x: 0.0,
@@ -202,12 +206,12 @@ impl Node {
         split: &mut usize,
     ) {
         match self {
-            Node::Leaf(index) => {
+            Self::Leaf(index) => {
                 if let Some(slot) = rects.get_mut(*index) {
                     *slot = area;
                 }
             }
-            Node::Split {
+            Self::Split {
                 vertical,
                 children,
                 weights,
@@ -265,27 +269,27 @@ impl Node {
 
     /// Moves the line `index` of split `split` by `delta`, a share of the whole area along the
     /// split's direction. Neither child gets smaller than a minimum share of the split.
-    pub fn drag(&mut self, split: usize, index: usize, delta: f32, span: f32) {
+    pub(crate) fn drag(&mut self, split: usize, index: usize, delta: f32, span: f32) {
         let mut counter = 0;
         self.drag_at(split, index, delta / span.max(f32::EPSILON), &mut counter);
     }
 
     fn drag_at(&mut self, split: usize, index: usize, delta: f32, counter: &mut usize) -> bool {
-        let Node::Split {
+        let Self::Split {
             children, weights, ..
         } = self
         else {
             return false;
         };
         if *counter == split {
-            if index + 1 < weights.len() {
-                let total: f32 = weights.iter().sum();
-                let pair = weights[index] + weights[index + 1];
+            let total: f32 = weights.iter().sum();
+            if let Some([left, right]) = weights.get_mut(index..index + 2) {
+                let pair = *left + *right;
                 let min = MIN_SHARE * total;
-                let a = (weights[index] + delta * total)
-                    .clamp(min.min(pair / 2.0), pair - min.min(pair / 2.0));
-                weights[index] = a;
-                weights[index + 1] = pair - a;
+                let moved =
+                    (*left + delta * total).clamp(min.min(pair / 2.0), pair - min.min(pair / 2.0));
+                *left = moved;
+                *right = pair - moved;
             }
             return true;
         }
@@ -296,7 +300,7 @@ impl Node {
     }
 
     /// Every split back to the weights of the grid.
-    pub fn reset(&mut self, layout: &Layout) {
+    pub(crate) fn reset(&mut self, layout: &Layout) {
         *self = tree(layout);
     }
 }
@@ -320,10 +324,10 @@ mod tests {
                 for (index, cell) in layout.cells.iter().enumerate() {
                     let r = rects[index];
                     let expected = Frac {
-                        x: cell.x as f32 / layout.cols as f32,
-                        y: cell.y as f32 / layout.rows as f32,
-                        w: cell.w as f32 / layout.cols as f32,
-                        h: cell.h as f32 / layout.rows as f32,
+                        x: u32_to_f32(cell.x) / u32_to_f32(layout.cols),
+                        y: u32_to_f32(cell.y) / u32_to_f32(layout.rows),
+                        w: u32_to_f32(cell.w) / u32_to_f32(layout.cols),
+                        h: u32_to_f32(cell.h) / u32_to_f32(layout.rows),
                     };
                     assert!(
                         close(r.x, expected.x)
@@ -341,7 +345,7 @@ mod tests {
     fn a_single_chart_has_no_line_and_a_grid_has_its_lines() {
         let one = &catalog()[0].1[0];
         let (_, dividers) = tree(one).place(1);
-        assert!(dividers.is_empty());
+        assert_eq!(dividers, Vec::new());
         let four = catalog().iter().find(|(c, _)| *c == 4).unwrap().1[0].clone();
         let (_, dividers) = tree(&four).place(4);
         // 2 x 2: one line between the columns, and one inside each column.

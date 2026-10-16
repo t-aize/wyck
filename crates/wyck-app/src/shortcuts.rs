@@ -3,7 +3,7 @@
 //!
 //! A combination is written the way gpui writes it: modifiers, then the key, joined by `-`
 //! (`secondary-shift-z`, `alt-1`, `f9`). `secondary` is Cmd on a Mac and Ctrl elsewhere, so one
-//! default works on every system. What the screens bind and draw lives in `ui::shell::keymap`;
+//! default works on every system. What the screens bind and draw lives in `wyck_ui_shell::keymap`;
 //! this file knows nothing about actions, only about ids and combinations.
 
 use std::collections::BTreeMap;

@@ -37,7 +37,7 @@ impl DrawingProps {
                     "Save as default",
                     Some(IconName::Save),
                     false,
-                    move |_window, cx| template.update(cx, |e, cx| e.save_template(cx)),
+                    move |_window, cx| template.update(cx, Self::save_template),
                 )
                 .tooltip("New drawings of this tool start with this look")
                 .into_any_element(),
@@ -92,8 +92,10 @@ impl Render for DrawingProps {
             self.make_level_fields(&drawing, window, cx);
         }
         let tabs = self.tabs();
-        if !tabs.contains(&self.tab) {
-            self.tab = tabs[0];
+        if !tabs.contains(&self.tab)
+            && let Some(&first) = tabs.first()
+        {
+            self.tab = first;
         }
         let specs: Vec<form::Tab> = tabs.iter().map(|t| t.spec()).collect();
         let active = tabs.iter().position(|t| *t == self.tab).unwrap_or(0);
@@ -123,7 +125,9 @@ impl Render for DrawingProps {
             &specs,
             active,
             move |index, _window, cx| {
-                let tab = tabs[index];
+                let Some(&tab) = tabs.get(index) else {
+                    return;
+                };
                 this.update(cx, |e, cx| {
                     e.tab = tab;
                     e.swatch = None;

@@ -11,16 +11,16 @@ use wyck_chart::P;
 
 /// A rectangle, as left, top, right, bottom.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Rect {
-    pub left: f32,
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
+pub(crate) struct Rect {
+    pub(crate) left: f32,
+    pub(crate) top: f32,
+    pub(crate) right: f32,
+    pub(crate) bottom: f32,
 }
 
 impl Rect {
     /// The rectangle grown by `by` on every side.
-    pub fn grown(self, by: f32) -> Self {
+    pub(crate) fn grown(self, by: f32) -> Self {
         Self {
             left: self.left - by,
             top: self.top - by,
@@ -78,11 +78,17 @@ fn finite(p: P) -> bool {
 
 /// The parts of a line that show in `rect`, each a polyline. A point that is not a number cuts the
 /// line there.
-pub fn solid(points: &[P], rect: Rect) -> Vec<Vec<P>> {
+#[expect(
+    clippy::float_cmp,
+    reason = "`clip_segment` starts at exactly 1.0 and only lowers it, so 1.0 means the end was not clipped"
+)]
+pub(crate) fn solid(points: &[P], rect: Rect) -> Vec<Vec<P>> {
     let mut out: Vec<Vec<P>> = Vec::new();
     let mut open = false;
     for pair in points.windows(2) {
-        let (a, b) = (pair[0], pair[1]);
+        let &[a, b] = pair else {
+            continue;
+        };
         let clipped = if finite(a) && finite(b) {
             clip_segment(a, b, rect)
         } else {
@@ -106,7 +112,7 @@ pub fn solid(points: &[P], rect: Rect) -> Vec<Vec<P>> {
 /// The dashes of a line that show in `rect`, each a polyline. `on` and `off` are the lengths of a
 /// dash and of the gap after it, from the start of the line. Nothing is made for what is off
 /// screen, so the work does not grow with the length of the line.
-pub fn dashes(points: &[P], on: f32, off: f32, rect: Rect) -> Vec<Vec<P>> {
+pub(crate) fn dashes(points: &[P], on: f32, off: f32, rect: Rect) -> Vec<Vec<P>> {
     let period = on + off;
     if !(on.is_finite() && off.is_finite() && on > 0.0 && off >= 0.0 && period > 0.0) {
         return solid(points, rect);
@@ -121,7 +127,9 @@ pub fn dashes(points: &[P], on: f32, off: f32, rect: Rect) -> Vec<Vec<P>> {
     let mut phase = 0.0_f32;
     let mut current: Option<Vec<P>> = None;
     for pair in points.windows(2) {
-        let (a, b) = (pair[0], pair[1]);
+        let &[a, b] = pair else {
+            continue;
+        };
         if !(finite(a) && finite(b)) {
             if let Some(dash) = current.take() {
                 out.push(dash);
@@ -186,11 +194,15 @@ pub fn dashes(points: &[P], on: f32, off: f32, rect: Rect) -> Vec<Vec<P>> {
 
 /// A polygon cut to `rect` (Sutherland-Hodgman). What shows of it is the same, and its points
 /// cannot be far enough to spoil the tessellation. A point that is not a number is dropped.
-pub fn clip_polygon(points: &[P], rect: Rect) -> Vec<P> {
-    let mut poly: Vec<P> = points.iter().copied().filter(|p| finite(*p)).collect();
-    // Each edge of the rectangle keeps what is on its inner side.
+#[expect(
+    clippy::suspicious_operation_groupings,
+    reason = "an edge on a vertical side divides by the horizontal span, one on a horizontal side by the vertical span"
+)]
+pub(crate) fn clip_polygon(points: &[P], rect: Rect) -> Vec<P> {
     type Inside = fn(P, Rect) -> bool;
     type Cross = fn(P, P, Rect) -> P;
+    let mut poly: Vec<P> = points.iter().copied().filter(|p| finite(*p)).collect();
+    // Each edge of the rectangle keeps what is on its inner side.
     let edges: [(Inside, Cross); 4] = [
         (
             |p, r| p.0 >= r.left,
@@ -214,7 +226,10 @@ pub fn clip_polygon(points: &[P], rect: Rect) -> Vec<P> {
             break;
         }
         let input = std::mem::take(&mut poly);
-        let mut previous = input[input.len() - 1];
+        let Some(&last) = input.last() else {
+            break;
+        };
+        let mut previous = last;
         for current in input {
             match (inside(previous, rect), inside(current, rect)) {
                 (true, true) => poly.push(current),
@@ -232,7 +247,7 @@ pub fn clip_polygon(points: &[P], rect: Rect) -> Vec<P> {
 }
 
 /// Splits `pieces` into groups holding at most `budget` points each, to be one path each.
-pub fn batches(pieces: Vec<Vec<P>>, budget: usize) -> Vec<Vec<Vec<P>>> {
+pub(crate) fn batches(pieces: Vec<Vec<P>>, budget: usize) -> Vec<Vec<Vec<P>>> {
     let mut out: Vec<Vec<Vec<P>>> = Vec::new();
     let mut count = 0;
     for piece in pieces {
@@ -241,7 +256,9 @@ pub fn batches(pieces: Vec<Vec<P>>, budget: usize) -> Vec<Vec<Vec<P>>> {
             let mut start = 0;
             while start + 1 < piece.len() {
                 let end = (start + budget).min(piece.len());
-                out.push(vec![piece[start..end].to_vec()]);
+                if let Some(part) = piece.get(start..end) {
+                    out.push(vec![part.to_vec()]);
+                }
                 start = end - 1;
             }
             count = budget;
@@ -306,7 +323,7 @@ mod tests {
             "too many vertices as it is"
         );
         let pieces = dashes(&line, 2.0, 3.0, SCREEN.grown(8.0));
-        assert!(!pieces.is_empty());
+        assert_ne!(pieces, Vec::<Vec<P>>::new());
         let groups = batches(pieces, 3_000);
         assert!(builds(&groups, None), "each batch of dashes is taken");
     }
@@ -320,7 +337,10 @@ mod tests {
             "{parts:?}"
         );
         // Outside altogether: nothing.
-        assert!(solid(&[(-5.0, -5.0), (-1.0, -10.0)], SCREEN).is_empty());
+        assert_eq!(
+            solid(&[(-5.0, -5.0), (-1.0, -10.0)], SCREEN),
+            Vec::<Vec<P>>::new()
+        );
         // Inside: unchanged.
         let inside = [(10.0, 10.0), (20.0, 50.0), (400.0, 20.0)];
         assert_eq!(solid(&inside, SCREEN), vec![inside.to_vec()]);
@@ -429,7 +449,10 @@ mod tests {
         // A triangle inside is unchanged, one outside is nothing.
         let inside = [(10.0, 10.0), (100.0, 10.0), (50.0, 90.0)];
         assert_eq!(clip_polygon(&inside, SCREEN).len(), 3);
-        assert!(clip_polygon(&[(-50.0, -50.0), (-10.0, -50.0), (-30.0, -10.0)], SCREEN).is_empty());
+        assert_eq!(
+            clip_polygon(&[(-50.0, -50.0), (-10.0, -50.0), (-30.0, -10.0)], SCREEN),
+            Vec::new()
+        );
         // A point that is not a number is left out.
         let spoiled = [(10.0, 10.0), (f32::NAN, 5.0), (100.0, 10.0), (50.0, 90.0)];
         assert!(clip_polygon(&spoiled, SCREEN).iter().all(|p| finite(*p)));
@@ -437,8 +460,8 @@ mod tests {
 
     #[test]
     fn batches_hold_at_most_their_budget_and_lose_nothing() {
-        let pieces: Vec<Vec<P>> = (0..10)
-            .map(|i| vec![(i as f32, 0.0), (i as f32, 1.0)])
+        let pieces: Vec<Vec<P>> = (0..10_u8)
+            .map(|i| vec![(f32::from(i), 0.0), (f32::from(i), 1.0)])
             .collect();
         let groups = batches(pieces.clone(), 6);
         assert_eq!(groups.len(), 4);
@@ -450,7 +473,7 @@ mod tests {
         let flat: Vec<Vec<P>> = groups.into_iter().flatten().collect();
         assert_eq!(flat, pieces);
         // One polyline longer than the budget is cut into parts that share their end points.
-        let long: Vec<P> = (0..10).map(|i| (i as f32, 0.0)).collect();
+        let long: Vec<P> = (0..10_u8).map(|i| (f32::from(i), 0.0)).collect();
         let groups = batches(vec![long], 4);
         assert_eq!(groups.len(), 3);
         assert_eq!(groups[0][0].last(), groups[1][0].first());

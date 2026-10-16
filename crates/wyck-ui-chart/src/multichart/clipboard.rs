@@ -8,7 +8,7 @@ impl MultiChart {
     /// Ctrl+C: copies the selected drawings, or else the indicators of the chart.
     pub fn copy_active_indicators(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        if chart.update(cx, |chart, cx| chart.copy_selected_drawings(cx)) {
+        if chart.update(cx, super::super::chart::Chart::copy_selected_drawings) {
             // What was copied last is what Ctrl+V pastes.
             self.clipboard = None;
             return;
@@ -20,7 +20,7 @@ impl MultiChart {
     pub fn paste_active(&mut self, cx: &mut Context<Self>) {
         if self.clipboard.is_none() {
             let chart = self.active_chart().clone();
-            if chart.update(cx, |chart, cx| chart.paste_drawings(cx)) {
+            if chart.update(cx, super::super::chart::Chart::paste_drawings) {
                 return;
             }
         }
@@ -30,7 +30,7 @@ impl MultiChart {
     /// Ctrl+A on the charts: selects every drawing of the symbol.
     pub fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        chart.update(cx, |chart, cx| chart.select_all_drawings(cx));
+        chart.update(cx, super::super::chart::Chart::select_all_drawings);
     }
 
     /// An arrow key: moves the selected drawings. Returns whether there were any to move.
@@ -81,7 +81,7 @@ impl MultiChart {
             return;
         }
         chart.update(cx, |chart, cx| {
-            chart.edit_settings(cx, |settings| settings.studies = studies)
+            chart.edit_settings(cx, |settings| settings.studies = studies);
         });
         self.persist(cx);
     }
@@ -99,7 +99,7 @@ impl MultiChart {
             if index != from {
                 let studies = studies.clone();
                 slot.chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |s| s.studies = studies)
+                    chart.edit_settings(cx, |s| s.studies = studies);
                 });
             }
         }

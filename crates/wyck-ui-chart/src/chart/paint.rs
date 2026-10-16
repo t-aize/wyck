@@ -17,6 +17,7 @@ use wyck_drawings::look::Face;
 use super::Chart;
 use super::path_pieces;
 use wyck_chart::{Align, Cmd, DrawingView, Frame, P};
+use wyck_core::math::f32_of;
 
 /// Most points in one path: a GPU path may only hold so many vertices (see [`super::path_pieces`]).
 const PATH_BATCH: usize = 3_000;
@@ -74,7 +75,7 @@ impl Chart {
                 .filter(|_| with_pointer)
                 .map(|r| (r.time_ms, r.price)),
             ask: self.ask,
-            now_ms: self.now_for_display(),
+            now_ms: Self::now_for_display(),
             palette: super::palette::palette_for_chart(&self.settings.colors),
             drawings: drawings
                 .as_ref()
@@ -95,7 +96,10 @@ impl Chart {
 impl Chart {
     /// A PNG picture of the chart as it is on screen, at twice its size, with the symbol and
     /// timeframe written at the top left. Also returns a file name for it.
-    pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), super::raster::RasterError> {
+    pub(crate) fn picture(
+        &self,
+        cx: &App,
+    ) -> Result<(Vec<u8>, String), super::raster::RasterError> {
         let (pixmap, _) = self.picture_pixels(cx)?;
         let png = pixmap
             .encode_png()
@@ -110,7 +114,7 @@ impl Chart {
             false,
             false,
         );
-        let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let stamp: String = when.chars().filter(char::is_ascii_alphanumeric).collect();
         let name = format!(
             "wyck-{}-{}-{stamp}.png",
             symbol.replace(|c: char| !c.is_ascii_alphanumeric(), ""),
@@ -121,13 +125,13 @@ impl Chart {
 
     /// The pixels of [`Self::picture`], for a picture of several charts, with the background color
     /// of the chart. The scale is [`super::raster::PICTURE_SCALE`].
-    pub fn picture_pixels(
+    pub(crate) fn picture_pixels(
         &self,
         cx: &App,
     ) -> Result<(tiny_skia::Pixmap, Hsla), super::raster::RasterError> {
         let (w, h) = self.size();
         let scale = super::raster::PICTURE_SCALE;
-        let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));
+        let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(f32_of(w)), px(f32_of(h))));
         // No crosshair in a picture: it is drawn for the pointer, which is not in it.
         let cmds = self.scene(cx, bounds, scale, false);
         let palette = super::palette::palette_for_chart(&self.settings.colors);
@@ -137,7 +141,8 @@ impl Chart {
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
         let mut title = format!("{symbol}  {}", self.timeframe.name());
         if self.settings.kind != super::ChartKind::Candles {
-            title.push_str(&format!("  {}", self.settings.kind.label()));
+            title.push_str("  ");
+            title.push_str(self.settings.kind.label());
         }
         let when = full_time(
             wyck_app::market_data::now_ms(),
@@ -165,8 +170,8 @@ impl Chart {
         let background = hsla(palette.bg);
         let pixmap = super::raster::render_pixmap(
             &cmds,
-            w as f32,
-            h as f32,
+            f32_of(w),
+            f32_of(h),
             super::raster::PICTURE_SCALE,
             background,
             &captions,
@@ -176,7 +181,7 @@ impl Chart {
 }
 
 /// Draws the commands of a frame.
-pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
+pub(crate) fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
     for cmd in cmds {
         match cmd {
             Cmd::Rect {
@@ -241,14 +246,7 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
             } => {
                 let line = shape(window, &text, font_size, color, bold, face);
                 let x = aligned(x, f32::from(line.width), align);
-                let _ = line.paint(
-                    point(px(x), px(y)),
-                    px(font_size * 1.3),
-                    TextAlign::Left,
-                    None,
-                    window,
-                    cx,
-                );
+                paint_line(&line, point(px(x), px(y)), font_size, window, cx);
             }
             Cmd::FittedText {
                 text,
@@ -276,21 +274,14 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                     let mut quad = gpui::fill(
                         Bounds::new(
                             point(px(left - 3.0), px(top - 1.0)),
-                            size(px(text_w + 6.0), px(font_size * 1.3 + 2.0)),
+                            size(px(text_w + 6.0), px(font_size * LINE_HEIGHT + 2.0)),
                         ),
                         super::palette::gpui_hsla(bg),
                     );
                     quad.corner_radii = px(3.0).into();
                     window.paint_quad(quad);
                 }
-                let _ = line.paint(
-                    point(px(left), px(top)),
-                    px(font_size * 1.3),
-                    TextAlign::Left,
-                    None,
-                    window,
-                    cx,
-                );
+                paint_line(&line, point(px(left), px(top)), font_size, window, cx);
             }
             Cmd::Tag {
                 text,
@@ -319,11 +310,13 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 );
                 quad.corner_radii = px(3.0).into();
                 window.paint_quad(quad);
-                let _ = line.paint(
-                    point(px(x + pad), px(y + (height - font_size * 1.3) / 2.0)),
-                    px(font_size * 1.3),
-                    TextAlign::Left,
-                    None,
+                paint_line(
+                    &line,
+                    point(
+                        px(x + pad),
+                        px(y + (height - font_size * LINE_HEIGHT) / 2.0),
+                    ),
+                    font_size,
                     window,
                     cx,
                 );
@@ -347,7 +340,7 @@ fn visible(window: &Window, grow: f32) -> path_pieces::Rect {
 }
 
 /// Says once that a shape was refused by the GPU path builder. It used to vanish without a word.
-fn note_refused(error: &anyhow::Error, points: usize) {
+fn note_refused(error: &impl std::fmt::Display, points: usize) {
     use std::sync::atomic::{AtomicBool, Ordering};
     static SAID: AtomicBool = AtomicBool::new(false);
     if !SAID.swap(true, Ordering::Relaxed) {
@@ -392,6 +385,30 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
     }
 }
 
+/// The height of a line of text, as a multiple of its font size.
+const LINE_HEIGHT: f32 = 1.3;
+
+/// Paints a shaped line with its top left corner at `origin`. A line the text system cannot
+/// paint is skipped and logged, so the rest of the frame is still drawn.
+fn paint_line(
+    line: &gpui::ShapedLine,
+    origin: gpui::Point<Pixels>,
+    font_size: f32,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if let Err(error) = line.paint(
+        origin,
+        px(font_size * LINE_HEIGHT),
+        TextAlign::Left,
+        None,
+        window,
+        cx,
+    ) {
+        tracing::warn!(%error, "could not paint a line of text on a chart");
+    }
+}
+
 fn shape(
     window: &Window,
     text: &str,
@@ -428,7 +445,7 @@ fn shape(
 }
 
 /// The canvas: measures itself, draws a frame from the chart's data, and listens to the pointer.
-pub fn surface(
+pub(crate) fn surface(
     chart: &Entity<Chart>,
     bounds_cell: Rc<Cell<Option<Bounds<Pixels>>>>,
 ) -> impl IntoElement {
@@ -490,7 +507,7 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
         {
             return;
         }
-        if e.update(cx, |chart, cx| chart.abort_drawing(cx)) {
+        if e.update(cx, Chart::abort_drawing) {
             cx.stop_propagation();
         }
     });

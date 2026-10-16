@@ -14,7 +14,7 @@ use wyck_drawings::model::Drawing;
 use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::{button, form, form::Head, icon, modal, theme, tokens};
 
-pub fn tool_icon(tool: Tool) -> IconName {
+pub(crate) fn tool_icon(tool: Tool) -> IconName {
     match tool {
         Tool::TrendLine => IconName::TrendingUp,
         Tool::Ray => IconName::MoveUpRight,
@@ -24,13 +24,12 @@ pub fn tool_icon(tool: Tool) -> IconName {
         Tool::VerticalLine => IconName::SeparatorVertical,
         Tool::CrossLine => IconName::Plus,
         Tool::Arrow => IconName::ArrowUpRight,
-        Tool::ArrowPath => IconName::Spline,
+        Tool::ArrowPath | Tool::DoubleCurve | Tool::Abcd => IconName::Spline,
         Tool::InfoLine => IconName::Info,
         Tool::TrendAngle => IconName::Angle,
         Tool::RegressionTrend => IconName::ChartLine,
         Tool::FlatTopBottom => IconName::StretchHorizontal,
         Tool::DisjointChannel => IconName::Layers2,
-        Tool::Pitchfan => IconName::Fan,
         Tool::FibTimeExtension => IconName::Timer,
         Tool::FibCircles => IconName::CircleDot,
         Tool::FibSpiral => IconName::RotateCw,
@@ -44,11 +43,10 @@ pub fn tool_icon(tool: Tool) -> IconName {
         Tool::Circle => IconName::Circle,
         Tool::Arc => IconName::Radius,
         Tool::Curve => IconName::SplinePointer,
-        Tool::DoubleCurve => IconName::Spline,
         Tool::Highlighter => IconName::Highlighter,
         Tool::ArrowMarker => IconName::ArrowUpFromLine,
-        Tool::ArrowMarkUp => IconName::ArrowBigUp,
-        Tool::ArrowMarkDown => IconName::ArrowBigDown,
+        Tool::ArrowMarkUp | Tool::LongPosition => IconName::ArrowBigUp,
+        Tool::ArrowMarkDown | Tool::ShortPosition => IconName::ArrowBigDown,
         Tool::PriceRange => IconName::MoveVertical,
         Tool::DateRange => IconName::MoveHorizontal,
         Tool::DatePriceRange => IconName::Scan,
@@ -75,12 +73,11 @@ pub fn tool_icon(tool: Tool) -> IconName {
         Tool::FibRetracement | Tool::FibExtension => IconName::ChartNoAxesGantt,
         Tool::FibChannel => IconName::Rows3,
         Tool::FibTimeZone => IconName::Columns3,
-        Tool::FibFan | Tool::GannFan => IconName::Fan,
+        Tool::FibFan | Tool::GannFan | Tool::Pitchfan => IconName::Fan,
         Tool::GannBox => IconName::Grid2x2,
         Tool::GannSquare => IconName::Grid3x3,
         Tool::Xabcd => IconName::Waypoints,
         Tool::Cypher => IconName::Route,
-        Tool::Abcd => IconName::Spline,
         Tool::HeadAndShoulders => IconName::Mountain,
         Tool::TrianglePattern => IconName::ChevronsLeftRight,
         Tool::ThreeDrives => IconName::Activity,
@@ -94,8 +91,6 @@ pub fn tool_icon(tool: Tool) -> IconName {
         Tool::Ellipse => IconName::Ellipse,
         Tool::Brush => IconName::Brush,
         Tool::Measure => IconName::Ruler,
-        Tool::LongPosition => IconName::ArrowBigUp,
-        Tool::ShortPosition => IconName::ArrowBigDown,
         Tool::Text => IconName::Type,
         Tool::PriceLabel => IconName::Tag,
         Tool::Unknown => IconName::Pen,
@@ -103,7 +98,7 @@ pub fn tool_icon(tool: Tool) -> IconName {
 }
 
 /// Opens the list of the drawings of `symbol`.
-pub fn open(
+pub(crate) fn open(
     drawings: Entity<Drawings>,
     symbol: String,
     zone: Zone,
@@ -153,7 +148,6 @@ impl ObjectTree {
 
     /// One row of the list: the drawing, and the buttons that act on it.
     fn row(
-        &self,
         drawing: &Drawing,
         position: usize,
         count: usize,
@@ -164,7 +158,7 @@ impl ObjectTree {
         let (hidden, locked) = (drawing.hidden, drawing.locked);
         let restricted = drawing.timeframes.is_some();
         let button = |name: &str, icon: IconName, tip: &'static str| {
-            wyck_ui_kit::button::dense(SharedString::from(format!("{name}-{id}")))
+            button::dense(SharedString::from(format!("{name}-{id}")))
                 .icon(icon)
                 .tooltip(tip)
         };
@@ -254,10 +248,7 @@ impl ObjectTree {
                     },
                     if hidden { "Show" } else { "Hide" },
                 )
-                .on_click(act(
-                    |book, symbol, id, flag| book.set_hidden(symbol, id, flag),
-                    !hidden,
-                )),
+                .on_click(act(Book::set_hidden, !hidden)),
             )
             .child(
                 button(
@@ -269,10 +260,7 @@ impl ObjectTree {
                     },
                     if locked { "Unlock" } else { "Lock" },
                 )
-                .on_click(act(
-                    |book, symbol, id, flag| book.set_locked(symbol, id, flag),
-                    !locked,
-                )),
+                .on_click(act(Book::set_locked, !locked)),
             )
             .child(
                 button("tree-settings", IconName::Settings2, "Settings").on_click(
@@ -342,7 +330,7 @@ impl Render for ObjectTree {
             let mut rows = div().flex().flex_col().gap_1();
             for (position, drawing) in list.iter().enumerate().rev() {
                 let is_selected = selected == Some(drawing.id);
-                rows = rows.child(self.row(drawing, position, count, is_selected, &this));
+                rows = rows.child(Self::row(drawing, position, count, is_selected, &this));
             }
             rows.into_any_element()
         };
@@ -373,7 +361,7 @@ impl Render for ObjectTree {
                     false,
                     move |_window, cx| {
                         clear.update(cx, |tree, cx| {
-                            tree.edit(cx, |book, symbol| book.clear(symbol));
+                            tree.edit(cx, Book::clear);
                         });
                     },
                 )

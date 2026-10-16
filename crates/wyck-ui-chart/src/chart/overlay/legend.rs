@@ -8,6 +8,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
 use wyck_chart::{Geometry, axis_w};
 use wyck_chart::{compact, format_value, signed};
+use wyck_core::math::{count_f32, count_i64, f32_of};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{controls, icon, theme, tokens};
 
@@ -24,8 +25,10 @@ impl Chart {
 
     /// The number under the pointer (or the newest) of each plot of an indicator, with its color.
     pub(super) fn study_values(&self, study: usize, index: usize) -> Vec<(String, u32)> {
-        let config = &self.settings.studies[study];
-        let Some(Some(output)) = self.display.studies.get(study) else {
+        let (Some(config), Some(Some(output))) = (
+            self.settings.studies.get(study),
+            self.display.studies.get(study),
+        ) else {
             return Vec::new();
         };
         let format = match config.spec().placement {
@@ -37,7 +40,7 @@ impl Chart {
             .iter()
             .filter(|plot| config.plot_style(plot.key).visible)
             .map(|plot| {
-                let at = index as i64 - plot.offset;
+                let at = count_i64(index) - plot.offset;
                 let value = usize::try_from(at)
                     .ok()
                     .and_then(|i| plot.values.get(i).copied())
@@ -70,7 +73,9 @@ impl Chart {
         index: Option<usize>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let config = &self.settings.studies[study];
+        let Some(config) = self.settings.studies.get(study) else {
+            return div().into_any_element();
+        };
         let visible = config.visible;
         let group = SharedString::from(format!("study-row-{study}"));
         let values = index
@@ -80,7 +85,10 @@ impl Chart {
         // An indicator written as a script: which one, and what is wrong with it if anything.
         let script = config.script.clone().filter(|_| config.is_script());
         let alert: Option<String> = script.as_ref().and_then(|id| {
-            if !config.is_ready() {
+            if config.is_ready() {
+                self.custom_status(study)
+                    .and_then(|s| s.first_error().map(|p| p.message.clone()))
+            } else {
                 Some(
                     crate::chart::study::custom::library::registry::get(id)
                         .and_then(|e| e.problems.first().map(|p| p.message.clone()))
@@ -88,9 +96,6 @@ impl Chart {
                             format!("The script \"{id}\" is not in the indicators folder")
                         }),
                 )
-            } else {
-                self.custom_status(study)
-                    .and_then(|s| s.first_error().map(|p| p.message.clone()))
             }
         });
         let hover = self.hover_color();
@@ -100,7 +105,7 @@ impl Chart {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(wyck_ui_kit::tokens::height::tiny()))
+                .size(px(tokens::height::tiny()))
                 .rounded_sm()
                 .cursor_pointer()
                 .hover(move |s| s.bg(hover))
@@ -140,7 +145,7 @@ impl Chart {
                         13.,
                         theme::destructive(),
                     ))
-                    .tooltip(controls::tooltip(message.clone()))
+                    .tooltip(controls::tooltip(message))
             }))
             .child(
                 div()
@@ -218,8 +223,8 @@ impl Chart {
         let right = axis_w() + 8.0;
         let mut main = div()
             .absolute()
-            .top(px(wyck_ui_kit::tokens::space::sm()))
-            .left(px(wyck_ui_kit::tokens::space::sm()))
+            .top(px(tokens::space::sm()))
+            .left(px(tokens::space::sm()))
             .right(px(right))
             .flex()
             .flex_col()
@@ -243,8 +248,8 @@ impl Chart {
             out.push(
                 div()
                     .absolute()
-                    .top(px(band.top as f32 + 3.0))
-                    .left(px(wyck_ui_kit::tokens::space::sm()))
+                    .top(px(f32_of(band.top) + 3.0))
+                    .left(px(tokens::space::sm()))
                     .child(self.study_row(pane.study, index, cx))
                     .into_any_element(),
             );
@@ -285,7 +290,7 @@ impl Chart {
                 "Click or press where it starts, then click or drag to each next point. Esc goes back to the pointer".to_owned()
             }
         };
-        let bottom = ((geometry.h - geometry.main().bottom()) as f32 + 10.0).max(self.hint_floor);
+        let bottom = (f32_of(geometry.h - geometry.main().bottom()) + 10.0).max(self.hint_floor);
         Some(
             div()
                 .absolute()
@@ -361,21 +366,23 @@ impl Chart {
         Some(
             div()
                 .id(("market-status", self.id))
-                .size(px(wyck_ui_kit::tokens::height::tiny()))
+                .size(px(tokens::height::tiny()))
                 .flex()
                 .items_center()
                 .justify_center()
                 .rounded_full()
                 .cursor_default()
                 .hover(move |s| s.bg(hover))
-                .tooltip(controls::tooltip(text.clone()))
+                .tooltip(controls::tooltip(text))
                 .child(
                     div()
-                        .size(px(wyck_ui_kit::tokens::swatch::dot()))
+                        .size(px(tokens::swatch::dot()))
                         .rounded_full()
                         .bg(color)
                         .when(!status.is_open(), |el| {
-                            el.bg(gpui::rgba(0x00000000)).border_1().border_color(color)
+                            el.bg(gpui::rgba(0x0000_0000))
+                                .border_1()
+                                .border_color(color)
                         }),
                 )
                 .into_any_element(),
@@ -384,7 +391,7 @@ impl Chart {
 
     /// Where the legend ends, from the top of the chart: what floats over the chart (the bar of a
     /// selected drawing) goes under it.
-    pub fn legend_bottom(&self) -> f32 {
+    pub(crate) fn legend_bottom(&self) -> f32 {
         let compact = self.is_compact();
         let mut bottom = 6.0 + 22.0;
         if !compact && self.settings.status.indicators {
@@ -394,7 +401,7 @@ impl Chart {
                 .iter()
                 .filter(|s| s.spec().placement == Placement::Overlay)
                 .count();
-            bottom += overlays as f32 * 22.0;
+            bottom += count_f32(overlays) * 22.0;
         }
         bottom + 8.0
     }
@@ -402,10 +409,11 @@ impl Chart {
     /// The volume, the delta and what each side traded in the bar that opens at `time_ms`, added to
     /// the legend of a footprint.
     pub(super) fn flow_values(&self, time_ms: i64, row: gpui::Div) -> gpui::Div {
-        let Some((sell, buy)) = self.flow.bar(time_ms).map(|b| b.totals()) else {
+        let Some((sell, buy)) = self.flow.bar(time_ms).map(wyck_chart::BarFlow::totals) else {
             return row;
         };
-        let delta = buy as i64 - sell as i64;
+        let delta =
+            i64::try_from(buy).unwrap_or(i64::MAX) - i64::try_from(sell).unwrap_or(i64::MAX);
         let tone = if delta >= 0 {
             theme::chart_up()
         } else {

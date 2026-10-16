@@ -4,12 +4,14 @@ use super::helpers::side_of;
 use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif};
 use gpui::{App, Context, Entity};
 use std::time::Duration;
+use wyck_app::lost::lost;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
+use wyck_chart::LineId;
 use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
-use wyck_ui_chart::chart::{ChartLine, LineId};
+use wyck_ui_chart::chart::ChartLine;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
 
@@ -364,30 +366,33 @@ impl OrderTicket {
                     .await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
-                if this.margin_epoch != epoch {
-                    return;
-                }
-                let money = |m: &wyck_trading::ExpectedMargin| {
-                    (
-                        wyck_trading::money(m.buy_margin, digits),
-                        wyck_trading::money(m.sell_margin, digits),
-                    )
-                };
-                match answer.ok().and_then(Result::ok) {
-                    Some(margins) => {
-                        let of = |v: i64| margins.iter().find(|m| m.volume == v).map(money);
-                        this.margin = of(lot).zip(of(volume)).map(|(lot, order)| Margin {
-                            volume,
-                            lot,
-                            order,
-                        });
+            lost(
+                "planning: request_margin",
+                this.update(cx, |this, cx| {
+                    if this.margin_epoch != epoch {
+                        return;
                     }
-                    // Asked again when the volume changes.
-                    None => this.margin_asked = None,
-                }
-                cx.notify();
-            });
+                    let money = |m: &wyck_trading::ExpectedMargin| {
+                        (
+                            wyck_trading::money(m.buy_margin, digits),
+                            wyck_trading::money(m.sell_margin, digits),
+                        )
+                    };
+                    match answer.ok().and_then(Result::ok) {
+                        Some(margins) => {
+                            let of = |v: i64| margins.iter().find(|m| m.volume == v).map(money);
+                            this.margin = of(lot).zip(of(volume)).map(|(lot, order)| Margin {
+                                volume,
+                                lot,
+                                order,
+                            });
+                        }
+                        // Asked again when the volume changes.
+                        None => this.margin_asked = None,
+                    }
+                    cx.notify();
+                }),
+            );
         })
         .detach();
     }

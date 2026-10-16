@@ -7,9 +7,9 @@
 //! What the export contains is decided in `wyck-chart` (its export code); this is only the window on it.
 
 mod build;
-pub mod format;
-pub mod output;
-pub mod pages;
+pub(crate) mod format;
+pub(crate) mod output;
+pub(crate) mod pages;
 
 use super::Chart;
 use gpui::prelude::*;
@@ -25,6 +25,7 @@ use wyck_chart::Series;
 use wyck_chart::Source;
 use wyck_chart::Zone;
 use wyck_chart::{ChartKind, ChartSettings};
+use wyck_core::math::count_f64;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
@@ -33,7 +34,7 @@ use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number, 
 const MAX_COPY_ROWS: usize = 250_000;
 
 /// Opens the export panel of `chart`.
-pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
+pub(crate) fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
     window.defer(cx, move |window, cx| {
         let dialog = cx.new(|cx| ExportDialog::new(&chart, window, cx));
@@ -64,7 +65,7 @@ fn mono() -> &'static str {
 
 /// A size as `830 B`, `12.4 KB`, `3.1 MB`.
 fn human_bytes(bytes: usize) -> String {
-    let b = bytes as f64;
+    let b = count_f64(bytes);
     if b >= 1_048_576.0 {
         format!("{:.1} MB", b / 1_048_576.0)
     } else if b >= 1_024.0 {
@@ -202,7 +203,7 @@ struct ExportDialog {
     preview: Preview,
     /// Whether a file is being written.
     busy: bool,
-    _subscriptions: Vec<Subscription>,
+    subscriptions: Vec<Subscription>,
 }
 
 /// A text field that applies what is typed to the options.
@@ -258,8 +259,10 @@ impl ExportDialog {
     /// Keeps the options for the next time the panel opens.
     fn persist(&mut self) {
         self.saved.last = self.options.clone().normalized();
-        if let Some(store) = &self.store {
-            let _ = store::write(store, &self.saved);
+        if let Some(store) = &self.store
+            && let Err(error) = store::write(store, &self.saved)
+        {
+            tracing::warn!(%error, "could not save the options of the export panel");
         }
     }
 
@@ -290,8 +293,11 @@ impl ExportDialog {
             label,
             hint,
             controls::segmented(id, &names, index, move |chosen, _window, cx| {
+                let Some(value) = options.get(chosen).map(|option| option.0) else {
+                    return;
+                };
                 this.update(cx, |d, cx| {
-                    set(&mut d.options, options[chosen].0);
+                    set(&mut d.options, value);
                     d.edited(cx);
                 });
             }),
@@ -299,7 +305,6 @@ impl ExportDialog {
     }
 
     fn switch(
-        &self,
         cx: &mut Context<Self>,
         id: &'static str,
         label: &'static str,
@@ -403,7 +408,7 @@ impl Render for ExportDialog {
                     false,
                     move |_window, cx| {
                         if ready {
-                            copy.update(cx, |d, cx| d.copy(cx));
+                            copy.update(cx, Self::copy);
                         }
                     },
                 )
@@ -415,7 +420,7 @@ impl Render for ExportDialog {
                     true,
                     move |_window, cx| {
                         if ready {
-                            write.update(cx, |d, cx| d.export(cx));
+                            write.update(cx, Self::export);
                         }
                     },
                 )
@@ -428,7 +433,9 @@ impl Render for ExportDialog {
             active,
             move |index, _window, cx| {
                 this.update(cx, |d, cx| {
-                    d.page = Page::ALL[index];
+                    if let Some(page) = Page::ALL.get(index) {
+                        d.page = *page;
+                    }
                     cx.notify();
                 });
             },
