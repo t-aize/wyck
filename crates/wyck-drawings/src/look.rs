@@ -48,6 +48,10 @@ fn default_tag_opacity() -> f32 {
     DEFAULT_TAG_OPACITY
 }
 
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde calls a `skip_serializing_if` function with a reference"
+)]
 fn is_default_tag_opacity(value: &f32) -> bool {
     (*value - DEFAULT_TAG_OPACITY).abs() < 1e-6
 }
@@ -151,6 +155,10 @@ pub enum LabelSide {
 
 /// What the tools that measure write, and the color of a move down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own switch of the measure look; grouping them would change the saved form"
+)]
 pub struct MeasureLook {
     #[serde(default = "wyck_core::defaults::yes")]
     pub price: bool,
@@ -168,7 +176,7 @@ pub struct MeasureLook {
 }
 
 fn default_down() -> u32 {
-    0xff6467
+    0xff_6467
 }
 
 impl Default for MeasureLook {
@@ -244,6 +252,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp_const,
+        reason = "the value compared is a constant returned unchanged, so it is exact"
+    )]
     fn the_tag_opacity_and_the_face_stay_out_of_a_file_until_changed() {
         let text = toml::to_string(&TextLayout::default()).unwrap();
         assert!(!text.contains("background_opacity"), "{text}");
@@ -286,7 +298,7 @@ mod tests {
         assert_eq!(layout, TextLayout::default());
         let look: MeasureLook = toml::from_str("bars = false\n").unwrap();
         assert!(!look.bars && look.price && look.time);
-        assert_eq!(look.down_color, 0xff6467);
+        assert_eq!(look.down_color, 0xff_6467);
     }
 
     #[test]

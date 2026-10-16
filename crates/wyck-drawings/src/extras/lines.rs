@@ -7,18 +7,20 @@ use super::{
 
 use crate::figures;
 use crate::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, extended, label_size, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, extended, label_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use wyck_core::math::{count_f64, f32_of};
 
 pub(super) fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let (Some([a, b]), Some([p, q])) = (lead(pts), lead(&drawing.points)) else {
+        return;
+    };
     if let Some((from, to)) = extended(a, b, style.extend_left, style.extend_right, proj.plot()) {
         out.push(seg(from, to, style.color, 1.0, style.width, style.dash));
     }
     if style.labels {
-        let (p, q) = (drawing.points[0], drawing.points[1]);
         let rows = vec![
             move_text(proj, p, q, &style.measure),
             span_text(proj, p, q, &style.measure),
@@ -36,7 +38,9 @@ pub(super) fn trend_angle(
     out: &mut Vec<Prim>,
 ) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     if let Some((from, to)) = extended(a, b, style.extend_left, style.extend_right, proj.plot()) {
         out.push(seg(from, to, style.color, 1.0, style.width, style.dash));
     }
@@ -82,20 +86,29 @@ pub(super) fn trend_angle(
 
 pub(super) fn regression(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
+    let (Some([first_point, second_point]), Some([screen_a, screen_b])) =
+        (lead(&drawing.points), lead(pts))
+    else {
+        return;
+    };
     let (t0, t1) = (
-        drawing.points[0].t.min(drawing.points[1].t),
-        drawing.points[0].t.max(drawing.points[1].t),
+        first_point.t.min(second_point.t),
+        first_point.t.max(second_point.t),
     );
     let bars = proj.bars_between(t0, t1);
     let n = bars.len();
+    let (Some(first), Some(last)) = (bars.first(), bars.last()) else {
+        out.push(seg(screen_a, screen_b, style.color, 0.6, 1.0, Dash::Dashed));
+        return;
+    };
     if n < 2 {
-        out.push(seg(pts[0], pts[1], style.color, 0.6, 1.0, Dash::Dashed));
+        out.push(seg(screen_a, screen_b, style.color, 0.6, 1.0, Dash::Dashed));
         return;
     }
-    let count = n as f64;
+    let count = count_f64(n);
     let (mut sum_x, mut sum_xx, mut sum_y, mut sum_xy) = (0.0, 0.0, 0.0, 0.0);
     for (k, bar) in bars.iter().enumerate() {
-        let x = k as f64;
+        let x = count_f64(k);
         sum_x += x;
         sum_xx += x * x;
         sum_y += bar.close;
@@ -115,13 +128,12 @@ pub(super) fn regression(drawing: &Drawing, pts: &[P], proj: &dyn Projection, ou
     let variance = bars
         .iter()
         .enumerate()
-        .map(|(k, bar)| (bar.close - (intercept + slope * k as f64)).powi(2))
+        .map(|(k, bar)| (bar.close - (intercept + slope * count_f64(k))).powi(2))
         .sum::<f64>()
         / count;
     let deviation = variance.sqrt();
 
     let rect = proj.plot();
-    let (first, last) = (&bars[0], &bars[n - 1]);
     let line_at = |offset: f64| -> Option<(P, P)> {
         let from = (first.x, proj.y_of(intercept + offset));
         let to = (
@@ -179,7 +191,9 @@ pub(super) fn flat_top_bottom(
     out: &mut Vec<Prim>,
 ) {
     let style = &drawing.style;
-    let (a, b, c) = (pts[0], pts[1], pts[2]);
+    let Some([a, b, c]) = lead(pts) else {
+        return;
+    };
     let (from, to) = stretch(a, b, style, proj.plot());
     let flat = ((from.0, c.1), (to.0, c.1));
     if let Some(fill) = fill_of(style) {
@@ -207,8 +221,11 @@ pub(super) fn disjoint_channel(
 ) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let (a, b) = left_to_right(pts[0], pts[1]);
-    let (c, d) = left_to_right(pts[2], pts[3]);
+    let Some([p0, p1, p2, p3]) = lead(pts) else {
+        return;
+    };
+    let (a, b) = left_to_right(p0, p1);
+    let (c, d) = left_to_right(p2, p3);
     let (a, b) = stretch(a, b, style, rect);
     let (c, d) = stretch(c, d, style, rect);
     if let Some(fill) = fill_of(style) {
@@ -232,11 +249,13 @@ pub(super) fn disjoint_channel(
 }
 
 pub(super) fn pitchfan(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
-    let (a, b, c) = (pts[0], pts[1], pts[2]);
+    let Some([a, b, c]) = lead(pts) else {
+        return;
+    };
     let through: Vec<(P, u32, String)> = visible_levels(drawing)
         .into_iter()
         .map(|l| {
-            let p = add(b, scale(sub(c, b), l.value as f32));
+            let p = add(b, scale(sub(c, b), f32_of(l.value)));
             (p, l.color, level_text(l.value))
         })
         .collect();

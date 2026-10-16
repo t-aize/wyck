@@ -14,7 +14,7 @@ const EDGE: f32 = 6.0;
 /// The space between the words and the line they are above or below.
 const GAP: f32 = 4.0;
 /// The color of the tag behind the words when the style names none.
-const TAG: u32 = 0x1b1d24;
+const TAG: u32 = 0x1b_1d24;
 
 /// Adds the caps and the label of `drawing`. `pts` are its points on the screen.
 pub(super) fn decorate(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
@@ -24,23 +24,15 @@ pub(super) fn decorate(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<P
 
 fn caps(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let (tool, style) = (drawing.tool, &drawing.style);
-    if pts.len() < 2 {
+    let ([first, second, ..], [.., before, last]) = (pts, pts) else {
         return;
-    }
+    };
     let width = style.width;
     if tool.has_start_cap() {
-        push_cap(out, style.caps.start, pts[0], pts[1], style.color, width);
+        push_cap(out, style.caps.start, *first, *second, style.color, width);
     }
     if tool.has_end_cap() {
-        let last = pts.len() - 1;
-        push_cap(
-            out,
-            style.caps.end,
-            pts[last],
-            pts[last - 1],
-            style.color,
-            width,
-        );
+        push_cap(out, style.caps.end, *last, *before, style.color, width);
     }
 }
 
@@ -109,7 +101,9 @@ fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
         });
         return;
     }
-    let (at, anchor) = place(tool, pts, plot, layout, size);
+    let Some((at, anchor)) = place(tool, pts, plot, layout, size) else {
+        return;
+    };
     out.push(Prim::Label {
         at,
         text: text.to_owned(),
@@ -125,7 +119,7 @@ fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
 }
 
 /// Where the words of a drawing go, and which point of them sits there.
-fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (P, Anchor) {
+fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> Option<(P, Anchor)> {
     let lift = size * 0.6 + GAP;
     // Above, on or below a line at height `y`.
     let across = |y: f32| match layout.valign {
@@ -138,34 +132,38 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
         let (left, right) = (from.min(to), from.max(to));
         match layout.align {
             HAlign::Start => (left + EDGE, Anchor::Left),
-            HAlign::Center => ((left + right) / 2.0, Anchor::Center),
+            HAlign::Center => (f32::midpoint(left, right), Anchor::Center),
             HAlign::End => (right - EDGE, Anchor::Right),
         }
     };
 
     match tool {
         Tool::HorizontalLine | Tool::CrossLine => {
+            let &(_, y) = pts.first()?;
             let (x, anchor) = along(plot.l, plot.r);
-            ((x, across(pts[0].1)), anchor)
+            Some(((x, across(y)), anchor))
         }
         Tool::HorizontalRay => {
-            let (x, anchor) = along(pts[0].0, plot.r);
-            ((x, across(pts[0].1)), anchor)
+            let &(from, y) = pts.first()?;
+            let (x, anchor) = along(from, plot.r);
+            Some(((x, across(y)), anchor))
         }
         Tool::VerticalLine => {
             let y = match layout.valign {
                 VAlign::Auto | VAlign::Top => plot.t + size + GAP * 2.0,
-                VAlign::Middle => (plot.t + plot.b) / 2.0,
+                VAlign::Middle => f32::midpoint(plot.t, plot.b),
                 VAlign::Bottom => plot.b - size - GAP * 2.0,
             };
-            ((pts[0].0 + EDGE, y), Anchor::Left)
+            let &(x, _) = pts.first()?;
+            Some(((x + EDGE, y), Anchor::Left))
         }
         // A line between two points: the words follow it, wherever along it they stand.
         _ if pts.len() >= 2 && tool.anchors() == 2 && !tool.is_box() => {
-            let (a, b) = if pts[0].0 <= pts[1].0 {
-                (pts[0], pts[1])
+            let (&first, &second) = (pts.first()?, pts.get(1)?);
+            let (a, b) = if first.0 <= second.0 {
+                (first, second)
             } else {
-                (pts[1], pts[0])
+                (second, first)
             };
             let (x, anchor) = along(a.0, b.0);
             let t = if (b.0 - a.0).abs() < 1e-3 {
@@ -173,7 +171,7 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
             } else {
                 ((x - a.0) / (b.0 - a.0)).clamp(0.0, 1.0)
             };
-            ((x, across(a.1 + (b.1 - a.1) * t)), anchor)
+            Some(((x, across(a.1 + (b.1 - a.1) * t)), anchor))
         }
         // A shape, or a mark: inside the box its points make.
         _ => {
@@ -193,16 +191,16 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
                     VAlign::Middle => top,
                     VAlign::Bottom => top + 30.0,
                 };
-                return ((x, y), anchor);
+                return Some(((x, y), anchor));
             }
             let (x, anchor) = along(left, right);
             let inset = size * 0.7 + GAP;
             let y = match layout.valign {
                 VAlign::Auto | VAlign::Top => top + inset,
-                VAlign::Middle => (top + bottom) / 2.0,
+                VAlign::Middle => f32::midpoint(top, bottom),
                 VAlign::Bottom => bottom - inset,
             };
-            ((x, y), anchor)
+            Some(((x, y), anchor))
         }
     }
 }
@@ -255,7 +253,7 @@ mod tests {
             align: HAlign::End,
             valign: VAlign::Bottom,
             background: true,
-            background_color: Some(0x123456),
+            background_color: Some(0x12_3456),
             ..TextLayout::default()
         };
         let mut out = Vec::new();
@@ -267,13 +265,18 @@ mod tests {
         assert!(matches!(
             out.last(),
             Some(Prim::Label {
-                background: Some((0x123456, _)),
+                background: Some((0x12_3456, _)),
                 ..
             })
         ));
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        clippy::float_cmp_const,
+        reason = "the bounds and the position are the points of the drawing and the plot edges, copied or added once, so they are exact"
+    )]
     fn a_shape_carries_its_words_inside_and_a_horizontal_line_across_the_plot() {
         let mut rect = drawing(Tool::Rectangle, 2);
         rect.text = "range".to_owned();
@@ -300,12 +303,12 @@ mod tests {
         note.text = "kept by the note itself".to_owned();
         let mut out = Vec::new();
         decorate(&note, &[(10.0, 10.0)], PLOT, &mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, [] as [Prim; 0]);
 
         let mut d = drawing(Tool::TrendLine, 2);
         d.text = "   ".to_owned();
         decorate(&d, &[(0.0, 0.0), (10.0, 10.0)], PLOT, &mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, [] as [Prim; 0]);
 
         let mut icon = drawing(Tool::Icon, 1);
         icon.text = "star".to_owned();
@@ -353,6 +356,6 @@ mod tests {
         rect.style.caps.start = Cap::Arrow;
         let mut out = Vec::new();
         decorate(&rect, &[(0.0, 0.0), (10.0, 10.0)], PLOT, &mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, [] as [Prim; 0]);
     }
 }

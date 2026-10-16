@@ -3,10 +3,11 @@
 use super::{dist, mid, polyline, sample, sub, wrap};
 
 use crate::geometry::fib::{fill_of, label, level_label, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, lead, seg};
 use crate::model::style::Dash;
 use crate::model::{Drawing, Point};
 use std::f32::consts::{FRAC_PI_2, PI};
+use wyck_core::math::f32_of;
 
 pub(super) fn fib_time_extension(
     drawing: &Drawing,
@@ -16,7 +17,9 @@ pub(super) fn fib_time_extension(
 ) {
     let style = &drawing.style;
     let rect = proj.plot();
-    let (pa, pb, pc) = (drawing.points[0], drawing.points[1], drawing.points[2]);
+    let (Some([pa, pb, pc]), Some([s0, s1, s2])) = (lead(&drawing.points), lead(pts)) else {
+        return;
+    };
     let bars = match (proj.index_of(pa.t), proj.index_of(pb.t)) {
         (Some(i), Some(j)) => j - i,
         _ => return,
@@ -24,7 +27,7 @@ pub(super) fn fib_time_extension(
     let mut previous: Option<f32> = None;
     for level in visible_levels(drawing) {
         let x = if bars.abs() < 1e-9 {
-            pts[2].0
+            s2.0
         } else {
             let Some(t) = proj.shift_bars(pc.t, bars * level.value) else {
                 continue;
@@ -61,20 +64,22 @@ pub(super) fn fib_time_extension(
         }
         previous = Some(x);
     }
-    out.push(seg(pts[0], pts[1], style.color, 0.6, 1.0, Dash::Dashed));
-    out.push(seg(pts[1], pts[2], style.color, 0.6, 1.0, Dash::Dashed));
+    out.push(seg(s0, s1, style.color, 0.6, 1.0, Dash::Dashed));
+    out.push(seg(s1, s2, style.color, 0.6, 1.0, Dash::Dashed));
 }
 
 pub(super) fn fib_circles(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let center = mid(a, b);
     let base = dist(a, b) / 2.0;
     if base < 1.0 {
         return;
     }
     for level in visible_levels(drawing) {
-        let radius = base * level.value as f32;
+        let radius = base * f32_of(level.value);
         if radius < 1.0 {
             continue;
         }
@@ -100,7 +105,9 @@ pub(super) fn fib_circles(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn fib_arcs(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let base = dist(a, b);
     if base < 1.0 {
         return;
@@ -108,7 +115,7 @@ pub(super) fn fib_arcs(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     // Half circles about the second point, on the side of the first.
     let toward = sub(a, b).1.atan2(sub(a, b).0);
     for level in visible_levels(drawing) {
-        let radius = base * level.value as f32;
+        let radius = base * f32_of(level.value);
         if radius < 1.0 {
             continue;
         }
@@ -140,7 +147,9 @@ pub(super) fn fib_arcs(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn fib_spiral(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (center, through) = (pts[0], pts[1]);
+    let Some([center, through]) = lead(pts) else {
+        return;
+    };
     let base = dist(center, through);
     if base < 2.0 {
         return;
@@ -148,7 +157,7 @@ pub(super) fn fib_spiral(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let start = sub(through, center).1.atan2(sub(through, center).0);
     let turn = if drawing.reverse { -1.0 } else { 1.0 };
     // A golden spiral grows by the golden ratio every quarter turn, and ends at the second point.
-    let golden: f32 = (1.0 + 5f32.sqrt()) / 2.0;
+    let golden: f32 = f32::midpoint(1.0, 5f32.sqrt());
     let spiral = sample(240, |t| {
         let theta = -4.0 * PI * (1.0 - t);
         let radius = base * golden.powf(theta / FRAC_PI_2);
@@ -164,7 +173,9 @@ pub(super) fn fib_spiral(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 pub(super) fn fib_wedge(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (center, b, c) = (pts[0], pts[1], pts[2]);
+    let Some([center, b, c]) = lead(pts) else {
+        return;
+    };
     let base = dist(center, b);
     if base < 2.0 {
         return;
@@ -175,7 +186,7 @@ pub(super) fn fib_wedge(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     );
     let sweep = wrap(toward - from);
     let levels = visible_levels(drawing);
-    let widest = levels.iter().map(|l| l.value).fold(0.0, f64::max) as f32;
+    let widest = f32_of(levels.iter().map(|l| l.value).fold(0.0, f64::max));
     if widest <= 0.0 {
         return;
     }
@@ -197,7 +208,7 @@ pub(super) fn fib_wedge(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
         });
     }
     for level in &levels {
-        let radius = base * level.value as f32;
+        let radius = base * f32_of(level.value);
         out.push(polyline(
             arc_at(radius),
             level.color,

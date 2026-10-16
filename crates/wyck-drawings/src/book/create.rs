@@ -128,7 +128,9 @@ impl Book {
         let Some(creating) = self.creating.as_mut().filter(|c| c.symbol == symbol) else {
             return;
         };
-        creating.drawing.points[creating.placed] = point;
+        if let Some(slot) = creating.drawing.points.get_mut(creating.placed) {
+            *slot = point;
+        }
         creating.placed += 1;
         creating.last = Some(at);
         if creating.drawing.tool == Tool::ArrowPath {
@@ -141,8 +143,8 @@ impl Book {
             }
             return;
         }
-        for later in creating.placed..creating.drawing.points.len() {
-            creating.drawing.points[later] = point;
+        for slot in creating.drawing.points.iter_mut().skip(creating.placed) {
+            *slot = point;
         }
         if creating.placed >= creating.drawing.tool.anchors()
             && let Some(done) = self.creating.take()
@@ -184,9 +186,10 @@ impl Book {
             creating.drawing.points.pop();
         } else {
             // The point taken back follows the pointer again, like the ones after it.
-            let follower = creating.drawing.points[creating.placed];
-            for later in creating.placed..creating.drawing.points.len() {
-                creating.drawing.points[later] = follower;
+            if let Some(&follower) = creating.drawing.points.get(creating.placed) {
+                for slot in creating.drawing.points.iter_mut().skip(creating.placed) {
+                    *slot = follower;
+                }
             }
         }
         true

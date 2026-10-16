@@ -19,6 +19,10 @@ use wyck_trading::contract::{move_amount, quantity_for_risk};
 
 /// Everything a position drawing keeps besides its points and its lines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own switch of the position settings; grouping them would change the saved form"
+)]
 pub struct PositionSettings {
     #[serde(default)]
     pub atr_stop: Option<AtrStop>,
@@ -100,15 +104,15 @@ fn default_precision() -> u8 {
 }
 
 fn default_target_color() -> u32 {
-    0x00d492
+    0x00_d492
 }
 
 fn default_stop_color() -> u32 {
-    0xff6467
+    0xff_6467
 }
 
 fn default_entry_color() -> u32 {
-    0xffffff
+    0xff_ffff
 }
 
 impl Default for PositionSettings {
@@ -274,6 +278,7 @@ impl PositionSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_core::math::i64_to_f64;
 
     fn settings() -> PositionSettings {
         PositionSettings {
@@ -303,7 +308,7 @@ mod tests {
     fn the_tool_and_the_ticket_size_a_risk_the_same_way() {
         use wyck_trading::contract::{Contract, lots_for_risk};
         let contract = Contract::default();
-        let units_per_lot = contract.lot_size as f64 / 100.0;
+        let units_per_lot = i64_to_f64(contract.lot_size) / 100.0;
         let ticket = lots_for_risk(100.0, 0.0020, 1.0, &contract).unwrap();
         // One lot is `units_per_lot` units worth 1.0 each per unit of price.
         let tool = PositionSettings {

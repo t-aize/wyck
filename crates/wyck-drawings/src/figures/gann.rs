@@ -2,9 +2,10 @@
 
 use super::{fan, sub};
 use crate::geometry::fib::{fill_of, label, level_label, level_text, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, Rect, seg};
+use crate::geometry::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use wyck_core::math::{count_f32, f32_of};
 
 /// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
 pub(crate) fn gann_text(ratio: f64) -> String {
@@ -18,14 +19,16 @@ pub(crate) fn gann_text(ratio: f64) -> String {
 }
 
 pub(super) fn gann_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let d = sub(b, a);
     let mut levels = visible_levels(drawing);
     levels.reverse();
     let through: Vec<(P, u32, String)> = levels
         .into_iter()
         .map(|l| {
-            let p = (a.0 + d.0, a.1 + d.1 * l.value as f32);
+            let p = (a.0 + d.0, a.1 + d.1 * f32_of(l.value));
             (p, l.color, gann_text(l.value))
         })
         .collect();
@@ -34,23 +37,25 @@ pub(super) fn gann_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<P
 
 /// The positions of the levels along one side of a box, from `from` to `to`.
 fn along(from: f32, to: f32, k: f64, reverse: bool) -> f32 {
-    let k = if reverse { 1.0 - k } else { k } as f32;
+    let k = f32_of(if reverse { 1.0 - k } else { k });
     from + (to - from) * k
 }
 
 pub(super) fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let levels = visible_levels(drawing);
     let (top, bottom) = (a.1.min(b.1), a.1.max(b.1));
     let (left, right) = (a.0.min(b.0), a.0.max(b.0));
     // The zones between the price levels.
     if let Some((_, opacity)) = fill_of(style) {
-        for pair in levels.windows(2) {
+        for (upper, lower) in levels.iter().zip(levels.iter().skip(1)) {
             out.push(Prim::Rect {
-                a: (left, along(a.1, b.1, pair[0].value, drawing.reverse)),
-                b: (right, along(a.1, b.1, pair[1].value, drawing.reverse)),
-                fill: Some((pair[1].color, opacity)),
+                a: (left, along(a.1, b.1, upper.value, drawing.reverse)),
+                b: (right, along(a.1, b.1, lower.value, drawing.reverse)),
+                fill: Some((lower.color, opacity)),
                 stroke: None,
             });
         }
@@ -104,30 +109,37 @@ pub(super) fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out:
     }
     if style.labels {
         // How far the box reaches, in price and in bars.
-        let (p, q) = (drawing.points[0], drawing.points[1]);
-        let span = proj.format_price((q.p - p.p).abs());
-        let bars = match (proj.index_of(p.t), proj.index_of(q.t)) {
-            (Some(i), Some(j)) => format!(", {} bars", (j - i).abs().round()),
-            _ => String::new(),
-        };
-        out.push(label(
-            ((left + right) / 2.0, top - 10.0),
-            format!("{span}{bars}"),
-            style.color,
-            Anchor::Center,
-            style,
-        ));
+        if let Some([p, q]) = lead(&drawing.points) {
+            let span = proj.format_price((q.p - p.p).abs());
+            let bars = match (proj.index_of(p.t), proj.index_of(q.t)) {
+                (Some(i), Some(j)) => format!(", {} bars", (j - i).abs().round()),
+                _ => String::new(),
+            };
+            out.push(label(
+                (f32::midpoint(left, right), top - 10.0),
+                format!("{span}{bars}"),
+                style.color,
+                Anchor::Center,
+                style,
+            ));
+        }
     }
 }
 
+#[expect(
+    clippy::many_single_char_names,
+    reason = "`a` and `b` are the two anchor points and `x` and `y` a screen position, as everywhere in the geometry"
+)]
 pub(crate) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
+    let Some([a, b]) = lead(pts) else {
+        return;
+    };
     let d = sub(b, a);
     let levels = visible_levels(drawing);
     // The grid.
     for level in &levels {
-        let k = level.value as f32;
+        let k = f32_of(level.value);
         let (x, y) = (a.0 + d.0 * k, a.1 + d.1 * k);
         out.push(seg(
             (a.0, y),
@@ -149,11 +161,11 @@ pub(crate) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     // The arcs about the first point, each a quarter towards the second.
     let (sx, sy) = (d.0.signum(), d.1.signum());
     for level in levels.iter().filter(|l| l.value > 0.0) {
-        let k = level.value as f32;
+        let k = f32_of(level.value);
         let (rx, ry) = (d.0.abs() * k, d.1.abs() * k);
         let points: Vec<P> = (0..=24)
             .map(|i| {
-                let angle = i as f32 / 24.0 * std::f32::consts::FRAC_PI_2;
+                let angle = count_f32(i) / 24.0 * std::f32::consts::FRAC_PI_2;
                 (a.0 + sx * rx * angle.cos(), a.1 + sy * ry * angle.sin())
             })
             .collect();
@@ -174,7 +186,7 @@ pub(crate) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     }
     // The fan from the first point to each level on the far sides.
     for level in &levels {
-        let k = level.value as f32;
+        let k = f32_of(level.value);
         out.push(seg(
             a,
             (b.0, a.1 + d.1 * k),

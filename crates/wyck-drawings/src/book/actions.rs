@@ -300,18 +300,20 @@ impl Book {
     /// the target on the other side of it.
     pub fn flip_position(&mut self, symbol: &str, id: u64) -> bool {
         self.edit_one(symbol, id, |d| {
-            if !d.tool.is_position() || d.points.len() != 4 {
+            if !d.tool.is_position() {
                 return;
             }
+            let [entry, stop, target, _] = d.points.as_mut_slice() else {
+                return;
+            };
             let was = d.tool;
             let now = if was == Tool::LongPosition {
                 Tool::ShortPosition
             } else {
                 Tool::LongPosition
             };
-            let entry = d.points[0].p;
-            d.points[1].p = 2.0 * entry - d.points[1].p;
-            d.points[2].p = 2.0 * entry - d.points[2].p;
+            stop.p = 2.0 * entry.p - stop.p;
+            target.p = 2.0 * entry.p - target.p;
             // A drawing still in its tool's own color takes the color of the other one.
             if d.style.color == was.default_style().color {
                 d.style.color = now.default_style().color;

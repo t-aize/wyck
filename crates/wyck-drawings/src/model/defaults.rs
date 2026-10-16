@@ -4,14 +4,14 @@ use super::style::{Dash, Level, Style};
 use super::style::{default_opacity, level};
 use super::tool::{Group, Tool};
 
-const GRAY: u32 = 0x9ca3af;
-const RED: u32 = 0xff6467;
-const ORANGE: u32 = 0xffb900;
-const GREEN: u32 = 0x00d492;
-const CYAN: u32 = 0x00d3f2;
-const BLUE: u32 = 0x4f8dff;
-const PURPLE: u32 = 0xc27aff;
-const PINK: u32 = 0xf6339a;
+const GRAY: u32 = 0x9c_a3af;
+const RED: u32 = 0xff_6467;
+const ORANGE: u32 = 0xff_b900;
+const GREEN: u32 = 0x00_d492;
+const CYAN: u32 = 0x00_d3f2;
+const BLUE: u32 = 0x4f_8dff;
+const PURPLE: u32 = 0xc2_7aff;
+const PINK: u32 = 0xf6_339a;
 
 impl Tool {
     /// The look a new drawing of this tool starts with.
@@ -42,7 +42,7 @@ impl Tool {
             | Self::Pitchfan => (BLUE, 1.0),
             Self::LongPosition | Self::ArrowMarkUp => (GREEN, 1.5),
             Self::ShortPosition | Self::ArrowMarkDown | Self::Pin => (RED, 1.5),
-            Self::Text | Self::PriceLabel => (0xffffff, 1.0),
+            Self::Text | Self::PriceLabel => (0xff_ffff, 1.0),
             Self::Forecast
             | Self::BarsPattern
             | Self::CyclicLines
@@ -77,13 +77,13 @@ impl Tool {
         };
         // The boxes of the notes are filled with the color, so their words are their own.
         let text_color = match self {
-            Self::Note => Some(0x0a0a0a),
+            Self::Note => Some(0x0a_0a0a),
             Self::PriceNote
             | Self::Callout
             | Self::Comment
             | Self::Signpost
             | Self::Table
-            | Self::Pin => Some(0xffffff),
+            | Self::Pin => Some(0xff_ffff),
             _ => None,
         };
         let (color, dash) = match self {

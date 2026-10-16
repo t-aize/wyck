@@ -232,12 +232,12 @@ impl Book {
             .filter(|d| d.shows_on(timeframe) && !d.hidden)
             .map(|d| d.id)
             .collect();
-        if ids.is_empty() {
+        let Some((first, rest)) = ids.split_first() else {
             return false;
-        }
+        };
         self.tool = None;
-        self.selected = Some(ids[0]);
-        self.also = ids[1..].to_vec();
+        self.selected = Some(*first);
+        self.also = rest.to_vec();
         true
     }
 
@@ -393,6 +393,7 @@ mod tests {
 
     use super::*;
     use crate::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};
+    use wyck_core::math::{count_f32, f32_of};
 
     const SYMBOL: &str = "US100.cash";
 
@@ -429,7 +430,7 @@ mod tests {
         let (x0, y0) = at(from.0, from.1);
         book.press(SYMBOL, TF, &Linear, x0, y0);
         for step in 1..=4 {
-            let k = step as f32 / 4.0;
+            let k = count_f32(step) / 4.0;
             let (x, y) = at(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k);
             book.pointer_moved(SYMBOL, &Linear, x, y, false);
         }
@@ -485,7 +486,7 @@ mod tests {
                 let (x, y) = at(60.0, 100.0);
                 book.press(SYMBOL, TF, &Linear, x, y);
                 for i in 1..8 {
-                    let (x, y) = at(60.0 + 12.0 * i as f32, 100.0 + 6.0 * i as f32);
+                    let (x, y) = at(60.0 + 12.0 * count_f32(i), 100.0 + 6.0 * count_f32(i));
                     book.pointer_moved(SYMBOL, &Linear, x, y, false);
                 }
                 book.release(SYMBOL, &Linear, x, y);
@@ -497,8 +498,8 @@ mod tests {
                 for i in 0..tool.anchors().max(1) {
                     click(
                         &mut book,
-                        60.0 + 180.0 * i as f32,
-                        100.0 + 40.0 * (i % 3) as f32,
+                        60.0 + 180.0 * count_f32(i),
+                        100.0 + 40.0 * count_f32(i % 3),
                     );
                 }
             }
@@ -799,7 +800,7 @@ mod tests {
         let (x, y) = at(60.0, 100.0);
         book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=10 {
-            let (mx, my) = at(60.0 + step as f32 * 20.0, 100.0 + step as f32 * 5.0);
+            let (mx, my) = at(60.0 + count_f32(step) * 20.0, 100.0 + count_f32(step) * 5.0);
             book.pointer_moved(SYMBOL, &Linear, mx, my, false);
         }
         // A tiny move adds no point.
@@ -840,7 +841,7 @@ mod tests {
         book.set_tool(Some(Tool::Xabcd));
         for (i, price) in [100.0, 200.0, 150.0, 180.0, 120.0].iter().enumerate() {
             assert_eq!(book.count(SYMBOL), 0);
-            click(&mut book, 60.0 * (i as f32 + 1.0), *price);
+            click(&mut book, 60.0 * (count_f32(i) + 1.0), *price);
         }
         assert_eq!(book.count(SYMBOL), 1);
         let pattern = &book.drawings(SYMBOL)[0];
@@ -854,9 +855,9 @@ mod tests {
         book.set_keep_tool(true);
         book.set_tool(Some(Tool::TrendLine));
         for n in 0..3 {
-            click(&mut book, 60.0, 100.0 + n as f32 * 20.0);
+            click(&mut book, 60.0, 100.0 + count_f32(n) * 20.0);
             assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(1));
-            click(&mut book, 300.0, 150.0 + n as f32 * 20.0);
+            click(&mut book, 300.0, 150.0 + count_f32(n) * 20.0);
         }
         assert_eq!(book.count(SYMBOL), 3);
         assert_eq!(
@@ -974,7 +975,7 @@ mod tests {
         click(&mut book, 120.0, 200.0);
         let before = book.drawings(SYMBOL)[0].clone();
         // Drag the stop grip sideways and down: only the price changes.
-        let (sx, sy) = at(120.0, before.points[1].p as f32);
+        let (sx, sy) = at(120.0, f32_of(before.points[1].p));
         book.press(SYMBOL, TF, &Linear, sx, sy);
         let (nx, ny) = at(300.0, 60.0);
         book.pointer_moved(SYMBOL, &Linear, nx, ny, false);
@@ -1032,8 +1033,8 @@ mod tests {
     fn undo_and_redo_walk_through_every_change() {
         let mut book = with_a_line();
         assert_eq!(book.count(SYMBOL), 1);
-        assert!(book.set_color(SYMBOL, 0xff6467));
-        assert_eq!(book.drawings(SYMBOL)[0].style.color, 0xff6467);
+        assert!(book.set_color(SYMBOL, 0xff_6467));
+        assert_eq!(book.drawings(SYMBOL)[0].style.color, 0xff_6467);
         assert!(book.undo());
         assert_eq!(
             book.drawings(SYMBOL)[0].style.color,
@@ -1046,7 +1047,7 @@ mod tests {
         assert!(book.redo());
         assert_eq!(book.count(SYMBOL), 1);
         assert!(book.redo());
-        assert_eq!(book.drawings(SYMBOL)[0].style.color, 0xff6467);
+        assert_eq!(book.drawings(SYMBOL)[0].style.color, 0xff_6467);
         assert!(!book.redo());
         // A new change forgets what could have been redone.
         book.undo();
@@ -1062,7 +1063,7 @@ mod tests {
         let (x, y) = at(300.0, 200.0);
         book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=5 {
-            let (nx, ny) = at(300.0 + step as f32 * 60.0, 200.0);
+            let (nx, ny) = at(300.0 + count_f32(step) * 60.0, 200.0);
             book.pointer_moved(SYMBOL, &Linear, nx, ny, false);
         }
         let (nx, ny) = at(600.0, 200.0);
@@ -1175,7 +1176,7 @@ mod tests {
         let mut changed = book.get(SYMBOL, first).unwrap().clone();
         changed.style.width = 4.0;
         assert!(book.preview(SYMBOL, changed.clone()));
-        changed.style.color = 0x123456;
+        changed.style.color = 0x12_3456;
         assert!(book.preview(SYMBOL, changed));
         assert_eq!(book.undo.len(), steps, "previews are not undo steps");
         assert!(book.settle(SYMBOL, before.clone()));
@@ -1254,7 +1255,7 @@ mod tests {
     fn a_saved_look_is_what_new_drawings_of_the_tool_start_with() {
         let (mut book, first, _) = two_lines();
         let mut changed = book.get(SYMBOL, first).unwrap().clone();
-        changed.style.color = 0xabcdef;
+        changed.style.color = 0xab_cdef;
         changed.style.extend_right = true;
         book.preview(SYMBOL, changed);
         assert!(book.save_template(SYMBOL, first));
@@ -1263,7 +1264,7 @@ mod tests {
         click(&mut book, 60.0, 300.0);
         click(&mut book, 300.0, 350.0);
         let made = book.drawings(SYMBOL).last().unwrap();
-        assert_eq!(made.style.color, 0xabcdef);
+        assert_eq!(made.style.color, 0xab_cdef);
         assert!(made.style.extend_right);
 
         // The saved look survives a save and a load.
@@ -1280,7 +1281,7 @@ mod tests {
     fn a_look_can_be_saved_under_a_name_replaced_deleted_and_kept_in_the_file() {
         let (mut book, first, second) = two_lines();
         let mut red = book.get(SYMBOL, first).unwrap().clone();
-        red.style.color = 0xff0000;
+        red.style.color = 0xff_0000;
         red.style.text_layout.background = true;
         book.preview(SYMBOL, red);
         let before = book.revision();
@@ -1298,7 +1299,7 @@ mod tests {
         let listed = book.named_templates(Tool::TrendLine);
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].name, "Resistance", "trimmed");
-        assert_eq!(listed[0].style.color, 0xff0000);
+        assert_eq!(listed[0].style.color, 0xff_0000);
         assert!(
             book.named_templates(Tool::Rectangle).is_empty(),
             "each tool has its own"
@@ -1306,7 +1307,7 @@ mod tests {
 
         // The same name replaces the look, another name adds one.
         let mut blue = book.get(SYMBOL, second).unwrap().clone();
-        blue.style.color = 0x0000ff;
+        blue.style.color = 0x00_00ff;
         book.preview(SYMBOL, blue);
         assert!(book.save_named_template(SYMBOL, second, "Resistance"));
         assert!(book.save_named_template(SYMBOL, second, "Support"));
@@ -1318,7 +1319,7 @@ mod tests {
         assert_eq!(names, vec!["Resistance", "Support"]);
         assert_eq!(
             book.named_templates(Tool::TrendLine)[0].style.color,
-            0x0000ff
+            0x00_00ff
         );
 
         // They survive a save and a load, and a name is forgotten on demand.
@@ -1420,11 +1421,11 @@ mod tests {
         let mut book = book();
         apart_lines(&mut book);
         book.select_all(SYMBOL, TF);
-        assert!(book.set_color(SYMBOL, 0x123456));
+        assert!(book.set_color(SYMBOL, 0x12_3456));
         assert!(
             book.drawings(SYMBOL)
                 .iter()
-                .all(|d| d.style.color == 0x123456)
+                .all(|d| d.style.color == 0x12_3456)
         );
         assert!(book.delete_selected(SYMBOL));
         assert_eq!(book.count(SYMBOL), 0);

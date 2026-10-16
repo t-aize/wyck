@@ -17,6 +17,10 @@ pub enum Dash {
 
 /// How a drawing looks. Colors are `0xRRGGBB`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is its own switch of the saved look; grouping them would change the saved form"
+)]
 pub struct Style {
     #[serde(default = "default_color")]
     pub color: u32,
@@ -94,7 +98,7 @@ pub struct Style {
 pub const MIN_LINE_OPACITY: f32 = 0.05;
 
 fn default_color() -> u32 {
-    0x4f8dff
+    0x4f_8dff
 }
 
 fn default_width() -> f32 {
@@ -113,6 +117,10 @@ fn default_scale() -> f32 {
     1.0
 }
 
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde calls a `skip_serializing_if` function with a reference"
+)]
 fn is_unit_scale(scale: &f32) -> bool {
     (*scale - 1.0).abs() < 1e-6
 }
@@ -210,7 +218,7 @@ impl Style {
 
 /// The colors the style bar offers.
 pub const PALETTE: [u32; 8] = [
-    0xffffff, 0x4f8dff, 0x00d492, 0xff6467, 0xffb900, 0xc27aff, 0x00d3f2, 0x9ca3af,
+    0xff_ffff, 0x4f_8dff, 0x00_d492, 0xff_6467, 0xff_b900, 0xc2_7aff, 0x00_d3f2, 0x9c_a3af,
 ];
 
 /// The widths the style bar and the settings panels offer.
@@ -236,7 +244,7 @@ pub struct Level {
 
 impl Default for Level {
     fn default() -> Self {
-        level(0.0, 0x9ca3af, true)
+        level(0.0, 0x9c_a3af, true)
     }
 }
 
