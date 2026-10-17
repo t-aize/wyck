@@ -9836,7 +9836,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "wyck"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "gpui-pre",
@@ -9855,7 +9855,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-app"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "cargo-packager-updater",
@@ -9886,7 +9886,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-chart"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -9901,11 +9901,11 @@ dependencies = [
 
 [[package]]
 name = "wyck-clock"
-version = "0.2.1"
+version = "0.2.2"
 
 [[package]]
 name = "wyck-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -9913,7 +9913,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ctrader"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "dotenvy",
@@ -9935,7 +9935,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-drawings"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -9946,7 +9946,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-indicators"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "rhai",
@@ -9960,7 +9960,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-market"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -9971,7 +9971,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-platform"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "tempfile",
@@ -9985,7 +9985,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-storage"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -10008,7 +10008,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-trading"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -10020,7 +10020,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ui-chart"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "ab_glyph",
  "gpui-pre",
@@ -10039,7 +10039,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ui-editor"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "gpui-pre",
@@ -10056,7 +10056,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ui-kit"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "gpui-kit",
  "gpui-pre",
@@ -10068,7 +10068,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ui-shell"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "gpui-pre",
@@ -10091,7 +10091,7 @@ dependencies = [
 
 [[package]]
 name = "wyck-ui-trading"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "gpui-pre",
@@ -10227,7 +10227,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "chrono",
