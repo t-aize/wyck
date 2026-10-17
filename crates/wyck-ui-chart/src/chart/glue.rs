@@ -170,12 +170,20 @@ impl Chart {
             return true;
         }
         let timeframe = self.timeframe.code();
+        let me = cx.entity_id().as_u64();
         let taken = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
                 drawings.edit(cx, |book| {
-                    book.press_adding(&symbol, &timeframe, projection, x, y, add, &|d| {
-                        self.resolved_position(d)
-                    })
+                    // A press is one hand on one chart: a hold left by another chart is stale.
+                    book.release_hold();
+                    let press =
+                        book.press_adding(&symbol, &timeframe, projection, x, y, add, &|d| {
+                            self.resolved_position(d)
+                        });
+                    if press == Press::Taken {
+                        book.hold(me);
+                    }
+                    press
                 })
             })
         });
@@ -194,10 +202,19 @@ impl Chart {
             return;
         };
         let timeframe = self.timeframe.code();
+        // Another chart of the same symbol holds the button: it moves the drawing, and this one,
+        // which sees the pointer too, must not move it with its own projection.
+        if drawings
+            .read(cx)
+            .book()
+            .held_elsewhere(cx.entity_id().as_u64())
+        {
+            return;
+        }
         if !drawings.read(cx).book().is_busy() {
             let over = self
                 .with_projection(|projection| {
-                    drawings.read(cx).book().hover_resolved(
+                    drawings.read(cx).book().hover_target_resolved(
                         &symbol,
                         &timeframe,
                         projection,
@@ -215,6 +232,10 @@ impl Chart {
         }
         self.over_drawing = None;
         let changed = self.with_projection(|projection| {
+            // Past the edge of the plot there is nothing to follow: the point stays on the edge
+            // instead of running off into time and prices the chart does not show.
+            let plot = wyck_drawings::geometry::Projection::plot(projection);
+            let (x, y) = (x.clamp(plot.l, plot.r), y.clamp(plot.t, plot.b));
             drawings.update(cx, |drawings, cx| {
                 drawings.edit(cx, |book| {
                     book.pointer_moved(&symbol, projection, x, y, constrain)
@@ -321,7 +342,10 @@ impl Chart {
         };
         self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.release(&symbol, projection, x, y))
+                drawings.edit(cx, |book| {
+                    book.release_hold();
+                    book.release(&symbol, projection, x, y)
+                })
             })
         });
         cx.notify();

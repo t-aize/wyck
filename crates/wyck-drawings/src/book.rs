@@ -37,9 +37,19 @@ const DRAG_START: f32 = 6.0;
 const BRUSH_STEP: f32 = 3.0;
 /// The most steps of undo kept.
 const UNDO_DEPTH: usize = 200;
-/// How wide a new position is, in bars, and how far its stop is, as a share of the price span.
+/// How wide a new position is, in bars, how far its stop is, as a share of the price span, and
+/// how far its target is, as a multiple of the stop's distance.
 const POSITION_BARS: f64 = 20.0;
-const POSITION_RISK: f64 = 0.12;
+const POSITION_RISK: f64 = 0.03;
+const POSITION_REWARD: f64 = 2.0;
+
+/// How the last position was shaped, so the next one starts that way. Not saved.
+#[derive(Debug, Clone, Copy)]
+struct PositionShape {
+    risk: f64,
+    reward: f64,
+    bars: f64,
+}
 
 /// What the pointer is over on a drawing, for choosing the mouse cursor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +154,10 @@ pub struct Book {
     revision: u64,
     /// Set when a text drawing was just made, so the field for its words can take the keyboard.
     wants_text_focus: bool,
+    /// The shape of the position edited last, for the next new one.
+    position_shape: Option<PositionShape>,
+    /// The view (a chart) that holds the button down on a drawing (see [`Book::hold`]).
+    held_by: Option<u64>,
 }
 
 impl Book {
@@ -298,6 +312,23 @@ impl Book {
         self.tool.is_some() || self.creating.is_some() || self.editing.is_some()
     }
 
+    /// Says that the view `owner` (a chart) now holds the button down on a drawing. The book is
+    /// shared by every chart, and two charts of one symbol both see the pointer, so while a view
+    /// holds the button the others must not feed the book the moves of the pointer.
+    pub fn hold(&mut self, owner: u64) {
+        self.held_by = Some(owner);
+    }
+
+    /// The button is up: no view holds it any more.
+    pub fn release_hold(&mut self) {
+        self.held_by = None;
+    }
+
+    /// Whether another view than `owner` holds the button down.
+    pub fn held_elsewhere(&self, owner: u64) -> bool {
+        self.held_by.is_some_and(|holder| holder != owner)
+    }
+
     /// Whether a text drawing was just made and its words are waiting for the keyboard.
     pub fn wants_text_focus(&self) -> bool {
         self.wants_text_focus
@@ -373,7 +404,9 @@ impl Book {
             self.finish_path(creating);
             return true;
         }
-        if self.editing.take().is_some() {
+        // Escape while a drawing is dragged puts it back where it was.
+        if let Some(editing) = self.editing.take() {
+            self.symbols.insert(editing.symbol, editing.before);
             return true;
         }
         if self.tool.take().is_some() {
@@ -765,6 +798,28 @@ mod tests {
     }
 
     #[test]
+    fn the_height_grip_of_a_channel_stays_on_its_lines_far_to_the_east_or_west() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ParallelChannel));
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 360.0, 200.0);
+        // The third click lands well past the end of the first line: the gap is kept, the grip
+        // is not.
+        click(&mut book, 900.0, 300.0);
+        let grip = crate::geometry::hit::handles(&book.drawings(SYMBOL)[0], &Linear)[2];
+        assert!((grip.0 - 360.0).abs() < 1e-3, "{grip:?}");
+        assert!((grip.1 - 380.0).abs() < 1e-3, "{grip:?}");
+
+        // Dragged past the other end, it goes to that end and the channel follows the pointer.
+        drag(&mut book, (360.0, 120.0), (-200.0, 150.0));
+        let channel = &book.drawings(SYMBOL)[0];
+        let grip = crate::geometry::hit::handles(channel, &Linear)[2];
+        assert!((grip.0 - 60.0).abs() < 1e-3, "{grip:?}");
+        let (a, b) = (channel.points[0], channel.points[1]);
+        assert_eq!((a.t, b.t), (60_000, 360_000), "the first line did not move");
+    }
+
+    #[test]
     fn single_click_tools_finish_at_once_and_a_position_gets_sensible_defaults() {
         let mut book = book();
         book.set_tool(Some(Tool::HorizontalLine));
@@ -787,6 +842,68 @@ mod tests {
         click(&mut book, 120.0, 200.0);
         let short = &book.drawings(SYMBOL)[2];
         assert!(short.points[1].p > short.points[0].p && short.points[2].p < short.points[0].p);
+    }
+
+    #[test]
+    fn a_new_position_is_small_and_the_next_one_starts_the_way_the_last_was_left() {
+        let mut book = book();
+        book.set_tool(Some(Tool::LongPosition));
+        click(&mut book, 120.0, 200.0);
+        let first = book.drawings(SYMBOL)[0].clone();
+        let risk = first.points[0].p - first.points[1].p;
+        // The test projection spans 500 units: a few percent of it, not a third of the screen.
+        assert!(risk > 0.0 && risk <= 0.05 * 500.0, "{risk}");
+
+        // The stop is pulled out to 40 units and the target in to 1.5 times that.
+        let stop_grip = at(120.0, f32_of(first.points[1].p));
+        book.press(SYMBOL, TF, &Linear, stop_grip.0, stop_grip.1);
+        let (x, y) = at(120.0, 160.0);
+        book.pointer_moved(SYMBOL, &Linear, x, y, false);
+        book.release(SYMBOL, &Linear, x, y);
+        let target_grip = at(120.0, f32_of(first.points[2].p));
+        book.press(SYMBOL, TF, &Linear, target_grip.0, target_grip.1);
+        let (x, y) = at(120.0, 260.0);
+        book.pointer_moved(SYMBOL, &Linear, x, y, false);
+        book.release(SYMBOL, &Linear, x, y);
+
+        book.set_tool(Some(Tool::ShortPosition));
+        click(&mut book, 300.0, 300.0);
+        let next = &book.drawings(SYMBOL)[1];
+        assert!((next.points[1].p - 340.0).abs() < 1e-6, "{:?}", next.points);
+        assert!((next.points[2].p - 240.0).abs() < 1e-6, "{:?}", next.points);
+    }
+
+    #[test]
+    fn escape_during_a_drag_puts_the_drawing_back_and_leaves_no_undo_step() {
+        let mut book = with_a_line();
+        let before = book.drawings(SYMBOL)[0].clone();
+        let undo_steps = book.can_undo();
+        let (gx, gy) = at(480.0, 300.0);
+        book.press(SYMBOL, TF, &Linear, gx, gy);
+        let (mx, my) = at(660.0, 340.0);
+        book.pointer_moved(SYMBOL, &Linear, mx, my, false);
+        assert_ne!(book.drawings(SYMBOL)[0], before, "the drag moved it");
+
+        assert!(book.cancel());
+        assert_eq!(book.drawings(SYMBOL)[0], before);
+        assert!(
+            !book.release(SYMBOL, &Linear, mx, my),
+            "nothing left to end"
+        );
+        assert_eq!(book.can_undo(), undo_steps);
+    }
+
+    #[test]
+    fn only_the_chart_that_holds_the_button_moves_the_drawing() {
+        // Two charts of one symbol share the book and both see the pointer: while one holds the
+        // button, the other is told to leave the drawing alone.
+        let mut book = book();
+        assert!(!book.held_elsewhere(2));
+        book.hold(1);
+        assert!(book.held_elsewhere(2));
+        assert!(!book.held_elsewhere(1));
+        book.release_hold();
+        assert!(!book.held_elsewhere(2));
     }
 
     #[test]
@@ -932,6 +1049,59 @@ mod tests {
                 p: 340.0
             }
         );
+    }
+
+    #[test]
+    fn the_drawing_under_the_pointer_shows_its_grips_and_a_press_on_one_takes_it() {
+        let mut book = with_a_line();
+        book.select(None);
+        // Over the end of the line, not selected: the hover names it, and says it is a grip.
+        let (gx, gy) = at(480.0, 300.0);
+        let id = book.drawings(SYMBOL)[0].id;
+        let over = |book: &Book, x: f32, y: f32| {
+            book.hover_target_resolved(SYMBOL, TF, &Linear, x, y, &|d| Some(d.clone()))
+        };
+        assert_eq!(over(&book, gx, gy), Some((id, Grab::Grip)));
+        // Along the line it is the body; far from it, nothing.
+        let (bx, by) = at(300.0, 200.0);
+        assert_eq!(over(&book, bx, by), Some((id, Grab::Body)));
+        let (nx, ny) = at(300.0, 20.0);
+        assert_eq!(over(&book, nx, ny), None);
+
+        // A press on that grip reshapes the line at once, without a first click to select it.
+        book.press(SYMBOL, TF, &Linear, gx, gy);
+        let (mx, my) = at(660.0, 340.0);
+        book.pointer_moved(SYMBOL, &Linear, mx, my, false);
+        book.release(SYMBOL, &Linear, mx, my);
+        let line = &book.drawings(SYMBOL)[0];
+        assert_eq!(line.points[0].t, 120_000, "the first end stayed");
+        assert_eq!(line.points[1].t, 660_000);
+        assert_eq!(book.selected(), Some(id));
+    }
+
+    #[test]
+    fn a_grip_of_the_selected_drawing_wins_over_another_drawing_on_top_of_it() {
+        let mut book = book();
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 300.0, 200.0);
+        let below = book.drawings(SYMBOL)[0].id;
+        // A second line crosses the end of the first, and is on top of it.
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 300.0);
+        click(&mut book, 540.0, 100.0);
+        let above = book.drawings(SYMBOL)[1].id;
+        book.select(Some(below));
+        let (x, y) = at(300.0, 200.0);
+        let target = book.hover_target_resolved(SYMBOL, TF, &Linear, x, y, &|d| Some(d.clone()));
+        assert_eq!(
+            target,
+            Some((below, Grab::Grip)),
+            "hover says what a press takes"
+        );
+        book.select(Some(above));
+        let target = book.hover_target_resolved(SYMBOL, TF, &Linear, x, y, &|d| Some(d.clone()));
+        assert_eq!(target.map(|(id, _)| id), Some(above));
     }
 
     #[test]

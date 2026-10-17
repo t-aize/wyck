@@ -1,6 +1,6 @@
 //! Placing the points of a new drawing.
 
-use super::{Book, Creating, POSITION_BARS, POSITION_RISK, Press};
+use super::{Book, Creating, POSITION_BARS, POSITION_REWARD, POSITION_RISK, Press};
 use crate::geometry::{P, Projection};
 use crate::model::tool::Tool;
 use crate::model::{Drawing, MAX_PATH_POINTS, Point};
@@ -8,15 +8,24 @@ use std::collections::BTreeMap;
 
 impl Book {
     /// The four points of a new position: entry, stop and target at the same time, and the right
-    /// edge. The stop is a share of the price span away and the target twice as far.
-    pub(super) fn position_points(tool: Tool, at: Point, proj: &dyn Projection) -> Vec<Point> {
-        let risk = proj.price_span() * POSITION_RISK;
+    /// edge. The shape is the one of the position edited last, or a small one to begin with: the
+    /// stop a few percent of the price span away and the target twice as far.
+    pub(super) fn position_points(
+        &self,
+        tool: Tool,
+        at: Point,
+        proj: &dyn Projection,
+    ) -> Vec<Point> {
+        let shape = self.position_shape;
+        let risk = proj.price_span() * shape.map_or(POSITION_RISK, |s| s.risk);
+        let reward = shape.map_or(POSITION_REWARD, |s| s.reward);
         let (stop, target) = if tool == Tool::LongPosition {
-            (at.p - risk, at.p + risk * 2.0)
+            (at.p - risk, at.p + risk * reward)
         } else {
-            (at.p + risk, at.p - risk * 2.0)
+            (at.p + risk, at.p - risk * reward)
         };
-        let right = proj.shift_bars(at.t, POSITION_BARS).unwrap_or(at.t);
+        let bars = shape.map_or(POSITION_BARS, |s| s.bars);
+        let right = proj.shift_bars(at.t, bars).unwrap_or(at.t);
         vec![
             at,
             Point { t: at.t, p: stop },
@@ -95,7 +104,7 @@ impl Book {
         self.selected = None;
         self.also.clear();
         if tool.is_position() {
-            let points = Self::position_points(tool, point, proj);
+            let points = self.position_points(tool, point, proj);
             let drawing = self.blank(tool, points);
             self.commit(symbol, drawing);
         } else if tool.is_single_click() {

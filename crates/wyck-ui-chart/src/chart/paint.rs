@@ -84,6 +84,12 @@ impl Chart {
                     creating: creating.as_ref(),
                     selected: *selected,
                     also,
+                    // What the pointer is over, or is dragging in this chart (the book is busy
+                    // then and nothing is hovered).
+                    hovered: self
+                        .over_drawing
+                        .map(|(id, _)| id)
+                        .or(if self.drawing_drag { *selected } else { None }),
                     visible: &visible,
                 }),
             marks: &marks,

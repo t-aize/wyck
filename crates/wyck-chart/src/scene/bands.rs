@@ -85,12 +85,16 @@ pub(super) fn prices(
     studies::overlays(cx, plan.first, &mut plot);
     drawings::draw_script_drawings(cx, &mut plot);
     marks(cx, &mut plot);
-    if let Some(view) = &frame.drawings {
-        drawings::draw_drawings(cx, view, &mut plot);
-    }
+    let over = frame
+        .drawings
+        .as_ref()
+        .map(|view| drawings::draw_drawings(cx, view, &mut plot))
+        .unwrap_or_default();
     axes::draw_price_lines(cx, &mut plot);
     // Price marks remain readable even when a scripted or manual drawing fills their area.
     series::draw(cx, frame.kind(), plan.first, plan.last, &mut plot);
+    // The grips and the tags of a position stay readable over the prices.
+    plot.extend(over);
     if let Some(((_, hy), 0)) = pointer {
         plot.push(crosshair_line(cx, hy));
     }

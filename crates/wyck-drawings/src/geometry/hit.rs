@@ -7,7 +7,7 @@ use super::{
 use crate::extras;
 use crate::model::Drawing;
 use crate::model::tool::Tool;
-use wyck_core::math::count_f32;
+use wyck_core::math::{count_f32, f32_of};
 
 /// The grips of a drawing: where its points are on the screen.
 pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
@@ -24,8 +24,107 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
         tool if tool.is_box() => anchors(drawing, proj)
             .and_then(|pts| lead(&pts).map(|[first, second]| box_handles(first, second)))
             .unwrap_or_default(),
+        tool if grips_may_leave_shape(tool) => grips_on_shape(drawing, proj),
         _ => anchors(drawing, proj).unwrap_or_default(),
     }
+}
+
+/// Tools whose last point only sets a size or an offset, so the shape does not pass through it
+/// (the second line of a channel is only drawn between the first two points, for one).
+pub(crate) fn grips_may_leave_shape(tool: Tool) -> bool {
+    matches!(
+        tool,
+        Tool::ParallelChannel
+            | Tool::FlatTopBottom
+            | Tool::FibChannel
+            | Tool::RotatedRectangle
+            | Tool::FibWedge
+            | Tool::RegressionTrend
+            | Tool::TimeCycles
+    )
+}
+
+/// The grips of a tool that has [`grips_may_leave_shape`]: each one sits on a line that is drawn,
+/// at the place where taking it and not moving changes nothing. A grip that sat on the raw point
+/// would be off the drawing whenever that point is out of the span the lines are drawn over.
+fn grips_on_shape(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
+    let Some(mut grips) = anchors(drawing, proj) else {
+        return Vec::new();
+    };
+    match (drawing.tool, grips.as_mut_slice()) {
+        // The second line is the first one moved to pass through the third point, and is drawn
+        // between the first two: the grip is where that line is, over the same span.
+        (Tool::ParallelChannel | Tool::FibChannel | Tool::FlatTopBottom, [from, to, offset]) => {
+            let (low, high) = (from.0.min(to.0), from.0.max(to.0));
+            let across = offset.0.clamp(low, high);
+            let flat = drawing.tool == Tool::FlatTopBottom || (to.0 - from.0).abs() < 1e-6;
+            let height = if flat {
+                offset.1
+            } else {
+                let on_line = |at: f32| from.1 + (to.1 - from.1) * (at - from.0) / (to.0 - from.0);
+                on_line(across) + (offset.1 - on_line(offset.0))
+            };
+            *offset = (across, height);
+        }
+        // The far side stands as far from the first as the third point is: its grip is the far
+        // corner on the second point's side.
+        (Tool::RotatedRectangle, [from, to, height_point]) => {
+            let side = (to.0 - from.0, to.1 - from.1);
+            let run = side.0.hypot(side.1);
+            if run >= 1e-3 {
+                let normal = (-side.1 / run, side.0 / run);
+                let height =
+                    (height_point.0 - from.0) * normal.0 + (height_point.1 - from.1) * normal.1;
+                *height_point = (to.0 + normal.0 * height, to.1 + normal.1 * height);
+            }
+        }
+        // The third point only gives the direction of the second ray: its grip is the end of it.
+        (Tool::FibWedge, [center, edge, direction]) => {
+            let widest = f32_of(
+                drawing
+                    .levels()
+                    .iter()
+                    .filter(|level| level.visible)
+                    .map(|level| level.value)
+                    .fold(0.0, f64::max),
+            );
+            let base = (edge.0 - center.0).hypot(edge.1 - center.1);
+            let toward = (direction.1 - center.1).atan2(direction.0 - center.0);
+            if base >= 2.0 && widest > 0.0 {
+                *direction = (
+                    center.0 + base * widest * toward.cos(),
+                    center.1 + base * widest * toward.sin(),
+                );
+            }
+        }
+        // The line runs through the closes between the two times: each grip is the end of it
+        // nearest to its time. With the line extended its ends are the edges of the plot, which
+        // are no place for a grip, so the points stay where they are.
+        (Tool::RegressionTrend, [first, second])
+            if !(drawing.style.extend_left || drawing.style.extend_right) =>
+        {
+            let line = prims(drawing, proj)
+                .into_iter()
+                .rev()
+                .find_map(|shape| match shape {
+                    Prim::Segment { a, b, .. } => Some((a, b)),
+                    _ => None,
+                });
+            if let Some((from, to)) = line {
+                for grip in [first, second] {
+                    *grip = if (grip.0 - from.0).abs() <= (grip.0 - to.0).abs() {
+                        from
+                    } else {
+                        to
+                    };
+                }
+            }
+        }
+        // The arches stand on the height of the first point, whatever the second one says.
+        (Tool::TimeCycles, [first, second]) => second.1 = first.1,
+        _ => {}
+    }
+    grips
 }
 
 /// The grips of a shape drawn in the box between two opposite corners: those two, the other two
@@ -82,15 +181,15 @@ pub(crate) fn hit(
         }
     }
     if drawing.tool.is_position() {
-        // Position tags are information, not handles for moving the trade. The same rule applies
-        // when a tag overlaps a zone. The four grips above remain available when selected.
-        let over_tag = prims_with(
-            drawing,
-            proj,
-            with_handles || drawing.style.position.always_stats,
-        )
-        .iter()
-        .any(|prim| {
+        // The tags show while the pointer is over the position, so they are part of it: a tag
+        // that let the pointer through would lose the hover, and itself with it. A tag beside
+        // the position (see `position_prims`) is not: it is only there once the pointer is.
+        let pts = anchors(drawing, proj)?;
+        let &[p0, p1, p2, p3] = pts.as_slice() else {
+            return None;
+        };
+        let (left, right) = (p0.0, p3.0.max(p0.0 + 1.0));
+        let over_tag = prims_with(drawing, proj, true).iter().any(|prim| {
             if let Prim::Label {
                 at: position,
                 text,
@@ -100,23 +199,39 @@ pub(crate) fn hit(
             } = prim
             {
                 let (a, b) = label_box(*position, text, *anchor, *size);
-                inside_rect(at, a, b)
+                b.0 >= left && a.0 <= right && inside_rect(at, a, b)
             } else {
                 false
             }
         });
         if over_tag {
-            return None;
+            return Some(Part::Body);
         }
-        let pts = anchors(drawing, proj)?;
-        let &[p0, p1, p2, p3] = pts.as_slice() else {
-            return None;
-        };
-        let left = p0.0;
-        let right = p3.0.max(left + 1.0);
-        return (inside_rect(at, (left, p0.1), (right, p1.1))
-            || inside_rect(at, (left, p0.1), (right, p2.1)))
-        .then_some(Part::Body);
+        let cfg = &drawing.style.position;
+        // A zone that is not painted is not a thing to pick up either; and the user can ask for
+        // the zones to let a press through to the chart, leaving the lines and the edges.
+        let painted = drawing.style.fill
+            && [cfg.target_opacity, cfg.stop_opacity]
+                .into_iter()
+                .any(|own| own.unwrap_or(drawing.style.fill_opacity) > 0.0);
+        if cfg.grab_zones && painted {
+            return (inside_rect(at, (left, p0.1), (right, p1.1))
+                || inside_rect(at, (left, p0.1), (right, p2.1)))
+            .then_some(Part::Body);
+        }
+        let reach = LINE_REACH + drawing.style.width / 2.0;
+        let (top, bottom) = (p1.1.min(p2.1).min(p0.1), p1.1.max(p2.1).max(p0.1));
+        let lines = [
+            ((left, p0.1), (right, p0.1)),
+            ((left, p1.1), (right, p1.1)),
+            ((left, p2.1), (right, p2.1)),
+            ((left, top), (left, bottom)),
+            ((right, top), (right, bottom)),
+        ];
+        return lines
+            .iter()
+            .any(|(a, b)| distance_to_segment(at, *a, *b) <= reach)
+            .then_some(Part::Body);
     }
     let reach = LINE_REACH + drawing.style.width / 2.0;
     for prim in prims(drawing, proj) {

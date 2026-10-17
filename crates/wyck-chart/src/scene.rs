@@ -75,6 +75,9 @@ pub struct DrawingView<'a> {
     pub selected: Option<u64>,
     /// The drawings selected along with it.
     pub also: &'a [u64],
+    /// The drawing the pointer is over, or is dragging, in this chart: it shows its grips and the
+    /// tags of a position. The selected drawing shows its grips whatever chart the pointer is in.
+    pub hovered: Option<u64>,
     /// Whether a drawing shows on this timeframe.
     pub visible: &'a dyn Fn(&Drawing) -> bool,
 }
@@ -346,6 +349,94 @@ mod tests {
             !texts(&build(&fixture.frame()))
                 .iter()
                 .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+        );
+    }
+
+    #[test]
+    fn the_grips_sit_over_the_candles_and_the_tags_show_only_where_the_pointer_is() {
+        use wyck_drawings::model::Point;
+        use wyck_drawings::model::tool::Tool;
+        let fixture = Fixture::new(
+            Series::Bars(bars(20)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        let at = |t: i64, p: f64| Point {
+            t: 1_767_571_200_000 + t,
+            p,
+        };
+        let list = vec![Drawing::new(
+            7,
+            Tool::LongPosition,
+            vec![
+                at(0, 100_020.0),
+                at(0, 100_000.0),
+                at(0, 100_060.0),
+                at(3_600_000, 100_020.0),
+            ],
+        )];
+        let visible = |_: &Drawing| true;
+        let palette = fixture.frame().palette;
+        let is_candle = |cmd: &Cmd| matches!(cmd, Cmd::Rect { fill, .. } if *fill == hsla(palette.up) || *fill == hsla(palette.down));
+        let is_grip = |cmd: &Cmd| matches!(cmd, Cmd::Rect { border: Some(_), radius, .. } if (*radius - 4.5).abs() < 0.01);
+        // The commands of the prices band, which holds the candles.
+        let inner_of = |hovered: Option<u64>, selected: Option<u64>| {
+            let mut frame = fixture.frame();
+            frame.drawings = Some(DrawingView {
+                list: &list,
+                creating: None,
+                selected,
+                also: &[],
+                hovered,
+                visible: &visible,
+            });
+            build(&frame)
+                .into_iter()
+                .find_map(|cmd| match cmd {
+                    Cmd::Clip { inner, .. } if inner.iter().any(is_candle) => Some(inner),
+                    _ => None,
+                })
+                .expect("the prices band")
+        };
+
+        let has_tag = |inner: &[Cmd]| {
+            inner
+                .iter()
+                .any(|cmd| matches!(cmd, Cmd::Tag { text, .. } if text.starts_with("Long")))
+        };
+
+        let idle = inner_of(None, None);
+        assert!(
+            !idle.iter().any(is_grip),
+            "no grips while nothing is hovered"
+        );
+        assert!(!has_tag(&idle));
+
+        // Selected, with the pointer somewhere else (another chart): its grips show, over the
+        // candles, and its tags do not, so a position seen on a chart of longer bars hides nothing.
+        let selected = inner_of(None, Some(7));
+        let last_candle = selected.iter().rposition(is_candle).unwrap();
+        let grips: Vec<usize> = selected
+            .iter()
+            .enumerate()
+            .filter_map(|(index, cmd)| is_grip(cmd).then_some(index))
+            .collect();
+        assert_eq!(grips.len(), 4, "the four grips of a position");
+        assert!(
+            grips.iter().all(|index| *index > last_candle),
+            "a candle must not cover a grip"
+        );
+        assert!(!has_tag(&selected));
+
+        // Under the pointer: the tags show, under the candles.
+        let hovered = inner_of(Some(7), None);
+        let tag = hovered
+            .iter()
+            .position(|cmd| matches!(cmd, Cmd::Tag { text, .. } if text.starts_with("Long")))
+            .expect("the entry tag shows while the position is hovered");
+        assert!(
+            tag < hovered.iter().rposition(is_candle).unwrap(),
+            "a tag must not cover a candle"
         );
     }
 
@@ -1090,6 +1181,7 @@ mod tests {
                     creating: None,
                     selected: None,
                     also: &[],
+                    hovered: None,
                     visible: &visible,
                 });
                 let cmds = build(&frame);

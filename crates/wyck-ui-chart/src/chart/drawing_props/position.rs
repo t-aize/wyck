@@ -369,13 +369,25 @@ impl DrawingProps {
         let p = &style.position;
         let this = cx.entity();
 
-        let dash_this = this;
+        let dash_this = this.clone();
         let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
+        let edge_dash_this = this.clone();
+        let edge_dash_index = DASHES.iter().position(|d| *d == p.edge_dash).unwrap_or(0);
+        let edge_width_this = this.clone();
+        let edge_width_index = EDGE_WIDTHS
+            .iter()
+            .position(|w| *w == p.edge_width)
+            .unwrap_or(0);
         let lines = form::group(
             IconName::PenLine,
             "Lines",
             [
                 self.width_row(drawing, cx),
+                form::field(
+                    "Line opacity",
+                    Some("Fades the three lines, not the zones"),
+                    self.line_opacity.clone(),
+                ),
                 form::field(
                     "Entry line",
                     None,
@@ -407,8 +419,45 @@ impl DrawingProps {
                     Some("The loss line and its zone"),
                     self.swatch(Swatch::Stop, p.stop_color, "props-stop-color", cx),
                 ),
+                form::field(
+                    "Target and stop lines",
+                    Some("Their dash, and their width (the width above when on Same)"),
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(controls::dash_picker(
+                            "props-edge-dash",
+                            edge_dash_index,
+                            move |choice, _w, cx| {
+                                if let Some(&dash) = DASHES.get(choice) {
+                                    edge_dash_this.update(cx, |e, cx| {
+                                        e.change(cx, |d| d.style.position.edge_dash = dash);
+                                    });
+                                }
+                            },
+                        ))
+                        .child(controls::segmented(
+                            "props-edge-width",
+                            &EDGE_WIDTH_NAMES,
+                            edge_width_index,
+                            move |choice, _w, cx| {
+                                if let Some(&width) = EDGE_WIDTHS.get(choice) {
+                                    edge_width_this.update(cx, |e, cx| {
+                                        e.change(cx, |d| d.style.position.edge_width = width);
+                                    });
+                                }
+                            },
+                        )),
+                ),
             ],
         );
+
+        let target_opacity_this = this.clone();
+        let target_opacity_index = zone_opacity_index(p.target_opacity);
+        let stop_opacity_this = this;
+        let stop_opacity_index = zone_opacity_index(p.stop_opacity);
 
         let background = form::group(
             IconName::PaintBucket,
@@ -420,6 +469,47 @@ impl DrawingProps {
                     Self::switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
                 ),
                 form::field("Zone opacity", Some("In percent"), self.opacity.clone()),
+                form::field(
+                    "Profit zone",
+                    Some("Its own opacity, or the one above"),
+                    controls::segmented(
+                        "props-target-opacity",
+                        &ZONE_OPACITY_NAMES,
+                        target_opacity_index,
+                        move |choice, _w, cx| {
+                            if let Some(&opacity) = ZONE_OPACITIES.get(choice) {
+                                target_opacity_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| d.style.position.target_opacity = opacity);
+                                });
+                            }
+                        },
+                    ),
+                ),
+                form::field(
+                    "Loss zone",
+                    Some("Its own opacity, or the one above"),
+                    controls::segmented(
+                        "props-stop-opacity",
+                        &ZONE_OPACITY_NAMES,
+                        stop_opacity_index,
+                        move |choice, _w, cx| {
+                            if let Some(&opacity) = ZONE_OPACITIES.get(choice) {
+                                stop_opacity_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| d.style.position.stop_opacity = opacity);
+                                });
+                            }
+                        },
+                    ),
+                ),
+                form::field(
+                    "Grab by the zones",
+                    Some(
+                        "Off: a press in a zone scrolls the chart; the lines, tags and grips still take it",
+                    ),
+                    Self::switch("props-grab-zones", p.grab_zones, cx, |d, on| {
+                        d.style.position.grab_zones = on;
+                    }),
+                ),
             ],
         );
 
@@ -432,6 +522,34 @@ impl DrawingProps {
                     Some("The words on the levels"),
                     Self::switch("props-labels", style.labels, cx, |d, on| {
                         d.style.labels = on;
+                    }),
+                ),
+                form::field(
+                    "Tag plate",
+                    Some("Off: the words are written on the chart, in the color of their level"),
+                    Self::switch("props-tag-plate", p.tag_background, cx, |d, on| {
+                        d.style.position.tag_background = on;
+                    }),
+                ),
+                form::field(
+                    "Entry tag",
+                    None,
+                    Self::switch("props-tag-entry", p.show_entry_tag, cx, |d, on| {
+                        d.style.position.show_entry_tag = on;
+                    }),
+                ),
+                form::field(
+                    "Target tag",
+                    None,
+                    Self::switch("props-tag-target", p.show_target_tag, cx, |d, on| {
+                        d.style.position.show_target_tag = on;
+                    }),
+                ),
+                form::field(
+                    "Stop tag",
+                    None,
+                    Self::switch("props-tag-stop", p.show_stop_tag, cx, |d, on| {
+                        d.style.position.show_stop_tag = on;
                     }),
                 ),
                 form::field(
@@ -463,4 +581,26 @@ impl DrawingProps {
             .child(self.templates_group(drawing, cx))
             .into_any_element()
     }
+}
+
+/// The widths offered for the target and stop lines: the width of the drawing, then fixed ones.
+const EDGE_WIDTHS: [Option<f32>; 5] = [None, Some(1.0), Some(2.0), Some(3.0), Some(4.0)];
+const EDGE_WIDTH_NAMES: [&str; 5] = ["Same", "1", "2", "3", "4"];
+
+/// The opacities offered for a zone of its own: the opacity of the fill, then fixed ones.
+const ZONE_OPACITIES: [Option<f32>; 5] = [None, Some(0.08), Some(0.2), Some(0.35), Some(0.5)];
+const ZONE_OPACITY_NAMES: [&str; 5] = ["Same", "8%", "20%", "35%", "50%"];
+
+/// The choice nearest to a zone opacity read from a file.
+fn zone_opacity_index(own: Option<f32>) -> usize {
+    let Some(own) = own else {
+        return 0;
+    };
+    ZONE_OPACITIES
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter_map(|(index, preset)| preset.map(|p| (index, (p - own).abs())))
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map_or(0, |(index, _)| index)
 }

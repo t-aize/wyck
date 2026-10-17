@@ -10,8 +10,12 @@ use wyck_drawings::geometry as shapes;
 use wyck_drawings::geometry::{Anchor, Prim};
 use wyck_drawings::model::style::Dash;
 
-/// Draws the drawings of the symbol, and the grips of the selected one.
-pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
+/// Draws the drawings of the symbol into `out`, and returns what must go over the prices: the grips
+/// of the selected and of the hovered drawing (a candle over a grip makes it hard to use). The tags
+/// of a position stay under the prices, and only show on the drawing the pointer is working with,
+/// so that a position seen on another chart, or ten of them, never hide the candles.
+pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) -> Vec<Cmd> {
+    let mut over = Vec::new();
     let projection = ChartProjection {
         series: cx.series,
         view: cx.f.view,
@@ -28,16 +32,21 @@ pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<
         .filter(|d| (view.visible)(d))
         .chain(view.creating)
     {
-        let selected = view.selected == Some(drawing.id) || view.also.contains(&drawing.id);
-        for prim in shapes::prims_with(drawing, &projection, selected) {
+        let hovered = view.hovered == Some(drawing.id);
+        for prim in shapes::prims_with(drawing, &projection, hovered) {
             push_prim(cx, prim, out);
         }
-        if selected && !drawing.locked {
+        // The selected drawings show their grips (the main one is the one they can be grabbed
+        // by), and so does the drawing under the pointer, which a press on a grip takes.
+        let selected = view.selected == Some(drawing.id) || view.also.contains(&drawing.id);
+        let grips = selected || hovered;
+        if grips && !drawing.locked {
             for at in shapes::handles(drawing, &projection) {
-                push_prim(cx, Prim::Handle { at }, out);
+                push_prim(cx, Prim::Handle { at }, &mut over);
             }
         }
     }
+    over
 }
 
 /// Draws generated objects using the same geometry as the manual tools, without edit handles.

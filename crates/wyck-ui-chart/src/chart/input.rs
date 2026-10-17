@@ -425,6 +425,9 @@ impl Chart {
             cx.emit(ChartEvent::Hover(None));
             cx.notify();
         }
+        if self.over_drawing.take().is_some() {
+            cx.notify();
+        }
     }
 
     pub(super) fn on_wheel(
@@ -497,7 +500,7 @@ impl Chart {
             if self.line_at(y).is_some() {
                 return CursorStyle::ResizeUpDown;
             }
-            if let Some(over) = self.over_drawing {
+            if let Some((_, over)) = self.over_drawing {
                 return match over {
                     Grab::Body | Grab::Grip => CursorStyle::PointingHand,
                     Grab::GripVertical => CursorStyle::ResizeUpDown,

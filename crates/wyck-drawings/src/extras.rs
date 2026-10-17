@@ -302,6 +302,57 @@ mod tests {
     }
 
     #[test]
+    fn a_grip_stays_on_what_is_drawn_even_when_its_point_is_far_from_it() {
+        use crate::geometry::distance_to_segment;
+        use crate::geometry::hit::grips_may_leave_shape;
+
+        let edges = |shapes: &[Prim]| {
+            let mut edges: Vec<(P, P)> = Vec::new();
+            for shape in shapes {
+                match shape {
+                    Prim::Segment { a, b, .. } => edges.push((*a, *b)),
+                    Prim::Polyline { points, .. } | Prim::Polygon { points, .. } => {
+                        edges.extend(points.windows(2).filter_map(|pair| match pair {
+                            &[from, to] => Some((from, to)),
+                            _ => None,
+                        }));
+                        if let (Prim::Polygon { .. }, Some(&first), Some(&last)) =
+                            (shape, points.first(), points.last())
+                        {
+                            edges.push((last, first));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            edges
+        };
+        for tool in Tool::ALL
+            .iter()
+            .copied()
+            .filter(|tool| grips_may_leave_shape(*tool))
+        {
+            let mut points = spread(tool.anchors());
+            // The last point is the one that only sets a size: put it well away from the others.
+            if let Some(last) = points.last_mut() {
+                *last = (950, 430.0);
+            }
+            let d = drawing(tool, &points);
+            let edges = edges(&shapes_of(&d, &Linear));
+            for (index, grip) in handles(&d, &Linear).iter().enumerate() {
+                let nearest = edges
+                    .iter()
+                    .map(|(a, b)| distance_to_segment(*grip, *a, *b))
+                    .fold(f32::INFINITY, f32::min);
+                assert!(
+                    nearest <= 1.5,
+                    "grip {index} of {tool:?} is {nearest} px from what is drawn"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn every_tool_can_be_picked_on_what_it_draws() {
         for tool in Tool::ALL {
             let count = if tool.is_freehand() {

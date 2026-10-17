@@ -13,6 +13,7 @@
 //! ([`wyck_trading::risk::quantity_for_risk`]). There is no live rate, so the
 //! figures are a plan, not a quote.
 
+use crate::look::Dash;
 use serde::{Deserialize, Serialize};
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::risk::{move_amount, quantity_for_risk};
@@ -81,6 +82,32 @@ pub struct PositionSettings {
     /// Whether the tags show all the time. Off, they show only while the drawing is selected.
     #[serde(default)]
     pub always_stats: bool,
+    /// Whether a press in the colored zones takes the position. Off, only its lines, tags and
+    /// grips do, and a press anywhere else scrolls the chart.
+    #[serde(default = "wyck_core::defaults::yes")]
+    pub grab_zones: bool,
+    /// How the target and stop lines are dashed.
+    #[serde(default)]
+    pub edge_dash: Dash,
+    /// The width of the target and stop lines; the width of the drawing when unset.
+    #[serde(default)]
+    pub edge_width: Option<f32>,
+    /// How opaque the profit zone is; the opacity of the drawing's fill when unset.
+    #[serde(default)]
+    pub target_opacity: Option<f32>,
+    /// How opaque the loss zone is; the opacity of the drawing's fill when unset.
+    #[serde(default)]
+    pub stop_opacity: Option<f32>,
+    /// Whether the tags sit on a colored plate. Off, the words are written on the chart alone.
+    #[serde(default = "wyck_core::defaults::yes")]
+    pub tag_background: bool,
+    /// The tags one by one, for when they are shown at all.
+    #[serde(default = "wyck_core::defaults::yes")]
+    pub show_entry_tag: bool,
+    #[serde(default = "wyck_core::defaults::yes")]
+    pub show_target_tag: bool,
+    #[serde(default = "wyck_core::defaults::yes")]
+    pub show_stop_tag: bool,
 }
 
 fn one() -> f64 {
@@ -141,6 +168,15 @@ impl Default for PositionSettings {
             show_price: true,
             compact: true,
             always_stats: false,
+            grab_zones: true,
+            edge_dash: Dash::Solid,
+            edge_width: None,
+            target_opacity: None,
+            stop_opacity: None,
+            tag_background: true,
+            show_entry_tag: true,
+            show_target_tag: true,
+            show_stop_tag: true,
         }
     }
 }
@@ -190,6 +226,13 @@ impl PositionSettings {
         self.target_color &= 0xff_ffff;
         self.stop_color &= 0xff_ffff;
         self.entry_color &= 0xff_ffff;
+        self.edge_width = self
+            .edge_width
+            .filter(|w| w.is_finite())
+            .map(|w| w.clamp(0.5, 8.0));
+        for opacity in [&mut self.target_opacity, &mut self.stop_opacity] {
+            *opacity = opacity.filter(|o| o.is_finite()).map(|o| o.clamp(0.0, 1.0));
+        }
         self.atr_stop = self.atr_stop.take().map(AtrStop::normalized);
         self.target_rr = self
             .target_rr
@@ -419,6 +462,56 @@ mod tests {
         assert!(wild.point_value > 0.0);
         assert_eq!(wild.qty_precision, 8);
         assert_eq!(wild.currency, "a very l");
+    }
+
+    #[test]
+    fn a_position_saved_before_the_zone_and_tag_options_looks_as_it_did() {
+        let old: PositionSettings = toml::from_str(
+            "account = 500.0
+compact = false
+",
+        )
+        .unwrap();
+        assert!(old.grab_zones && old.tag_background);
+        assert!(old.show_entry_tag && old.show_target_tag && old.show_stop_tag);
+        assert_eq!(old.edge_dash, Dash::Solid);
+        assert_eq!(
+            (old.edge_width, old.target_opacity, old.stop_opacity),
+            (None, None, None)
+        );
+
+        let kept: PositionSettings = toml::from_str(
+            "grab_zones = false
+edge_dash = \"dotted\"
+edge_width = 3.0
+stop_opacity = 0.4
+",
+        )
+        .unwrap();
+        assert!(!kept.grab_zones);
+        assert_eq!(kept.edge_dash, Dash::Dotted);
+        assert_eq!((kept.edge_width, kept.stop_opacity), (Some(3.0), Some(0.4)));
+        assert!(!kept.is_default());
+    }
+
+    #[test]
+    fn wild_zone_and_line_values_are_brought_back_in_range() {
+        let wild = PositionSettings {
+            edge_width: Some(f32::NAN),
+            target_opacity: Some(7.0),
+            stop_opacity: Some(-1.0),
+            ..PositionSettings::default()
+        }
+        .normalized();
+        assert_eq!(wild.edge_width, None);
+        assert_eq!(wild.target_opacity, Some(1.0));
+        assert_eq!(wild.stop_opacity, Some(0.0));
+        let thick = PositionSettings {
+            edge_width: Some(90.0),
+            ..PositionSettings::default()
+        }
+        .normalized();
+        assert_eq!(thick.edge_width, Some(8.0));
     }
 
     #[test]

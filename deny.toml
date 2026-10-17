@@ -37,6 +37,14 @@ ignore = [
   # scripts engine of wyck-indicators); no patched version exists. Re-check on 2027-01-15, or at
   # the next rhai release.
   { id = "RUSTSEC-2026-0249", reason = "unmaintained, no fix; only through rhai" },
+  # RUSTSEC-2026-0370, RUSTSEC-2026-0371 and RUSTSEC-2026-0372: `zvariant`, `zbus_names` and
+  # `zvariant_derive` are no longer maintained as standalone crates (they moved into zbus, see
+  # z-galaxy/zbus#2043). Pulled on Linux only, by zbus 5.19 (D-Bus) through gpui (accesskit_unix,
+  # ashpd, oo7) and notify-rust (wyck-app); no safe upgrade exists. They talk to the local session
+  # bus, not to the network. Re-check on 2027-01-15, or when zbus publishes a release that merges them.
+  { id = "RUSTSEC-2026-0370", reason = "unmaintained, no fix; D-Bus on Linux, only through zbus" },
+  { id = "RUSTSEC-2026-0371", reason = "unmaintained, no fix; D-Bus on Linux, only through zbus" },
+  { id = "RUSTSEC-2026-0372", reason = "unmaintained, no fix; D-Bus on Linux, only through zbus" },
 ]
 
 [licenses]
