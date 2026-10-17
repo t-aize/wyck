@@ -4,7 +4,7 @@
 //! On every (re)connection it asks what the account holds (balance, positions, orders, recent
 //! deals); after that the server's execution events keep it current. The profit of the positions
 //! is asked every two seconds while any are open, and follows the prices in between (see
-//! [`wyck_trading::math::live_net`]).
+//! [`wyck_trading::profit::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
 //! the non-idempotency notes of [`crate::broker::trading`]), so after a failed call the account is
@@ -30,13 +30,14 @@ use std::time::{Duration, Instant};
 use wyck_core::math::i64_to_f64;
 use wyck_market::PRICE_SCALE;
 use wyck_trading::book::AccountBook;
+use wyck_trading::conversion::Link;
 use wyck_trading::doubt::InDoubt;
 use wyck_trading::guard;
 use wyck_trading::guard::{
-    Blocked, Cleared, DuplicateGuard, Lock, Mode, OrderFacts, RiskPrefs, Standing, Verdict,
+    Blocked, Cleared, DuplicateGuard, Lock, Mode, OrderFacts, Refusal, RiskPrefs, Standing, Verdict,
 };
-use wyck_trading::math;
-use wyck_trading::math::{Link, Summary};
+use wyck_trading::summary::Summary;
+use wyck_trading::{amounts, conversion};
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;
@@ -263,7 +264,7 @@ impl Account {
 
     /// Writes an amount in the account's money.
     pub(crate) fn money(&self, amount: f64) -> String {
-        math::format_money(amount, &self.book.currency)
+        amounts::format_money(amount, &self.book.currency)
     }
 
     /// What the safety checks say about a new order.
@@ -272,8 +273,27 @@ impl Account {
             &self.risk,
             &self.standing(),
             &self.facts_of(order, one_click),
-            &|m| self.money(m),
         )
+    }
+
+    /// Why the limits refuse an order, in words.
+    pub fn refusal_text(&self, refusal: &Refusal) -> String {
+        notice::refusal_text(refusal, &|m| self.money(m), crate::market_data::now_ms())
+    }
+
+    /// Why nothing new can be sent, in words, for a banner.
+    pub fn lock_text(&self, lock: &Lock) -> String {
+        notice::lock_text(lock, &|m| self.money(m), crate::market_data::now_ms())
+    }
+
+    /// A verdict in words: the reason when a hard limit refuses the order, else the warnings it
+    /// is worth reading before sending (none when all is well).
+    pub fn verdict_text(&self, verdict: &Verdict) -> Result<Vec<String>, String> {
+        match verdict {
+            Verdict::Block(refusal) => Err(self.refusal_text(refusal)),
+            Verdict::Warn(warnings) => Ok(warnings.iter().map(notice::warning_text).collect()),
+            Verdict::Ok => Ok(Vec::new()),
+        }
     }
 
     /// Checks a new order and gives the proof the connection asks for before it sends it.
@@ -284,7 +304,6 @@ impl Account {
             &self.facts_of(order, one_click),
             order.fingerprint(),
             self.mode,
-            &|m| self.money(m),
         )
     }
 
@@ -292,7 +311,7 @@ impl Account {
     fn facts_of(&self, order: &NewOrderReq, one_click: bool) -> OrderFacts {
         let contract = self.book.contract(order.symbol_id);
         let (bid, ask) = self.quote(order.symbol_id);
-        let mid = math::mid(bid, ask);
+        let mid = conversion::mid(bid, ask);
         let symbol_lots: f64 = self
             .book
             .positions
@@ -375,9 +394,9 @@ impl Account {
         match (self.quote_assets.get(&symbol_id), deposit) {
             (Some(quote), Some(deposit)) if *quote == deposit => Some(1.0),
             (Some(quote), Some(deposit)) => match self.conversions.get(quote)? {
-                Conversion::Chain(chain) => math::chain_rate(*quote, deposit, chain, &|id| {
+                Conversion::Chain(chain) => conversion::chain_rate(*quote, deposit, chain, &|id| {
                     let (bid, ask) = self.quote(id);
-                    math::mid(bid, ask)
+                    conversion::mid(bid, ask)
                 }),
                 Conversion::Asking | Conversion::Failed => None,
             },

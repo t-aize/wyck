@@ -9,6 +9,7 @@ use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window,
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 
+use wyck_app::alerts::MAX_SAVED_ALERTS;
 use wyck_app::appearance;
 use wyck_app::appearance::candles::CANDLE_SETS;
 use wyck_app::prefs::indicators as prefs;
@@ -17,7 +18,6 @@ use wyck_app::storage::backup;
 use wyck_app::storage::backup::store::BackupEntry;
 use wyck_app::system::build_info::{BuildMode, VERSION};
 use wyck_app::updates;
-use wyck_app::alerts::MAX_SAVED_ALERTS;
 use wyck_app::workspace::{UsageLimits, Workspace};
 use wyck_chart::MAX_STUDIES;
 use wyck_core::math::{count_f64, f64_to_usize};

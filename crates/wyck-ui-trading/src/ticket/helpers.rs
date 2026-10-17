@@ -1,7 +1,8 @@
 //! The small arithmetic and formats the ticket shares.
 
 use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
-use wyck_trading::math::{Contract, Offset, SizeMode};
+use wyck_trading::contract::Contract;
+use wyck_trading::ticket::{Offset, SizeMode};
 use wyck_ui_kit::number;
 
 /// The margin of a side: the buy one or the sell one.

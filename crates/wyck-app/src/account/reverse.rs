@@ -157,14 +157,14 @@ impl Account {
         // The position closes first: if the order that opens the other way would be refused, it is
         // better to know before anything is closed.
         let side = if buy { TradeSide::Buy } else { TradeSide::Sell };
-        if let Verdict::Block(reason) =
+        if let Verdict::Block(refusal) =
             self.assess(&NewOrderReq::market(symbol, side, volume), false)
         {
             Self::tell(
                 Notice::new(
                     Tone::Warning,
                     "Reverse blocked by your safety settings",
-                    reason,
+                    self.refusal_text(&refusal),
                 )
                 .hint(Some("Nothing was closed.".to_owned())),
                 cx,

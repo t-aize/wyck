@@ -16,7 +16,7 @@ use wyck_ui_kit::input::{InputEvent, InputState};
 use super::OrderTicket;
 use wyck_app::prefs::ticket::Layout;
 use wyck_core::math::f32_of;
-use wyck_trading::math::SizeMode;
+use wyck_trading::ticket::SizeMode;
 use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.

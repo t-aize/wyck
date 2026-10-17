@@ -9,7 +9,7 @@ use serde_json::Value;
 use wyck_app::account::Busy;
 use wyck_app::market_data::now_ms;
 use wyck_app::prefs::panel::Tab;
-use wyck_trading::math;
+use wyck_trading::contract;
 use wyck_trading::{OrderType, money};
 
 /// How far back the history reaches, in days.
@@ -30,14 +30,14 @@ pub(super) fn orders(ctx: &Ctx) -> Table {
         let describe = format!(
             "{} {} {name} {}",
             if buy { "Buy" } else { "Sell" },
-            math::format_lots(lots),
+            contract::format_lots(lots),
             kind.to_lowercase()
         );
         let cells = vec![
             Cell::text(name),
             side_cell(buy),
             Cell::text(kind).tone(Tone::Muted),
-            Cell::text(math::format_lots(lots)).adds(lots, Unit::Lots),
+            Cell::text(contract::format_lots(lots)).adds(lots, Unit::Lots),
             price_cell(&contract, price),
             price_cell(&contract, order.stop_loss).tone(Tone::Muted),
             price_cell(&contract, order.take_profit).tone(Tone::Muted),
@@ -92,7 +92,7 @@ pub(super) fn history(ctx: &Ctx) -> Table {
             Cell::text(Ctx::time(deal.execution_timestamp)).tone(Tone::Muted),
             Cell::text(account.book.name(symbol)),
             side_cell(!buy),
-            Cell::text(math::format_lots(lots)).adds(lots, Unit::Lots),
+            Cell::text(contract::format_lots(lots)).adds(lots, Unit::Lots),
             price_cell(&contract, entry),
             price_cell(&contract, deal.execution_price),
             match net {

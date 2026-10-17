@@ -13,19 +13,36 @@ use crate::{
 };
 use crate::{ExecutionEvent, ExecutionType};
 
-use crate::contract::{self, Contract, PnlMark, Summary};
+use crate::contract::Contract;
+use crate::profit::{self, PnlMark};
+use crate::summary::{self, Summary};
 
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;
 
+/// An order in the terms of the account, for whoever tells the user about it: the screen writes
+/// it as a phrase.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OrderLine {
+    pub buy: bool,
+    /// The size, in lots of the symbol.
+    pub lots: f64,
+    /// The broker's name of the symbol.
+    pub symbol: String,
+    /// What kind of order it is, when the server's number is known.
+    pub kind: Option<OrderType>,
+    /// The price of a pending order, written with the symbol's decimals.
+    pub price: Option<String>,
+}
+
 /// What an execution event came to, for whoever tells the user. The words are not here: the order
-/// is described by its side, size, symbol and price, and the screen decides how to say it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// is described by its parts ([`OrderLine`]), and the screen decides how to say it.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Outcome {
     /// The order was filled, or the position closed.
     Filled {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
         /// The execution price, formatted.
         price: Option<String>,
         /// Whether a position was closed by it.
@@ -35,44 +52,44 @@ pub enum Outcome {
     },
     /// Part of the order was filled.
     PartlyFilled {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
     },
     /// A working order was placed.
     Placed {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
         /// Its id.
         order_id: i64,
     },
     /// A working order was changed.
     Changed {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
     },
     /// A working order was cancelled.
     Cancelled {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
     },
     /// A working order expired.
     Expired {
-        /// The order in a few words.
-        what: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
     },
     /// The server refused the order or its cancellation.
     Refused {
-        /// The order in a few words, empty when the event carried none.
-        what: String,
-        /// The error code of the server.
-        code: String,
+        /// The order, when the event carried one.
+        what: Option<OrderLine>,
+        /// The error code of the server, when it sent one.
+        code: Option<String>,
     },
     /// A deposit or a withdrawal.
     BalanceChanged,
 }
 
 /// What an execution event changed, beyond the positions and orders themselves.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Applied {
     /// What happened to the order, if it is worth telling the user.
     pub outcome: Option<Outcome>,
@@ -129,7 +146,7 @@ fn quote_profit_of(
     let buy = position.trade_data.is_buy();
     let (bid, ask) = quotes(position.trade_data.symbol_id);
     let close = if buy { bid } else { ask }?;
-    Some(contract::quote_profit(
+    Some(profit::quote_profit(
         buy,
         position.price?,
         close,
@@ -216,24 +233,18 @@ impl AccountBook {
         ids
     }
 
-    fn describe_order(&self, order: &Order) -> String {
+    fn order_line(&self, order: &Order) -> OrderLine {
         let contract = self.contract(order.trade_data.symbol_id);
-        let side = if order.trade_data.is_buy() {
-            "Buy"
-        } else {
-            "Sell"
-        };
-        let lots = contract::format_lots(contract.lots_of_volume(order.trade_data.volume));
-        let kind = order.kind().map_or("order", OrderType::label);
-        let price = order
-            .limit_price
-            .or(order.stop_price)
-            .map(|p| format!(" at {}", contract.format_price(p)))
-            .unwrap_or_default();
-        format!(
-            "{side} {lots} {} {kind}{price}",
-            self.name(order.trade_data.symbol_id)
-        )
+        OrderLine {
+            buy: order.trade_data.is_buy(),
+            lots: contract.lots_of_volume(order.trade_data.volume),
+            symbol: self.name(order.trade_data.symbol_id),
+            kind: order.kind(),
+            price: order
+                .limit_price
+                .or(order.stop_price)
+                .map(|p| contract.format_price(p)),
+        }
     }
 
     /// Applies an execution event: the answer to an order, or something the server did (a stop
@@ -251,7 +262,7 @@ impl AccountBook {
                 self.marks.remove(&position.position_id);
             }
         }
-        let order_text = event.order.as_ref().map(|o| self.describe_order(o));
+        let line = event.order.as_ref().map(|o| self.order_line(o));
         if let Some(order) = &event.order {
             if is_working(order) {
                 if has_side(&order.trade_data) {
@@ -267,7 +278,7 @@ impl AccountBook {
             self.deals.truncate(MAX_DEALS);
             applied.balance_changed = true;
         }
-        let what = order_text.unwrap_or_default();
+        let what = line;
         applied.outcome = match event.kind() {
             Some(ExecutionType::OrderFilled) => {
                 let price = event.deal.as_ref().and_then(|d| {
@@ -303,10 +314,7 @@ impl AccountBook {
             Some(ExecutionType::OrderRejected | ExecutionType::OrderCancelRejected) => {
                 Some(Outcome::Refused {
                     what,
-                    code: event
-                        .error_code
-                        .clone()
-                        .unwrap_or_else(|| "refused by the server".to_owned()),
+                    code: event.error_code.clone(),
                 })
             }
             Some(ExecutionType::DepositWithdraw | ExecutionType::BonusDepositWithdraw) => {
@@ -343,7 +351,7 @@ impl AccountBook {
             } else {
                 let pip = self.contract(symbol).pip() * position.trade_data.units();
                 quote_profit_of(position, quotes)
-                    .and_then(|quote| contract::implied_rate(gross, quote, pip))
+                    .and_then(|quote| profit::implied_rate(gross, quote, pip))
                     .or_else(|| self.marks.get(&pnl.position_id).and_then(|m| m.rate))
             };
             self.marks.insert(
@@ -375,7 +383,7 @@ impl AccountBook {
         let position = self.positions.get(&position_id)?;
         let mark = self.marks.get(&position_id)?;
         Some(match quote_profit_of(position, quotes) {
-            Some(now) => contract::live_net(mark, now),
+            Some(now) => profit::live_net(mark, now),
             None => mark.net,
         })
     }
@@ -393,7 +401,7 @@ impl AccountBook {
             .values()
             .filter_map(|p| p.used_margin.map(|m| money(m, digits)))
             .sum();
-        contract::summary(self.balance(), unrealized, margin)
+        summary::summary(self.balance(), unrealized, margin)
     }
 }
 
@@ -467,7 +475,16 @@ mod tests {
             panic!("a fill is an outcome");
         };
         assert!(!closed);
-        assert!(what.contains("Buy 0.01 EURUSD limit at 1.05000"), "{what}");
+        assert_eq!(
+            what,
+            Some(OrderLine {
+                buy: true,
+                lots: 0.01,
+                symbol: "EURUSD".to_owned(),
+                kind: Some(OrderType::Limit),
+                price: Some("1.05000".to_owned()),
+            })
+        );
     }
 
     #[test]
@@ -503,7 +520,7 @@ mod tests {
         let applied = book.apply(&refused);
         assert!(matches!(
             applied.outcome,
-            Some(Outcome::Refused { code, .. }) if code == "NOT_ENOUGH_MONEY"
+            Some(Outcome::Refused { code: Some(code), .. }) if code == "NOT_ENOUGH_MONEY"
         ));
         assert!(book.orders.is_empty());
     }

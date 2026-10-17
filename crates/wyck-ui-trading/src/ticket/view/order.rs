@@ -4,11 +4,12 @@
 use super::line;
 use super::{
     AnyElement, App, Context, Entry, Frame, IconName, Item, Kind, Offset, OrderTicket, SizeMode,
-    TicketEvent, Window, card, card_head, controls, customize, div, format_units, hint, icon, math,
-    nice, number, or_money, popup, px, stop_limit_price, text_button, theme, tint, tokens,
+    TicketEvent, Window, card, card_head, controls, customize, div, format_units, hint, icon, nice,
+    number, or_money, popup, px, stop_limit_price, text_button, theme, tint, tokens,
 };
 use gpui::prelude::*;
 use wyck_core::math::i64_to_f64;
+use wyck_trading::contract::format_lots;
 use wyck_ui_kit::focus::Keyboard as _;
 use wyck_ui_kit::prelude::StyledExt as _;
 
@@ -174,7 +175,7 @@ impl OrderTicket {
                 .iter()
                 .map(|v| {
                     let label = match mode {
-                        SizeMode::Lots => math::format_lots(*v),
+                        SizeMode::Lots => format_lots(*v),
                         SizeMode::Units => format_units(*v),
                         SizeMode::RiskBalance | SizeMode::RiskEquity | SizeMode::FreeMargin => {
                             format!("{}%", number::format(*v, 2))
@@ -563,7 +564,7 @@ impl OrderTicket {
         // What the volume comes to, under its field.
         let size_note = match self.size_mode {
             SizeMode::Lots => f.units.map(|u| format!("{} units", format_units(u))),
-            _ => f.lots.map(|l| format!("{} lots", math::format_lots(l))),
+            _ => f.lots.map(|l| format!("{} lots", format_lots(l))),
         };
         let presets = self.presets(f, cx);
         let has_presets = !self.preset_values(f, cx).is_empty();

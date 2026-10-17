@@ -1,11 +1,12 @@
 //! The banners that tell the user an order is risky or cannot be sent as it stands.
 
 use super::{
-    AnyElement, Context, IconName, OrderTicket, THIN_METER_HEIGHT, Tone, confirm_as, div, icon,
-    math, px, text_button, theme, tokens,
+    AnyElement, Context, IconName, OrderTicket, THIN_METER_HEIGHT, Tone, confirm_as, div, icon, px,
+    text_button, theme, tokens,
 };
 use gpui::prelude::*;
 use wyck_core::math::f32_of;
+use wyck_trading::amounts::format_money;
 
 impl OrderTicket {
     /// What the safety limits say now: a lock that stops new orders (with the way out), a request
@@ -23,12 +24,7 @@ impl OrderTicket {
                 account.risk().daily_loss_limit(standing.day_start_balance),
                 account.book.positions.len(),
                 account.book.currency.clone(),
-                lock.map(|lock| {
-                    lock.text(
-                        &|m| math::format_money(m, &account.book.currency),
-                        standing.now,
-                    )
-                }),
+                lock.map(|lock| account.lock_text(&lock)),
             )
         };
         let mut out: Vec<AnyElement> = Vec::new();
@@ -130,8 +126,8 @@ impl OrderTicket {
                             .child("Daily loss")
                             .child(format!(
                                 "{} of {}",
-                                math::format_money(used, &currency),
-                                math::format_money(limit, &currency)
+                                format_money(used, &currency),
+                                format_money(limit, &currency)
                             )),
                     )
                     .child(

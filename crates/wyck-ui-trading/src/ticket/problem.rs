@@ -1,7 +1,7 @@
 //! The sentences for what keeps an order from being sent (see [`TicketProblem`]).
 
-use wyck_trading::math::TicketProblem;
 use wyck_trading::plan::ExitsProblem;
+use wyck_trading::ticket::TicketProblem;
 
 /// What the ticket says about a problem, as a sentence to show.
 pub(super) fn text(problem: &TicketProblem) -> String {

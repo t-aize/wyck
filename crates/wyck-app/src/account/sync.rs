@@ -10,7 +10,8 @@ use gpui::Context;
 use std::collections::HashMap;
 use wyck_trading::ExecutionType;
 use wyck_trading::PositionStatus;
-use wyck_trading::math::{Contract, Link};
+use wyck_trading::contract::Contract;
+use wyck_trading::conversion::Link;
 
 impl Account {
     /// Asks the server once how the currency of `symbol_id` converts into the deposit one, and

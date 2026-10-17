@@ -17,9 +17,10 @@ use super::{OrderTicket, Plan, TicketEvent, customize, plan};
 use wyck_app::account::Busy;
 use wyck_app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
 use wyck_core::math::i64_to_f64;
+use wyck_trading::amounts;
 use wyck_trading::atr_stop::Smoothing;
-use wyck_trading::math;
-use wyck_trading::math::{Contract, Limit, Offset, SizeMode};
+use wyck_trading::contract::{Contract, Limit};
+use wyck_trading::ticket::{Offset, SizeMode};
 use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
     controls,
@@ -101,7 +102,7 @@ struct Frame {
 
 impl Frame {
     fn money(&self, amount: f64) -> String {
-        math::format_money(amount, &self.currency)
+        amounts::format_money(amount, &self.currency)
     }
 
     /// An amount and its share of the balance.
@@ -439,7 +440,7 @@ fn or_money(currency: &str) -> &str {
 }
 
 fn format_units(units: f64) -> String {
-    math::format_money(units, "")
+    amounts::format_money(units, "")
         .trim_end_matches("00")
         .trim_end_matches('.')
         .to_owned()

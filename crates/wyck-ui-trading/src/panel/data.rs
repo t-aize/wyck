@@ -13,8 +13,9 @@ use wyck_app::account::Account;
 use wyck_app::alerts::Alerts;
 use wyck_app::prefs::panel::Tab;
 use wyck_chart::Zone;
-use wyck_trading::math;
-use wyck_trading::math::{Contract, format_amount};
+use wyck_trading::amounts::format_amount;
+use wyck_trading::contract;
+use wyck_trading::contract::Contract;
 use wyck_ui_kit::tokens;
 
 /// The color a cell is written in.
@@ -244,7 +245,7 @@ fn columns(tab: Tab) -> Vec<Column> {
 fn total_text(sum: f64, unit: Unit, currency: &str) -> String {
     match unit {
         Unit::None => String::new(),
-        Unit::Lots => math::format_lots(sum),
+        Unit::Lots => contract::format_lots(sum),
         Unit::Money => money_text(sum, currency),
     }
 }

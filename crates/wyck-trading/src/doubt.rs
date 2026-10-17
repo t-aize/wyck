@@ -5,7 +5,8 @@
 //! account is read again and [`InDoubt::find`] says what the reading shows, so the user is told
 //! whether the order is working, was probably executed, or is not on the account.
 
-use crate::types::{Deal, Order, Position, TradeSide};
+use crate::enums::TradeSide;
+use crate::types::{Deal, Order, Position};
 
 /// How far the broker's clock may be behind ours before a trade it made after we sent the order
 /// looks older than the order. Wide on purpose: a trade wrongly taken for ours only makes the

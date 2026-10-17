@@ -5,8 +5,8 @@ use super::{
     Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent, same_shape,
 };
 use gpui::{App, Context, Entity, Window};
-use wyck_trading::math;
-use wyck_trading::math::{Offset, Pending};
+use wyck_trading::ticket;
+use wyck_trading::ticket::{Offset, Pending};
 use wyck_ui_chart::chart::events::{PlanState, PositionPlan};
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
@@ -97,7 +97,7 @@ impl OrderTicket {
             return;
         }
         let (bid, ask) = self.quote(cx);
-        let kind = match math::pending_kind(link.plan.buy, link.plan.entry, bid, ask) {
+        let kind = match ticket::pending_kind(link.plan.buy, link.plan.entry, bid, ask) {
             Pending::Limit => Kind::Limit,
             Pending::Stop if self.kind == Kind::StopLimit => Kind::StopLimit,
             Pending::Stop => Kind::Stop,
@@ -220,7 +220,7 @@ impl OrderTicket {
                     plan.stop_distance,
                     self.leg_inputs.get(usize::from(n - LINE_TARGET)),
                 ) {
-                    let r = ((price - entry) * math::protection_side(self.buy, false)) / distance;
+                    let r = ((price - entry) * ticket::protection_side(self.buy, false)) / distance;
                     if r.is_finite() && r > 0.0 {
                         let target = target.clone();
                         Self::write(&target, number::format(r, 2), window, cx);
@@ -268,7 +268,7 @@ impl OrderTicket {
         let value = match unit {
             Offset::Price => None,
             _ => plan.entry.and_then(|entry| {
-                let distance = (price - entry) * math::protection_side(self.buy, stop);
+                let distance = (price - entry) * ticket::protection_side(self.buy, stop);
                 self.scale(&plan, cx).value(unit, distance)
             }),
         };

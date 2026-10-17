@@ -23,7 +23,8 @@ impl Dashboard {
                 .update(cx, |account, cx| account.ensure_contract(id, cx));
             let contract = self.trading.read(cx).book.contracts.get(&id).copied();
             // Before the answer a contract is a placeholder: it must not hide what is known.
-            let Some(contract) = contract.filter(|c| *c != wyck_trading::math::Contract::default())
+            let Some(contract) =
+                contract.filter(|c| *c != wyck_trading::contract::Contract::default())
             else {
                 continue;
             };

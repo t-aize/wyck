@@ -1,5 +1,4 @@
-//! The arithmetic of trading: lots and volumes, pips, which pending order a price makes, the
-//! profit of a position between two answers of the server, and the account's totals.
+//! How a symbol trades: its lot, the volumes the broker accepts, where its pip is.
 //!
 //! # Units
 //!
@@ -14,7 +13,8 @@ use wyck_market::PRICE_SCALE;
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
 ///
 /// ```
-/// use wyck_trading::contract::{Contract, lots_for_risk};
+/// use wyck_trading::contract::Contract;
+/// use wyck_trading::risk::lots_for_risk;
 ///
 /// // A forex pair: 100 000 units a lot, steps of 0.01 lot, pips at the fourth decimal.
 /// let eurusd = Contract::default();
@@ -109,207 +109,7 @@ impl Contract {
     pub fn format_price(&self, price: f64) -> String {
         format!("{price:.*}", self.digits as usize)
     }
-}
 
-/// Lots written plainly: `0.01`, `1.5`, `10`.
-pub fn format_lots(lots: f64) -> String {
-    wyck_core::format::trim(lots, 2)
-}
-
-/// A price distance in the server's relative units (a stop loss or take profit of a market
-/// order is given as a distance from where it fills).
-///
-/// The server takes only multiples of the smallest step of the symbol's price, so the distance
-/// is rounded to `digits` decimals: on a three digit symbol the units go by hundreds. A distance
-/// is never rounded down to nothing.
-pub fn relative_distance(distance: f64, digits: u32) -> i64 {
-    let step = 10i64.pow(PRICE_DIGITS.saturating_sub(digits.min(PRICE_DIGITS)));
-    let units = f64_to_i64((distance.abs() * i64_to_f64(PRICE_SCALE) / i64_to_f64(step)).round());
-    units.max(1) * step
-}
-
-/// The decimals of the server's price scale (`PRICE_SCALE` is ten to this).
-const PRICE_DIGITS: u32 = 5;
-
-/// Which pending order a price makes for a side, given the market.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Pending {
-    /// Waits for the price to come to it.
-    Limit,
-    /// Waits for the price to go through it.
-    Stop,
-}
-
-/// A buy under the ask waits for the price to come down (a limit), above it for the price to
-/// break up (a stop); a sell the other way round against the bid.
-pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -> Pending {
-    let reference = if buy { ask } else { bid };
-    match reference {
-        Some(market) if buy && price < market => Pending::Limit,
-        Some(market) if !buy && price > market => Pending::Limit,
-        Some(_) => Pending::Stop,
-        None => Pending::Limit,
-    }
-}
-
-/// Why an order would be refused before it is sent. These are codes: the sentence a person reads
-/// belongs to the screen that shows it.
-#[derive(Debug, Clone, PartialEq)]
-pub enum TicketProblem {
-    /// A pending order without a price.
-    NoPrice,
-    /// The stop loss is on the profit side of the entry.
-    StopLossWrongSide,
-    /// The take profit is on the loss side of the entry.
-    TakeProfitWrongSide,
-    /// No volume to size by lots or units.
-    NoVolume,
-    /// No risk to size by.
-    NoRisk,
-    /// Sizing by risk needs a stop loss, and it is off.
-    StopLossOff,
-    /// The stop loss has no value.
-    NoStopLoss,
-    /// The take profit has no value.
-    NoTakeProfit,
-    /// The rate that turns the quote currency into the deposit currency is not known yet.
-    WaitingForRate,
-    /// No share of the free margin to size by.
-    NoMarginShare,
-    /// The margin of one lot is not known yet.
-    WaitingForMargin,
-    /// The exits are targets in multiples of the risk, which needs a stop loss.
-    ExitsNeedStopLoss,
-    /// The exits are not a valid plan.
-    Exits(super::plan::ExitsProblem),
-    /// An OCO pair is made of two pending orders.
-    OcoNeedsPending,
-    /// A stop loss in ATR without an ATR for the chosen timeframe and bar.
-    AtrUnavailable,
-    /// A take profit in R without a stop loss to measure it from.
-    RatioNeedsStopLoss,
-    /// A good-till-date order without a date.
-    NoExpiry,
-    /// A stop limit order without the range of its limit.
-    NoLimitRange,
-    /// A market order with a slippage limit that has no value.
-    NoSlippage,
-    /// No symbol is chosen.
-    NoSymbol,
-    /// The volume is too small to be cut between the exits.
-    VolumeTooSmallForExits,
-    /// The price of the other order of an OCO pair is not a price.
-    OcoPriceInvalid,
-}
-
-/// Checks that the protection sits on the right side of the entry: under it for a buy's stop
-/// loss and over it for its take profit, the other way round for a sell.
-pub fn check_protection(
-    buy: bool,
-    entry: f64,
-    stop_loss: Option<f64>,
-    take_profit: Option<f64>,
-) -> Result<(), TicketProblem> {
-    if let Some(sl) = stop_loss
-        && ((buy && sl >= entry) || (!buy && sl <= entry))
-    {
-        return Err(TicketProblem::StopLossWrongSide);
-    }
-    if let Some(tp) = take_profit
-        && ((buy && tp <= entry) || (!buy && tp >= entry))
-    {
-        return Err(TicketProblem::TakeProfitWrongSide);
-    }
-    Ok(())
-}
-
-/// The profit of a position in the symbol's quote currency, at the price it would close at.
-pub(crate) fn quote_profit(buy: bool, entry: f64, close: f64, units: f64) -> f64 {
-    if buy {
-        (close - entry) * units
-    } else {
-        (entry - close) * units
-    }
-}
-
-/// The server's word on a position's profit, and the rate that turns a profit in the quote
-/// currency into the deposit currency, so the profit can follow the price until the next answer.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PnlMark {
-    /// Before and after commission and swap, in the deposit currency.
-    pub gross: f64,
-    /// See [`PnlMark::gross`].
-    pub net: f64,
-    /// Deposit currency per unit of quote currency, when it is known.
-    pub rate: Option<f64>,
-}
-
-/// The rate a server answer implies: its gross profit over the profit in the quote currency
-/// computed here at about the same time. Only a move of at least `least` (a pip's worth) is
-/// trusted, since the two are not taken at the same instant.
-pub(crate) fn implied_rate(gross: f64, quote: f64, least: f64) -> Option<f64> {
-    if quote.abs() < least.max(1e-9) {
-        return None;
-    }
-    let rate = gross / quote;
-    (rate.is_finite() && rate > 0.0).then_some(rate)
-}
-
-/// The profit of a position now: the profit in the quote currency at the current market,
-/// converted at the mark's rate, less the costs the server counted. Without a rate, the
-/// server's answer as it is.
-pub fn live_net(mark: &PnlMark, quote_now: f64) -> f64 {
-    match mark.rate {
-        Some(rate) => quote_now * rate + (mark.net - mark.gross),
-        None => mark.net,
-    }
-}
-
-/// Which way a protection sits from the entry: `-1.0` under it, `1.0` over it.
-pub fn protection_side(buy: bool, stop: bool) -> f64 {
-    if buy == stop { -1.0 } else { 1.0 }
-}
-
-/// The quantity that loses `risk` over a move of `distance` in price, when one unit of quantity
-/// is worth `value` in the risk's currency for each unit of price moved. `None` when these
-/// numbers cannot size anything. This is the one formula: the ticket (through [`lots_for_risk`])
-/// and the position tool of the chart both size from it.
-pub fn quantity_for_risk(risk: f64, distance: f64, value: f64) -> Option<f64> {
-    let per_unit = distance * value;
-    (risk > 0.0 && per_unit > 0.0 && per_unit.is_finite()).then(|| risk / per_unit)
-}
-
-/// What `quantity` gains or loses over a move of `distance` in price; see [`quantity_for_risk`].
-pub fn move_amount(quantity: f64, distance: f64, value: f64) -> f64 {
-    quantity * distance * value
-}
-
-/// The lots whose loss over `stop_distance` is `risk` in the deposit currency, before they are
-/// stepped. `rate` is the deposit currency per unit of quote currency.
-pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contract) -> Option<f64> {
-    let units_per_lot = i64_to_f64(contract.lot_size) / 100.0;
-    quantity_for_risk(risk, stop_distance, rate * units_per_lot)
-}
-
-/// A volume chosen by the ticket, and whether the broker's limits changed it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Stepped {
-    /// The volume to send.
-    pub volume: i64,
-    /// The limit that changed it, if one did.
-    pub limit: Option<Limit>,
-}
-
-/// A limit of the broker the wanted volume ran into.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Limit {
-    /// Raised to the least volume the broker takes.
-    Min,
-    /// Lowered to the most it takes.
-    Max,
-}
-
-impl Contract {
     /// The volume of `lots` rounded to the nearest step and kept inside the broker's limits.
     pub fn volume_near(&self, lots: f64) -> Stepped {
         let volume = self.volume_of_lots(lots);
@@ -351,79 +151,43 @@ impl Contract {
     }
 }
 
-/// A symbol of a conversion chain, with the assets it trades.
+/// A volume chosen by the ticket, and whether the broker's limits changed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Link {
-    pub symbol_id: i64,
-    /// The asset it prices.
-    pub base: i64,
-    /// The asset it is priced in.
-    pub quote: i64,
+pub struct Stepped {
+    /// The volume to send.
+    pub volume: i64,
+    /// The limit that changed it, if one did.
+    pub limit: Option<Limit>,
 }
 
-/// How much of asset `to` one unit of asset `from` is worth, walking the chain the server gave
-/// at the middle prices of its symbols. `None` while a price is missing or the chain does not
-/// lead from one to the other.
-pub fn chain_rate(
-    from: i64,
-    to: i64,
-    chain: &[Link],
-    mid: &dyn Fn(i64) -> Option<f64>,
-) -> Option<f64> {
-    let mut asset = from;
-    let mut rate = 1.0;
-    for link in chain {
-        let price = mid(link.symbol_id).filter(|p| *p > 0.0)?;
-        if link.base == asset {
-            rate *= price;
-            asset = link.quote;
-        } else if link.quote == asset {
-            rate /= price;
-            asset = link.base;
-        } else {
-            return None;
-        }
-    }
-    (asset == to).then_some(rate)
+/// A limit of the broker the wanted volume ran into.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Limit {
+    /// Raised to the least volume the broker takes.
+    Min,
+    /// Lowered to the most it takes.
+    Max,
 }
 
-/// The middle of a bid and an ask, or whichever is known.
-pub fn mid(bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
-    match (bid, ask) {
-        (Some(b), Some(a)) => Some(f64::midpoint(b, a)),
-        (b, a) => b.or(a),
-    }
+/// Lots written plainly: `0.01`, `1.5`, `10`.
+pub fn format_lots(lots: f64) -> String {
+    wyck_core::format::trim(lots, 2)
 }
 
-/// The totals of an account.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Summary {
-    /// The balance, without the open positions.
-    pub balance: f64,
-    /// The balance with the open positions' profit.
-    pub equity: f64,
-    /// The margin the open positions use.
-    pub margin: f64,
-    /// The equity left over the margin in use.
-    pub free_margin: f64,
-    /// Equity over used margin, in percent; `None` without margin in use.
-    pub margin_level: Option<f64>,
-    /// The open positions' profit or loss.
-    pub unrealized: f64,
+/// A price distance in the server's relative units (a stop loss or take profit of a market
+/// order is given as a distance from where it fills).
+///
+/// The server takes only multiples of the smallest step of the symbol's price, so the distance
+/// is rounded to `digits` decimals: on a three digit symbol the units go by hundreds. A distance
+/// is never rounded down to nothing.
+pub fn relative_distance(distance: f64, digits: u32) -> i64 {
+    let step = 10i64.pow(PRICE_DIGITS.saturating_sub(digits.min(PRICE_DIGITS)));
+    let units = f64_to_i64((distance.abs() * i64_to_f64(PRICE_SCALE) / i64_to_f64(step)).round());
+    units.max(1) * step
 }
 
-/// The totals of an account from its balance, its open profit and the margin in use.
-pub fn summary(balance: f64, unrealized: f64, margin: f64) -> Summary {
-    let equity = balance + unrealized;
-    Summary {
-        balance,
-        equity,
-        margin,
-        free_margin: equity - margin,
-        margin_level: (margin > 0.0).then(|| equity / margin * 100.0),
-        unrealized,
-    }
-}
+/// The decimals of the server's price scale (`PRICE_SCALE` is ten to this).
+const PRICE_DIGITS: u32 = 5;
 
 #[cfg(test)]
 mod tests {
@@ -460,31 +224,6 @@ mod tests {
     }
 
     #[test]
-    fn a_price_makes_a_limit_or_a_stop_depending_on_the_side() {
-        let (bid, ask) = (Some(1.1000), Some(1.1002));
-        assert_eq!(pending_kind(true, 1.0990, bid, ask), Pending::Limit);
-        assert_eq!(pending_kind(true, 1.1010, bid, ask), Pending::Stop);
-        assert_eq!(pending_kind(false, 1.1010, bid, ask), Pending::Limit);
-        assert_eq!(pending_kind(false, 1.0990, bid, ask), Pending::Stop);
-        assert_eq!(pending_kind(true, 1.0, None, None), Pending::Limit);
-    }
-
-    #[test]
-    fn protection_must_sit_on_the_right_side() {
-        assert!(check_protection(true, 1.1, Some(1.09), Some(1.12)).is_ok());
-        assert_eq!(
-            check_protection(true, 1.1, Some(1.11), None),
-            Err(TicketProblem::StopLossWrongSide)
-        );
-        assert_eq!(
-            check_protection(false, 1.1, None, Some(1.11)),
-            Err(TicketProblem::TakeProfitWrongSide)
-        );
-        assert!(check_protection(false, 1.1, Some(1.11), Some(1.08)).is_ok());
-        assert!(check_protection(true, 1.1, None, None).is_ok());
-    }
-
-    #[test]
     fn a_distance_is_counted_in_the_servers_units() {
         assert_eq!(relative_distance(0.0025, 5), 250);
         assert_eq!(relative_distance(-0.0025, 5), 250);
@@ -499,132 +238,8 @@ mod tests {
     }
 
     #[test]
-    fn the_profit_follows_the_price_at_the_rate_it_is_converted_at() {
-        // Long 100 000 units from 1.1000; the server said +20 USD gross, +18 net.
-        let units = 100_000.0;
-        let quote_then = quote_profit(true, 1.1000, 1.1002, units);
-        assert!((quote_then - 20.0).abs() < 1e-6);
-        let mark = PnlMark {
-            gross: 20.0,
-            net: 18.0,
-            rate: Some(1.0),
-        };
-        let now = quote_profit(true, 1.1000, 1.1010, units);
-        assert!((live_net(&mark, now) - 98.0).abs() < 1e-6);
-        // Profit in another currency: gross 10 for a quote profit of 20 is a rate of 0.5.
-        let rate = implied_rate(10.0, 20.0, 1.0);
-        assert_eq!(rate, Some(0.5));
-        let converted = PnlMark {
-            gross: 10.0,
-            net: 9.0,
-            rate,
-        };
-        assert!((live_net(&converted, 100.0) - 49.0).abs() < 1e-6);
-        // Too small a move, or one of the other sign, says nothing about the rate.
-        assert_eq!(implied_rate(0.3, 0.5, 1.0), None);
-        assert_eq!(implied_rate(-10.0, 20.0, 1.0), None);
-        let unknown = PnlMark {
-            gross: 0.0,
-            net: -2.0,
-            rate: None,
-        };
-        assert!(close(live_net(&unknown, 50.0), -2.0));
-        assert!(close(quote_profit(false, 1.1, 1.09, 10.0), 0.1));
-    }
-
-    #[test]
-    fn the_totals_of_an_account_add_up() {
-        let s = summary(10_000.0, 250.0, 500.0);
-        assert!(close(s.equity, 10_250.0));
-        assert!(close(s.free_margin, 9_750.0));
-        assert!(close(s.margin_level.unwrap(), 2_050.0));
-        assert_eq!(summary(1.0, 0.0, 0.0).margin_level, None);
-    }
-
-    #[test]
     fn lots_are_written_plainly() {
         assert_eq!(format_lots(0.10), "0.1");
         assert_eq!(format_lots(2.0), "2");
-    }
-    #[test]
-    fn the_quantity_for_a_risk_and_what_it_loses_are_the_same_formula() {
-        let (risk, distance, value) = (100.0, 0.0020, 50_000.0);
-        let quantity = quantity_for_risk(risk, distance, value).unwrap();
-        assert!((move_amount(quantity, distance, value) - risk).abs() < 1e-9);
-        for bad in [
-            (0.0, 1.0, 1.0),
-            (1.0, 0.0, 1.0),
-            (1.0, 1.0, 0.0),
-            (1.0, f64::NAN, 1.0),
-        ] {
-            assert_eq!(quantity_for_risk(bad.0, bad.1, bad.2), None, "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn a_risk_makes_the_volume_that_loses_it_at_the_stop() {
-        let c = Contract::default();
-        // 100 USD over 20 pips of EURUSD: 10 USD a pip, so 0.5 lots.
-        let lots = lots_for_risk(100.0, 0.0020, 1.0, &c).unwrap();
-        assert!((lots - 0.5).abs() < 1e-9);
-        assert_eq!(c.volume_at_most(lots).volume, 5_000_000);
-        // Stepped down, never up: 0.567 lots is 0.56.
-        assert_eq!(c.volume_at_most(0.567).volume, 5_600_000);
-        assert_eq!(c.volume_at_most(0.3).volume, 3_000_000);
-        assert_eq!(c.volume_at_most(0.001).limit, Some(Limit::Min));
-        assert_eq!(c.volume_at_most(1e9).limit, Some(Limit::Max));
-        assert_eq!(c.volume_near(0.567).volume, 5_700_000);
-        assert_eq!(c.volume_near(0.567).limit, None);
-        assert_eq!(c.volume_near(0.001).limit, Some(Limit::Min));
-        assert_eq!(lots_for_risk(100.0, 0.0, 1.0, &c), None);
-        assert_eq!(lots_for_risk(0.0, 0.002, 1.0, &c), None);
-        // A quote currency worth half the deposit one needs twice the lots.
-        let half = lots_for_risk(100.0, 0.0020, 0.5, &c).unwrap();
-        assert!((half - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn a_conversion_chain_is_walked_either_way() {
-        // Assets: 1 EUR, 2 USD, 3 JPY, 4 GBP. Symbols: 10 EURUSD, 11 USDJPY, 12 GBPUSD.
-        let prices = |id: i64| match id {
-            10 => Some(1.10),
-            11 => Some(150.0),
-            12 => Some(1.25),
-            _ => None,
-        };
-        let eurusd = Link {
-            symbol_id: 10,
-            base: 1,
-            quote: 2,
-        };
-        let usdjpy = Link {
-            symbol_id: 11,
-            base: 2,
-            quote: 3,
-        };
-        let gbpusd = Link {
-            symbol_id: 12,
-            base: 4,
-            quote: 2,
-        };
-        assert_eq!(chain_rate(2, 2, &[], &prices), Some(1.0));
-        assert!((chain_rate(1, 2, &[eurusd], &prices).unwrap() - 1.10).abs() < 1e-12);
-        // One JPY in USD, then in EUR.
-        let jpy_usd = chain_rate(3, 2, &[usdjpy], &prices).unwrap();
-        assert!((jpy_usd - 1.0 / 150.0).abs() < 1e-12);
-        let jpy_eur = chain_rate(3, 1, &[usdjpy, eurusd], &prices).unwrap();
-        assert!((jpy_eur - 1.0 / 150.0 / 1.10).abs() < 1e-12);
-        let gbp_eur = chain_rate(4, 1, &[gbpusd, eurusd], &prices).unwrap();
-        assert!((gbp_eur - 1.25 / 1.10).abs() < 1e-12);
-        // A missing price, or a chain that leads elsewhere, gives no rate.
-        let unpriced = Link {
-            symbol_id: 99,
-            base: 3,
-            quote: 2,
-        };
-        assert_eq!(chain_rate(3, 2, &[unpriced], &prices), None);
-        assert_eq!(chain_rate(3, 1, &[usdjpy], &prices), None);
-        assert_eq!(mid(Some(1.0), Some(1.2)), Some(1.1));
-        assert_eq!(mid(None, Some(1.2)), Some(1.2));
     }
 }

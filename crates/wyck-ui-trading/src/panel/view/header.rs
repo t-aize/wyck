@@ -8,7 +8,7 @@ use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
 use wyck_app::prefs::panel::Tab;
 use wyck_core::format::grouped;
 use wyck_core::math::f64_to_i64;
-use wyck_trading::math::format_amount;
+use wyck_trading::amounts::format_amount;
 use wyck_ui_kit::prelude::StyledExt as _;
 use wyck_ui_kit::{focus::Keyboard, theme, tokens};
 

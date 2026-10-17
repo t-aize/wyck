@@ -50,10 +50,11 @@ use wyck_app::account::Account;
 pub(crate) use wyck_app::prefs::ticket as prefs;
 use wyck_core::math::i64_to_f64;
 use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::math;
-use wyck_trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
+use wyck_trading::contract::Stepped;
 use wyck_trading::plan;
 use wyck_trading::plan::ExitPlan;
+use wyck_trading::ticket;
+use wyck_trading::ticket::{Offset, Pending, SizeMode, TicketProblem};
 use wyck_ui_chart::chart::Chart;
 use wyck_ui_chart::chart::events::{PositionLink, PositionPlan};
 use wyck_ui_chart::multichart::SymbolRef;
@@ -463,7 +464,7 @@ impl OrderTicket {
             Some(price) => {
                 let (bid, ask) = self.quote(cx);
                 // A stop limit stays one when the price it is given is a stop price.
-                self.kind = match math::pending_kind(buy, price, bid, ask) {
+                self.kind = match ticket::pending_kind(buy, price, bid, ask) {
                     Pending::Limit => Kind::Limit,
                     Pending::Stop if self.kind == Kind::StopLimit => Kind::StopLimit,
                     Pending::Stop => Kind::Stop,

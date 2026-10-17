@@ -3,7 +3,7 @@
 
 use serde::Deserialize;
 
-use crate::types::number_enum;
+use crate::enums::number_enum;
 use crate::{Deal, Order, Position};
 use wyck_core::flex;
 

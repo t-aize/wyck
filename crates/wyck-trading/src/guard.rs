@@ -153,7 +153,8 @@ pub struct Standing {
     pub now: i64,
 }
 
-/// Why nothing new can be sent.
+/// Why nothing new can be sent. These are codes with the numbers behind them: the sentence a
+/// person reads belongs to the screen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Lock {
     KillSwitch,
@@ -166,24 +167,6 @@ pub enum Lock {
     Cooldown {
         until: i64,
     },
-}
-
-impl Lock {
-    /// The reason, as a sentence for a banner. `money` writes an amount with its currency.
-    pub fn text(&self, money: &dyn Fn(f64) -> String, now: i64) -> String {
-        match *self {
-            Self::KillSwitch => "Kill switch is on: no new orders can be sent.".to_owned(),
-            Self::DailyLoss { loss, limit } => format!(
-                "Daily loss limit reached ({} of {}): no new orders today.",
-                money(loss),
-                money(limit)
-            ),
-            Self::Cooldown { until } => {
-                let left = ((until - now).max(0) + 59_999) / 60_000;
-                format!("Cooling down after a loss: {left} min left.")
-            }
-        }
-    }
 }
 
 /// The lock in force, if any. The kill switch and the daily loss come first: they last longer
@@ -227,14 +210,43 @@ pub struct OrderFacts {
     pub reduces: bool,
 }
 
+/// Why the limits refuse an order. These are codes with the numbers behind them: the sentence a
+/// person reads belongs to the screen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Refusal {
+    /// Nothing new can be sent now.
+    Locked(Lock),
+    /// More lots than the limit per order.
+    OrderTooBig { lots: f64, limit: f64 },
+    /// More lots than a one-click order may have.
+    OneClickTooBig { limit: f64 },
+    /// More lots open on the symbol than its limit, this order included.
+    SymbolTooBig { lots: f64, limit: f64 },
+    /// As many positions open as the limit allows.
+    TooManyPositions { open: usize, limit: u32 },
+    /// As many orders sent today as the limit allows.
+    TooManyOrdersToday { sent: u32, limit: u32 },
+    /// The safety settings ask for a stop loss and the order has none.
+    StopLossRequired,
+    /// A pending order priced further from the market than the collar allows.
+    PriceTooFar { away_pct: f64, limit_pct: f64 },
+}
+
+/// Something worth a second look before an order is sent, which does not stop it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Warning {
+    /// The spread is wider than the limit.
+    SpreadTooWide { spread_pips: f64, limit_pips: f64 },
+}
+
 /// What the checks say about an order.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Verdict {
     Ok,
     /// Refuse it, with the reason.
-    Block(String),
+    Block(Refusal),
     /// Ask first: these things are worth a second look.
-    Warn(Vec<String>),
+    Warn(Vec<Warning>),
 }
 
 impl Verdict {
@@ -245,87 +257,75 @@ impl Verdict {
 }
 
 /// Checks an order against the limits and where the account stands.
-pub fn check(
-    prefs: &RiskPrefs,
-    standing: &Standing,
-    order: &OrderFacts,
-    money: &dyn Fn(f64) -> String,
-) -> Verdict {
+pub fn check(prefs: &RiskPrefs, standing: &Standing, order: &OrderFacts) -> Verdict {
     if order.reduces {
         return Verdict::Ok;
     }
     if let Some(lock) = lock(prefs, standing) {
-        return Verdict::Block(lock.text(money, standing.now));
+        return Verdict::Block(Refusal::Locked(lock));
     }
     if prefs.max_lots_per_order > 0.0 && order.lots > prefs.max_lots_per_order + 1e-9 {
-        return Verdict::Block(format!(
-            "The order is {} lots: the limit per order is {}.",
-            lots(order.lots),
-            lots(prefs.max_lots_per_order)
-        ));
+        return Verdict::Block(Refusal::OrderTooBig {
+            lots: order.lots,
+            limit: prefs.max_lots_per_order,
+        });
     }
     if order.one_click
         && prefs.one_click_max_lots > 0.0
         && order.lots > prefs.one_click_max_lots + 1e-9
     {
-        return Verdict::Block(format!(
-            "One-click orders are limited to {} lots. Use the confirmation for a larger one.",
-            lots(prefs.one_click_max_lots)
-        ));
+        return Verdict::Block(Refusal::OneClickTooBig {
+            limit: prefs.one_click_max_lots,
+        });
     }
     if prefs.max_lots_per_symbol > 0.0
         && order.symbol_lots + order.lots > prefs.max_lots_per_symbol + 1e-9
     {
-        return Verdict::Block(format!(
-            "That would make {} lots open on this symbol: the limit is {}.",
-            lots(order.symbol_lots + order.lots),
-            lots(prefs.max_lots_per_symbol)
-        ));
+        return Verdict::Block(Refusal::SymbolTooBig {
+            lots: order.symbol_lots + order.lots,
+            limit: prefs.max_lots_per_symbol,
+        });
     }
     if prefs.max_open_positions > 0 && standing.open_positions >= prefs.max_open_positions as usize
     {
-        return Verdict::Block(format!(
-            "{} positions are open: the limit is {}.",
-            standing.open_positions, prefs.max_open_positions
-        ));
+        return Verdict::Block(Refusal::TooManyPositions {
+            open: standing.open_positions,
+            limit: prefs.max_open_positions,
+        });
     }
     if prefs.max_daily_trades > 0 && standing.trades_today >= prefs.max_daily_trades {
-        return Verdict::Block(format!(
-            "{} orders were sent today: the limit is {}.",
-            standing.trades_today, prefs.max_daily_trades
-        ));
+        return Verdict::Block(Refusal::TooManyOrdersToday {
+            sent: standing.trades_today,
+            limit: prefs.max_daily_trades,
+        });
     }
     if prefs.require_stop_loss && !order.has_stop {
-        return Verdict::Block("A stop loss is required by your safety settings.".to_owned());
+        return Verdict::Block(Refusal::StopLossRequired);
     }
     if prefs.price_collar_pct > 0.0
         && let Some(away) = order.away_pct
         && away > prefs.price_collar_pct
     {
-        return Verdict::Block(format!(
-            "The price is {away:.1}% from the market: the limit is {:.1}%. Check the decimal point.",
-            prefs.price_collar_pct
-        ));
+        return Verdict::Block(Refusal::PriceTooFar {
+            away_pct: away,
+            limit_pct: prefs.price_collar_pct,
+        });
     }
     let mut warnings = Vec::new();
     if prefs.max_spread_pips > 0.0
         && let Some(spread) = order.spread_pips
         && spread > prefs.max_spread_pips
     {
-        warnings.push(format!(
-            "The spread is {spread:.1} pips, wider than your limit of {:.1}.",
-            prefs.max_spread_pips
-        ));
+        warnings.push(Warning::SpreadTooWide {
+            spread_pips: spread,
+            limit_pips: prefs.max_spread_pips,
+        });
     }
     if warnings.is_empty() {
         Verdict::Ok
     } else {
         Verdict::Warn(warnings)
     }
-}
-
-fn lots(value: f64) -> String {
-    super::math::format_lots(value)
 }
 
 /// What kind of account an order goes to: simulated money or real money.
@@ -364,17 +364,9 @@ impl Mode {
     }
 }
 
-/// Why an order was not cleared: the sentence for the user.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Blocked(pub String);
-
-impl std::fmt::Display for Blocked {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for Blocked {}
+/// Why an order was not cleared.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Blocked(pub Refusal);
 
 /// Proof that an order went through [`check`] and was not refused, for an account of one [`Mode`].
 ///
@@ -420,9 +412,8 @@ pub fn clear(
     facts: &OrderFacts,
     order: Fingerprint,
     mode: Mode,
-    money: &dyn Fn(f64) -> String,
 ) -> Result<Cleared, Blocked> {
-    match check(prefs, standing, facts, money) {
+    match check(prefs, standing, facts) {
         Verdict::Block(reason) => Err(Blocked(reason)),
         Verdict::Ok | Verdict::Warn(_) => Ok(Cleared { order, mode }),
     }
@@ -440,9 +431,8 @@ pub fn clear_batch(
     facts: &OrderFacts,
     orders: &[Fingerprint],
     mode: Mode,
-    money: &dyn Fn(f64) -> String,
 ) -> Result<Vec<Cleared>, Blocked> {
-    match check(prefs, standing, facts, money) {
+    match check(prefs, standing, facts) {
         Verdict::Block(reason) => Err(Blocked(reason)),
         Verdict::Ok | Verdict::Warn(_) => Ok(orders
             .iter()
@@ -497,10 +487,6 @@ impl DuplicateGuard {
 mod tests {
     use super::*;
 
-    fn money(v: f64) -> String {
-        format!("{v:.2}")
-    }
-
     fn standing() -> Standing {
         Standing {
             day_start_balance: 10_000.0,
@@ -520,10 +506,7 @@ mod tests {
     #[test]
     fn with_no_limit_set_an_order_goes_through() {
         let prefs = RiskPrefs::default();
-        assert_eq!(
-            check(&prefs, &standing(), &order(50.0), &money),
-            Verdict::Ok
-        );
+        assert_eq!(check(&prefs, &standing(), &order(50.0)), Verdict::Ok);
         assert!(
             !RiskPrefs {
                 price_collar_pct: 0.0,
@@ -540,8 +523,8 @@ mod tests {
             max_lots_per_order: 2.0,
             ..RiskPrefs::default()
         };
-        assert_eq!(check(&prefs, &standing(), &order(2.0), &money), Verdict::Ok);
-        assert!(check(&prefs, &standing(), &order(2.01), &money).is_block());
+        assert_eq!(check(&prefs, &standing(), &order(2.0)), Verdict::Ok);
+        assert!(check(&prefs, &standing(), &order(2.01)).is_block());
         let prefs = RiskPrefs {
             max_lots_per_symbol: 3.0,
             ..RiskPrefs::default()
@@ -550,7 +533,7 @@ mod tests {
             symbol_lots: 2.5,
             ..order(1.0)
         };
-        assert!(check(&prefs, &standing(), &held, &money).is_block());
+        assert!(check(&prefs, &standing(), &held).is_block());
     }
 
     #[test]
@@ -567,7 +550,7 @@ mod tests {
         assert_eq!(lock(&prefs, &day), None);
         day.day_pnl = -300.0;
         assert!(matches!(lock(&prefs, &day), Some(Lock::DailyLoss { .. })));
-        assert!(check(&prefs, &day, &order(0.1), &money).is_block());
+        assert!(check(&prefs, &day, &order(0.1)).is_block());
     }
 
     #[test]
@@ -580,8 +563,8 @@ mod tests {
             reduces: true,
             ..order(5.0)
         };
-        assert_eq!(check(&prefs, &standing(), &closing, &money), Verdict::Ok);
-        assert!(check(&prefs, &standing(), &order(0.1), &money).is_block());
+        assert_eq!(check(&prefs, &standing(), &closing), Verdict::Ok);
+        assert!(check(&prefs, &standing(), &order(0.1)).is_block());
     }
 
     #[test]
@@ -598,11 +581,6 @@ mod tests {
         ));
         day.last_loss_at = Some(day.now - 31 * 60_000);
         assert_eq!(lock(&prefs, &day), None);
-        let text = Lock::Cooldown {
-            until: day.now + 90_000,
-        }
-        .text(&money, day.now);
-        assert!(text.contains("2 min"), "{text}");
     }
 
     #[test]
@@ -616,30 +594,27 @@ mod tests {
         };
         let mut day = standing();
         day.open_positions = 2;
-        assert!(check(&prefs, &day, &order(0.1), &money).is_block());
+        assert!(check(&prefs, &day, &order(0.1)).is_block());
         day.open_positions = 0;
         day.trades_today = 5;
-        assert!(check(&prefs, &day, &order(0.1), &money).is_block());
+        assert!(check(&prefs, &day, &order(0.1)).is_block());
         day.trades_today = 0;
         let bare = OrderFacts {
             has_stop: false,
             ..order(0.1)
         };
-        assert!(check(&prefs, &day, &bare, &money).is_block());
+        assert!(check(&prefs, &day, &bare).is_block());
         let click = OrderFacts {
             one_click: true,
             ..order(1.5)
         };
-        assert!(check(&prefs, &day, &click, &money).is_block());
-        assert_eq!(check(&prefs, &day, &order(1.5), &money), Verdict::Ok);
+        assert!(check(&prefs, &day, &click).is_block());
+        assert_eq!(check(&prefs, &day, &order(1.5)), Verdict::Ok);
         let far = OrderFacts {
             away_pct: Some(40.0),
             ..order(0.1)
         };
-        assert!(
-            check(&prefs, &day, &far, &money).is_block(),
-            "default collar"
-        );
+        assert!(check(&prefs, &day, &far).is_block(), "default collar");
     }
 
     #[test]
@@ -653,7 +628,7 @@ mod tests {
             ..order(0.1)
         };
         assert!(matches!(
-            check(&prefs, &standing(), &wide, &money),
+            check(&prefs, &standing(), &wide),
             Verdict::Warn(w) if w.len() == 1
         ));
     }
@@ -719,15 +694,8 @@ mod tests {
             lots: 2.0,
             ..OrderFacts::default()
         };
-        let cleared = clear(
-            &prefs,
-            &standing(),
-            &ok,
-            fingerprint(100),
-            Mode::Demo,
-            &money,
-        )
-        .expect("one lot is within the limit");
+        let cleared = clear(&prefs, &standing(), &ok, fingerprint(100), Mode::Demo)
+            .expect("one lot is within the limit");
         assert!(cleared.covers(fingerprint(100), Mode::Demo));
         assert!(
             !cleared.covers(fingerprint(200), Mode::Demo),
@@ -737,15 +705,12 @@ mod tests {
             !cleared.covers(fingerprint(100), Mode::Live),
             "another kind of account"
         );
-        let blocked = clear(
-            &prefs,
-            &standing(),
-            &too_big,
-            fingerprint(200),
-            Mode::Demo,
-            &money,
-        );
-        assert!(blocked.is_err_and(|b| b.0.contains("limit per order")));
+        let blocked = clear(&prefs, &standing(), &too_big, fingerprint(200), Mode::Demo);
+        assert!(matches!(
+            blocked,
+            Err(Blocked(Refusal::OrderTooBig { lots, limit }))
+                if (lots - 2.0).abs() < 1e-9 && (limit - 1.0).abs() < 1e-9
+        ));
     }
 
     #[test]
@@ -759,17 +724,7 @@ mod tests {
             spread_pips: Some(3.0),
             ..OrderFacts::default()
         };
-        assert!(
-            clear(
-                &prefs,
-                &standing(),
-                &wide,
-                fingerprint(1),
-                Mode::Live,
-                &money
-            )
-            .is_ok()
-        );
+        assert!(clear(&prefs, &standing(), &wide, fingerprint(1), Mode::Live).is_ok());
     }
 
     #[test]
@@ -785,7 +740,6 @@ mod tests {
             &facts,
             &orders,
             Mode::Demo,
-            &money,
         )
         .unwrap();
         assert_eq!(proofs.len(), 2);
@@ -794,7 +748,7 @@ mod tests {
             kill_switch: true,
             ..RiskPrefs::default()
         };
-        assert!(clear_batch(&locked, &standing(), &facts, &orders, Mode::Demo, &money).is_err());
+        assert!(clear_batch(&locked, &standing(), &facts, &orders, Mode::Demo).is_err());
     }
 
     #[test]

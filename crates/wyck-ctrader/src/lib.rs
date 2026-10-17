@@ -27,7 +27,7 @@
 //! | (root) | [`Client`], [`ClientBuilder`]: the connection; [`AccountClient`]: a client bound to one account, routing to the four below |
 //! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
 //! | `account` | `account::AccountDataClient`: balance, positions, orders, deals; [`wyck_trading::book::AccountBook`]: the account kept current from the server's messages |
-//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`wyck_trading::contract`]: lots, volumes, pips, risk sizing and profit |
+//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`wyck_trading::contract`] and [`wyck_trading::risk`]: lots, volumes, pips and risk sizing |
 //! | `margin` | `margin::MarginClient`: what a volume would need |
 //! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |

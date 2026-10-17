@@ -401,7 +401,6 @@ mod tests {
             &OrderFacts::default(),
             order.fingerprint(),
             mode,
-            &|m| m.to_string(),
         )
         .unwrap()
     }

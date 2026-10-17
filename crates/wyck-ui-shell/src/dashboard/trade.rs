@@ -13,7 +13,7 @@ use super::Dashboard;
 use gpui::prelude::*;
 use gpui::{Context, Window};
 use wyck_chart::LineId;
-use wyck_trading::math;
+use wyck_trading::contract;
 use wyck_ui_chart::chart::events::{ChartAction, PositionLink};
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::{
@@ -151,7 +151,7 @@ impl Dashboard {
                         format!(
                             "{} {} {}",
                             if p.trade_data.is_buy() { "Buy" } else { "Sell" },
-                            math::format_lots(contract.lots_of_volume(p.trade_data.volume)),
+                            contract::format_lots(contract.lots_of_volume(p.trade_data.volume)),
                             book.name(p.trade_data.symbol_id)
                         )
                     })

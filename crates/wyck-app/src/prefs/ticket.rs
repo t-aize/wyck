@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use self::plans::{MAX_PLANS, PlanTemplate, TimeStopPrefs};
 use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::math::{Offset, SizeMode};
 use wyck_trading::plan::ExitPlan;
+use wyck_trading::ticket::{Offset, SizeMode};
 
 /// The kind of order the ticket sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

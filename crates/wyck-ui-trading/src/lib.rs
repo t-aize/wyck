@@ -15,7 +15,7 @@ use wyck_app::alerts::AlertBook;
 use wyck_chart::LineId;
 use wyck_drawings::model::style::Dash;
 use wyck_trading::book::AccountBook;
-use wyck_trading::math;
+use wyck_trading::{amounts, contract};
 use wyck_ui_chart::chart::ChartLine;
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
@@ -47,7 +47,7 @@ pub fn lines(
         } else {
             "Sell"
         };
-        let lots = math::format_lots(contract.lots_of_volume(position.trade_data.volume));
+        let lots = contract::format_lots(contract.lots_of_volume(position.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = position.price {
             let mut entry = line(
@@ -61,7 +61,7 @@ pub fn lines(
             );
             entry.detail = profit(position.position_id).map(|p| {
                 (
-                    math::format_money(p, currency),
+                    amounts::format_money(p, currency),
                     if p >= 0.0 { palette.up } else { palette.down },
                 )
             });
@@ -109,7 +109,7 @@ pub fn lines(
             "Sell"
         };
         let kind = order.kind().map_or("order", wyck_trading::OrderType::label);
-        let lots = math::format_lots(contract.lots_of_volume(order.trade_data.volume));
+        let lots = contract::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = order.limit_price.or(order.stop_price) {
             list.push(line(

@@ -2,9 +2,10 @@
 
 use super::{
     Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, Tone,
-    card, card_head, confirm_as, div, hint, math, px, text_button, theme, tokens,
+    card, card_head, confirm_as, div, hint, px, text_button, theme, tokens,
 };
 use gpui::prelude::*;
+use wyck_trading::contract::format_lots;
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::prelude::Selectable;
 use wyck_ui_kit::prelude::StyledExt as _;
@@ -59,7 +60,7 @@ impl OrderTicket {
             let describe = format!(
                 "{} {} {}",
                 if buy { "Buy" } else { "Sell" },
-                math::format_lots(contract.lots_of_volume(volume)),
+                format_lots(contract.lots_of_volume(volume)),
                 frame.name
             );
             let (take_profit, stop_loss, trailing) = (
@@ -157,7 +158,7 @@ impl OrderTicket {
                                     )
                                     .child(div().text_color(theme::fg()).child(format!(
                                         "{} @ {}",
-                                        math::format_lots(contract.lots_of_volume(volume)),
+                                        format_lots(contract.lots_of_volume(volume)),
                                         frame.price(entry)
                                     ))),
                             )
@@ -262,7 +263,7 @@ impl OrderTicket {
                         "{} {} {} @ {}",
                         if buy { "Buy" } else { "Sell" },
                         order.kind().map_or("order", wyck_trading::OrderType::label),
-                        math::format_lots(frame.contract.lots_of_volume(order.trade_data.volume)),
+                        format_lots(frame.contract.lots_of_volume(order.trade_data.volume)),
                         frame.price(price)
                     ))
                     .child(icon_button(

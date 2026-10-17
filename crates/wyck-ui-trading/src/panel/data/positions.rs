@@ -7,7 +7,7 @@ use super::{
 
 use wyck_app::account::Busy;
 use wyck_app::prefs::panel::Tab;
-use wyck_trading::math;
+use wyck_trading::contract;
 
 /// The profit of a position, or a wait while the quote it depends on has not come.
 fn profit_cell(profit: Option<f64>, currency: &str) -> Cell {
@@ -35,12 +35,12 @@ pub(super) fn positions(ctx: &Ctx) -> Table {
         let describe = format!(
             "{} {} {name}",
             if buy { "Buy" } else { "Sell" },
-            math::format_lots(lots)
+            contract::format_lots(lots)
         );
         let cells = vec![
             Cell::text(name),
             side_cell(buy),
-            Cell::text(math::format_lots(lots)).adds(lots, Unit::Lots),
+            Cell::text(contract::format_lots(lots)).adds(lots, Unit::Lots),
             price_cell(&contract, position.price),
             price_cell(&contract, market),
             price_cell(&contract, position.stop_loss).tone(Tone::Muted),

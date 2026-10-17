@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::number_enum;
+use crate::enums::number_enum;
 use wyck_core::flex;
 
 number_enum! {

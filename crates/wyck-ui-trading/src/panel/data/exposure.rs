@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use wyck_app::account::Account;
 use wyck_app::prefs::panel::Tab;
 use wyck_trading::Position;
-use wyck_trading::math;
+use wyck_trading::contract;
 
 /// What the account holds on one symbol.
 #[derive(Default)]
@@ -41,10 +41,10 @@ pub(super) fn exposure(ctx: &Ctx) -> Table {
             } else {
                 Tone::Down
             }),
-            Cell::text(math::format_lots(long))
+            Cell::text(contract::format_lots(long))
                 .tone(Tone::Muted)
                 .adds(long, Unit::Lots),
-            Cell::text(math::format_lots(short))
+            Cell::text(contract::format_lots(short))
                 .tone(Tone::Muted)
                 .adds(short, Unit::Lots),
             Cell::text(held.positions.to_string()),

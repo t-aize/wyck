@@ -21,7 +21,7 @@ use wyck_trading::guard::{Cleared, Mode};
 ///     .with_protection(Some(1.0750), Some(1.0950));
 /// // The safety checks come first; `new_order` refuses an order they did not clear.
 /// # let (prefs, standing, facts) = (Default::default(), Default::default(), Default::default());
-/// let cleared = guard::clear(&prefs, &standing, &facts, order.fingerprint(), Mode::Demo, &|m| m.to_string())
+/// let cleared = guard::clear(&prefs, &standing, &facts, order.fingerprint(), Mode::Demo)
 ///     .expect("within the limits");
 /// let execution = account.trading().new_order(order, &cleared).await?;
 /// println!("{:?}", execution.kind());

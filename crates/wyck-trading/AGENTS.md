@@ -9,11 +9,14 @@ Depends on: `wyck-core`, `wyck-market`, `serde`, `serde_json`, `tracing`.
 
 | Module | What it holds |
 |---|---|
-| `types` | The account payloads (`Trader`, `Position`, `Order`, `Deal`...), the number enums (`TradeSide`, `OrderType`, `OrderStatus`, `TimeInForce`...), `money`, `volume_units`. |
+| `types` | The account payloads (`Trader`, `Position`, `Order`, `Deal`...), `money`, `volume_units`. |
+| `enums` | The number enums the server sends (`TradeSide`, `OrderType`, `OrderStatus`, `TimeInForce`...) and the `number_enum!` macro that makes them. |
 | `events` | `ExecutionEvent` (the answer to every trading request), `OrderErrorEvent`, `TrailingSlChangedEvent`. |
 | `margin` | Expected margin, margin call thresholds, margin events. |
-| `contract` | `Contract` (how a symbol trades: lot, volume limits, pip), volume stepping, risk sizing, profit marks, the conversion chain and the account `Summary`. |
-| `math` | The ticket's arithmetic on top of `contract`: `SizeMode`, `Offset`, `Scale`, money formatting. It re-exports `contract` (a known wart, see below). |
+| `contract` | `Contract` (how a symbol trades: lot, volume limits, pip), volume stepping (`Stepped`, `Limit`), lots and distances in the server's units. |
+| `ticket` | What the order ticket works with: `SizeMode`, `Offset`, `Scale`, the pending kind a price makes, `TicketProblem`, `check_protection`. |
+| `risk` | Sizing by risk: `quantity_for_risk`, `move_amount`, `lots_for_risk` (the one formula the ticket and the chart share). |
+| `profit`, `conversion`, `summary`, `amounts` | A position's profit between two server answers (`PnlMark`, `live_net`); the conversion chain between assets (`chain_rate`); the account `Summary`; money written for people (`format_money`, `format_amount`). |
 | `guard` | `RiskPrefs` (the limits the user sets), `check` (an order against the limits), `lock`, `DuplicateGuard`, `Mode` (demo or live), `Cleared` and `clear`/`clear_batch` (the proof an order passed `check`), `client_order_id`. |
 | `doubt` | `InDoubt`: a new order whose answer never came, and `find`: what a fresh reading of the account shows of it (working, executed, missing). |
 | `plan` | `ExitPlan` (an order cut into exits), `Label` (what an order carries in its label), break-even, OCO, time stop. |
@@ -34,16 +37,11 @@ Depends on: `wyck-core`, `wyck-market`, `serde`, `serde_json`, `tracing`.
 - Everything an order needs to be found again after a restart is in its label (`plan::Label`, with
   `AtrFollow::encode`). The label is a format: old orders carry old labels, so `decode` must keep
   reading what `encode` ever wrote.
-- `Outcome` and `TicketProblem` carry codes, not sentences: the words belong to the screen. (A few
-  strings written for people are still in `guard` and `book`; they will move out.)
+- `Outcome`, `OrderLine`, `TicketProblem`, `guard::Refusal`, `guard::Warning` and `guard::Lock` carry
+  codes and the numbers behind them, not sentences: the words are in `wyck-app`
+  (`account::notice`). Keep it so; a sentence here would have to be kept in step in two places.
 - The ATR limits (`atr_stop::MAX_LENGTH`, `MAX_MULTIPLIER`) are shared by the setting and by the
   label that stores it.
-
-## Known warts (to be fixed in the phase that splits mixed files)
-
-- `math` re-exports all of `contract` (`pub use crate::contract::*`), so `Contract` has two paths.
-- `contract` holds several things: the contract itself, risk sizing, profit marks, the conversion
-  chain and the account summary. `types` holds the payloads and the number enums.
 
 ## Tests
 

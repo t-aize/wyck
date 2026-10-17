@@ -1,8 +1,6 @@
-//! The ticket's own arithmetic on top of [`crate::contract`]: how an order's
-//! size and its stop loss and take profit are typed, and how money is written.
-
-pub use crate::contract::*;
-use wyck_core::math::f64_to_i64;
+//! What the order ticket works with: how the size and the protection of an order are typed
+//! ([`SizeMode`], [`Offset`], [`Scale`]), which pending order a price makes, and the problems that
+//! stop an order before it is sent. The problems are codes: the sentence belongs to the screen.
 
 /// How the volume of an order is chosen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -105,44 +103,101 @@ impl Scale {
     }
 }
 
-/// An amount of money with its currency: `1,234.56 USD`, `-12.30 EUR`.
-pub fn format_money(amount: f64, currency: &str) -> String {
-    let negative = amount < 0.0;
-    let cents = f64_to_i64((amount.abs() * 100.0).round());
-    let (whole, rest) = (cents / 100, cents % 100);
-    let grouped = wyck_core::format::grouped(whole);
-    let sign = if negative && cents > 0 { "-" } else { "" };
-    if currency.is_empty() {
-        format!("{sign}{grouped}.{rest:02}")
-    } else {
-        format!("{sign}{grouped}.{rest:02} {currency}")
+/// Which pending order a price makes for a side, given the market.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pending {
+    /// Waits for the price to come to it.
+    Limit,
+    /// Waits for the price to go through it.
+    Stop,
+}
+
+/// A buy under the ask waits for the price to come down (a limit), above it for the price to
+/// break up (a stop); a sell the other way round against the bid.
+pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -> Pending {
+    let reference = if buy { ask } else { bid };
+    match reference {
+        Some(market) if buy && price < market => Pending::Limit,
+        Some(market) if !buy && price > market => Pending::Limit,
+        Some(_) => Pending::Stop,
+        None => Pending::Limit,
     }
 }
 
-/// An amount in the short form of a screen of figures: the symbol of the currency when it has one
-/// (`$1,234.56`, `\u{20AC}12.30`), else the code after it (`1,234.56 CHF`). With `signed`, a gain
-/// carries a `+` (`+$114.00`); a loss always carries its `-`.
-pub fn format_amount(amount: f64, currency: &str, signed: bool) -> String {
-    let cents = f64_to_i64((amount.abs() * 100.0).round());
-    let sign = if amount < 0.0 && cents > 0 {
-        "-"
-    } else if signed && cents > 0 {
-        "+"
-    } else {
-        ""
-    };
-    let figures = format!(
-        "{}.{:02}",
-        wyck_core::format::grouped(cents / 100),
-        cents % 100
-    );
-    match currency {
-        "USD" => format!("{sign}${figures}"),
-        "EUR" => format!("{sign}\u{20AC}{figures}"),
-        "GBP" => format!("{sign}\u{A3}{figures}"),
-        "" => format!("{sign}{figures}"),
-        code => format!("{sign}{figures} {code}"),
+/// Why an order would be refused before it is sent. These are codes: the sentence a person reads
+/// belongs to the screen that shows it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TicketProblem {
+    /// A pending order without a price.
+    NoPrice,
+    /// The stop loss is on the profit side of the entry.
+    StopLossWrongSide,
+    /// The take profit is on the loss side of the entry.
+    TakeProfitWrongSide,
+    /// No volume to size by lots or units.
+    NoVolume,
+    /// No risk to size by.
+    NoRisk,
+    /// Sizing by risk needs a stop loss, and it is off.
+    StopLossOff,
+    /// The stop loss has no value.
+    NoStopLoss,
+    /// The take profit has no value.
+    NoTakeProfit,
+    /// The rate that turns the quote currency into the deposit currency is not known yet.
+    WaitingForRate,
+    /// No share of the free margin to size by.
+    NoMarginShare,
+    /// The margin of one lot is not known yet.
+    WaitingForMargin,
+    /// The exits are targets in multiples of the risk, which needs a stop loss.
+    ExitsNeedStopLoss,
+    /// The exits are not a valid plan.
+    Exits(super::plan::ExitsProblem),
+    /// An OCO pair is made of two pending orders.
+    OcoNeedsPending,
+    /// A stop loss in ATR without an ATR for the chosen timeframe and bar.
+    AtrUnavailable,
+    /// A take profit in R without a stop loss to measure it from.
+    RatioNeedsStopLoss,
+    /// A good-till-date order without a date.
+    NoExpiry,
+    /// A stop limit order without the range of its limit.
+    NoLimitRange,
+    /// A market order with a slippage limit that has no value.
+    NoSlippage,
+    /// No symbol is chosen.
+    NoSymbol,
+    /// The volume is too small to be cut between the exits.
+    VolumeTooSmallForExits,
+    /// The price of the other order of an OCO pair is not a price.
+    OcoPriceInvalid,
+}
+
+/// Checks that the protection sits on the right side of the entry: under it for a buy's stop
+/// loss and over it for its take profit, the other way round for a sell.
+pub fn check_protection(
+    buy: bool,
+    entry: f64,
+    stop_loss: Option<f64>,
+    take_profit: Option<f64>,
+) -> Result<(), TicketProblem> {
+    if let Some(sl) = stop_loss
+        && ((buy && sl >= entry) || (!buy && sl <= entry))
+    {
+        return Err(TicketProblem::StopLossWrongSide);
     }
+    if let Some(tp) = take_profit
+        && ((buy && tp <= entry) || (!buy && tp >= entry))
+    {
+        return Err(TicketProblem::TakeProfitWrongSide);
+    }
+    Ok(())
+}
+
+/// Which way a protection sits from the entry: `-1.0` under it, `1.0` over it.
+pub fn protection_side(buy: bool, stop: bool) -> f64 {
+    if buy == stop { -1.0 } else { 1.0 }
 }
 
 #[cfg(test)]
@@ -150,23 +205,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_amount_is_written_with_the_symbol_of_its_currency() {
-        assert_eq!(format_amount(1_234.5, "USD", false), "$1,234.50");
-        assert_eq!(format_amount(114.0, "USD", true), "+$114.00");
-        assert_eq!(format_amount(-12.3, "EUR", true), "-\u{20AC}12.30");
-        assert_eq!(format_amount(5.0, "GBP", false), "\u{A3}5.00");
-        assert_eq!(format_amount(7.5, "CHF", true), "+7.50 CHF");
-        assert_eq!(format_amount(0.001, "USD", true), "$0.00");
-        assert_eq!(format_amount(-0.001, "USD", true), "$0.00");
-        assert_eq!(format_amount(3.0, "", true), "+3.00");
+    fn a_price_makes_a_limit_or_a_stop_depending_on_the_side() {
+        let (bid, ask) = (Some(1.1000), Some(1.1002));
+        assert_eq!(pending_kind(true, 1.0990, bid, ask), Pending::Limit);
+        assert_eq!(pending_kind(true, 1.1010, bid, ask), Pending::Stop);
+        assert_eq!(pending_kind(false, 1.1010, bid, ask), Pending::Limit);
+        assert_eq!(pending_kind(false, 1.0990, bid, ask), Pending::Stop);
+        assert_eq!(pending_kind(true, 1.0, None, None), Pending::Limit);
     }
 
     #[test]
-    fn money_is_grouped_and_signed() {
-        assert_eq!(format_money(1_234.5, "USD"), "1,234.50 USD");
-        assert_eq!(format_money(-12.3, "EUR"), "-12.30 EUR");
-        assert_eq!(format_money(-0.001, ""), "0.00");
-        assert_eq!(format_money(1_000_000.0, ""), "1,000,000.00");
+    fn protection_must_sit_on_the_right_side() {
+        assert!(check_protection(true, 1.1, Some(1.09), Some(1.12)).is_ok());
+        assert_eq!(
+            check_protection(true, 1.1, Some(1.11), None),
+            Err(TicketProblem::StopLossWrongSide)
+        );
+        assert_eq!(
+            check_protection(false, 1.1, None, Some(1.11)),
+            Err(TicketProblem::TakeProfitWrongSide)
+        );
+        assert!(check_protection(false, 1.1, Some(1.11), Some(1.08)).is_ok());
+        assert!(check_protection(true, 1.1, None, None).is_ok());
     }
 
     #[test]

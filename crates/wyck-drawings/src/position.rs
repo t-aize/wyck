@@ -10,12 +10,12 @@
 //! 1.0 of price: 1.0 when the instrument is quoted in the account currency (an index in dollars,
 //! EURUSD on a dollar account), something else when it is not. It does here what the conversion
 //! rate does in the order ticket, and the quantity comes from the same formula
-//! ([`wyck_trading::contract::quantity_for_risk`]). There is no live rate, so the
+//! ([`wyck_trading::risk::quantity_for_risk`]). There is no live rate, so the
 //! figures are a plan, not a quote.
 
 use serde::{Deserialize, Serialize};
 use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::contract::{move_amount, quantity_for_risk};
+use wyck_trading::risk::{move_amount, quantity_for_risk};
 
 /// Everything a position drawing keeps besides its points and its lines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -306,7 +306,8 @@ mod tests {
 
     #[test]
     fn the_tool_and_the_ticket_size_a_risk_the_same_way() {
-        use wyck_trading::contract::{Contract, lots_for_risk};
+        use wyck_trading::contract::Contract;
+        use wyck_trading::risk::lots_for_risk;
         let contract = Contract::default();
         let units_per_lot = i64_to_f64(contract.lot_size) / 100.0;
         let ticket = lots_for_risk(100.0, 0.0020, 1.0, &contract).unwrap();

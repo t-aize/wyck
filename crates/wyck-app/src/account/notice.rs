@@ -5,7 +5,10 @@
 //! request are put in sentences here too.
 
 use crate::broker::Error as ApiError;
-use wyck_trading::book::Outcome;
+use wyck_trading::book::{OrderLine, Outcome};
+use wyck_trading::contract::format_lots;
+use wyck_trading::enums::OrderType;
+use wyck_trading::guard::{Lock, Refusal, Warning};
 
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,11 +268,90 @@ pub fn describe(error: &ApiError) -> Reason {
     }
 }
 
+/// An order in a few words: `Buy 0.01 EURUSD limit at 1.05000`. Empty when there is none.
+fn phrase(line: Option<&OrderLine>) -> String {
+    let Some(line) = line else {
+        return String::new();
+    };
+    let side = if line.buy { "Buy" } else { "Sell" };
+    let kind = line.kind.map_or("order", OrderType::label);
+    let price = line
+        .price
+        .as_ref()
+        .map(|p| format!(" at {p}"))
+        .unwrap_or_default();
+    format!(
+        "{side} {} {} {kind}{price}",
+        format_lots(line.lots),
+        line.symbol
+    )
+}
+
+/// Why nothing new can be sent, as a sentence for a banner. `money` writes an amount with its
+/// currency; `now` is the time the cooldown is counted from.
+pub(crate) fn lock_text(lock: &Lock, money: &dyn Fn(f64) -> String, now: i64) -> String {
+    match *lock {
+        Lock::KillSwitch => "Kill switch is on: no new orders can be sent.".to_owned(),
+        Lock::DailyLoss { loss, limit } => format!(
+            "Daily loss limit reached ({} of {}): no new orders today.",
+            money(loss),
+            money(limit)
+        ),
+        Lock::Cooldown { until } => {
+            let left = ((until - now).max(0) + 59_999) / 60_000;
+            format!("Cooling down after a loss: {left} min left.")
+        }
+    }
+}
+
+/// Why the limits refuse an order, as a sentence.
+pub(crate) fn refusal_text(refusal: &Refusal, money: &dyn Fn(f64) -> String, now: i64) -> String {
+    match *refusal {
+        Refusal::Locked(lock) => lock_text(&lock, money, now),
+        Refusal::OrderTooBig { lots, limit } => format!(
+            "The order is {} lots: the limit per order is {}.",
+            format_lots(lots),
+            format_lots(limit)
+        ),
+        Refusal::OneClickTooBig { limit } => format!(
+            "One-click orders are limited to {} lots. Use the confirmation for a larger one.",
+            format_lots(limit)
+        ),
+        Refusal::SymbolTooBig { lots, limit } => format!(
+            "That would make {} lots open on this symbol: the limit is {}.",
+            format_lots(lots),
+            format_lots(limit)
+        ),
+        Refusal::TooManyPositions { open, limit } => {
+            format!("{open} positions are open: the limit is {limit}.")
+        }
+        Refusal::TooManyOrdersToday { sent, limit } => {
+            format!("{sent} orders were sent today: the limit is {limit}.")
+        }
+        Refusal::StopLossRequired => "A stop loss is required by your safety settings.".to_owned(),
+        Refusal::PriceTooFar {
+            away_pct,
+            limit_pct,
+        } => format!(
+            "The price is {away_pct:.1}% from the market: the limit is {limit_pct:.1}%. Check the decimal point."
+        ),
+    }
+}
+
+/// What is worth a second look before an order is sent, as a sentence.
+pub(crate) fn warning_text(warning: &Warning) -> String {
+    match *warning {
+        Warning::SpreadTooWide {
+            spread_pips,
+            limit_pips,
+        } => format!(
+            "The spread is {spread_pips:.1} pips, wider than your limit of {limit_pips:.1}."
+        ),
+    }
+}
+
 /// The notice for what happened to an order, in words.
 pub(crate) fn of(outcome: Outcome) -> Notice {
-    fn text(what: &str, tail: &str) -> String {
-        format!("{what}{tail}")
-    }
     match outcome {
         Outcome::Filled {
             what,
@@ -283,7 +365,11 @@ pub(crate) fn of(outcome: Outcome) -> Notice {
             } else {
                 "Order filled"
             };
-            let mut notice = Notice::new(Tone::Success, title, text(&what, &at));
+            let mut notice = Notice::new(
+                Tone::Success,
+                title,
+                format!("{}{at}", phrase(what.as_ref())),
+            );
             if let Some(id) = open_position {
                 notice = notice
                     .action(NoticeAction::ClosePosition(id))
@@ -291,23 +377,37 @@ pub(crate) fn of(outcome: Outcome) -> Notice {
             }
             notice
         }
-        Outcome::PartlyFilled { what } => Notice::new(Tone::Info, "Order partly filled", what),
-        Outcome::Placed { what, order_id } => Notice::new(Tone::Info, "Order placed", what)
-            .action(NoticeAction::CancelOrder(order_id)),
-        Outcome::Changed { what } => Notice::new(Tone::Info, "Order changed", what),
-        Outcome::Cancelled { what } => Notice::new(Tone::Info, "Order cancelled", what),
-        Outcome::Expired { what } => Notice::new(Tone::Warning, "Order expired", what),
-        Outcome::Refused { what, code } => Notice::new(
-            Tone::Error,
-            "Order refused",
-            format!(
-                "{what}{}{}",
-                if what.is_empty() { "" } else { ": " },
-                explain(&code)
-            ),
-        )
-        .hint(refusal(&code, None).hint)
-        .details(code),
+        Outcome::PartlyFilled { what } => {
+            Notice::new(Tone::Info, "Order partly filled", phrase(what.as_ref()))
+        }
+        Outcome::Placed { what, order_id } => {
+            Notice::new(Tone::Info, "Order placed", phrase(what.as_ref()))
+                .action(NoticeAction::CancelOrder(order_id))
+        }
+        Outcome::Changed { what } => {
+            Notice::new(Tone::Info, "Order changed", phrase(what.as_ref()))
+        }
+        Outcome::Cancelled { what } => {
+            Notice::new(Tone::Info, "Order cancelled", phrase(what.as_ref()))
+        }
+        Outcome::Expired { what } => {
+            Notice::new(Tone::Warning, "Order expired", phrase(what.as_ref()))
+        }
+        Outcome::Refused { what, code } => {
+            let what = phrase(what.as_ref());
+            let code = code.unwrap_or_else(|| "refused by the server".to_owned());
+            Notice::new(
+                Tone::Error,
+                "Order refused",
+                format!(
+                    "{what}{}{}",
+                    if what.is_empty() { "" } else { ": " },
+                    explain(&code)
+                ),
+            )
+            .hint(refusal(&code, None).hint)
+            .details(code)
+        }
         Outcome::BalanceChanged => {
             Notice::new(Tone::Info, "Balance changed", "A deposit or withdrawal")
         }
@@ -317,6 +417,93 @@ pub(crate) fn of(outcome: Outcome) -> Notice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn line(buy: bool, lots: f64, kind: Option<OrderType>) -> OrderLine {
+        OrderLine {
+            buy,
+            lots,
+            symbol: "EURUSD".to_owned(),
+            kind,
+            price: None,
+        }
+    }
+
+    fn money(amount: f64) -> String {
+        format!("{amount:.2}")
+    }
+
+    #[test]
+    fn an_order_is_told_by_its_side_size_symbol_and_kind() {
+        assert_eq!(
+            phrase(Some(&line(true, 0.01, Some(OrderType::Limit)))),
+            "Buy 0.01 EURUSD limit"
+        );
+        assert_eq!(phrase(Some(&line(false, 1.0, None))), "Sell 1 EURUSD order");
+        assert_eq!(phrase(None), "");
+    }
+
+    #[test]
+    fn a_server_answer_with_no_code_says_it_refused() {
+        let notice = of(Outcome::Refused {
+            what: None,
+            code: None,
+        });
+        assert_eq!(notice.details.as_deref(), Some("refused by the server"));
+    }
+
+    #[test]
+    fn a_lock_counts_the_minutes_left_rounding_up() {
+        let cooldown = Lock::Cooldown { until: 90_000 };
+        assert_eq!(
+            lock_text(&cooldown, &money, 0),
+            "Cooling down after a loss: 2 min left."
+        );
+        assert_eq!(
+            lock_text(
+                &Lock::DailyLoss {
+                    loss: 250.0,
+                    limit: 200.0
+                },
+                &money,
+                0
+            ),
+            "Daily loss limit reached (250.00 of 200.00): no new orders today."
+        );
+    }
+
+    #[test]
+    fn every_refusal_and_warning_has_its_words() {
+        let words = |refusal| refusal_text(&refusal, &money, 0);
+        assert_eq!(
+            words(Refusal::OrderTooBig {
+                lots: 2.0,
+                limit: 1.0
+            }),
+            "The order is 2 lots: the limit per order is 1."
+        );
+        assert_eq!(
+            words(Refusal::TooManyPositions { open: 3, limit: 3 }),
+            "3 positions are open: the limit is 3."
+        );
+        assert_eq!(
+            words(Refusal::PriceTooFar {
+                away_pct: 12.34,
+                limit_pct: 5.0
+            }),
+            "The price is 12.3% from the market: the limit is 5.0%. Check the decimal point."
+        );
+        assert_eq!(
+            words(Refusal::Locked(Lock::KillSwitch)),
+            "Kill switch is on: no new orders can be sent."
+        );
+        assert_eq!(
+            warning_text(&Warning::SpreadTooWide {
+                spread_pips: 3.0,
+                limit_pips: 1.0
+            }),
+            "The spread is 3.0 pips, wider than your limit of 1.0."
+        );
+    }
 
     #[test]
     fn a_general_refusal_is_put_in_words_from_what_the_server_says() {
@@ -355,7 +542,7 @@ mod tests {
     #[test]
     fn a_fill_reads_as_an_order_filled_with_buttons_for_the_position() {
         let notice = of(Outcome::Filled {
-            what: "Buy 0.01 EURUSD limit".into(),
+            what: Some(line(true, 0.01, Some(OrderType::Limit))),
             price: Some("1.05000".into()),
             closed: false,
             open_position: Some(5),
@@ -371,7 +558,7 @@ mod tests {
     #[test]
     fn a_closing_fill_says_the_position_closed() {
         let notice = of(Outcome::Filled {
-            what: "Sell 1 EURUSD".into(),
+            what: Some(line(false, 1.0, None)),
             price: None,
             closed: true,
             open_position: None,
@@ -383,8 +570,8 @@ mod tests {
     #[test]
     fn a_refusal_is_explained_and_keeps_the_code_for_a_bug_report() {
         let notice = of(Outcome::Refused {
-            what: "Buy 1 EURUSD".into(),
-            code: "NOT_ENOUGH_MONEY".into(),
+            what: Some(line(true, 1.0, None)),
+            code: Some("NOT_ENOUGH_MONEY".into()),
         });
         assert_eq!(notice.tone, Tone::Error);
         assert!(

@@ -8,11 +8,10 @@ use wyck_app::market_data::now_ms;
 use wyck_core::math::f64_to_u32;
 use wyck_trading::NewOrderType;
 use wyck_trading::follow::AtrFollow;
-use wyck_trading::guard::Verdict;
-use wyck_trading::math;
-use wyck_trading::math::TicketProblem;
 use wyck_trading::plan;
+use wyck_trading::ticket::TicketProblem;
 use wyck_trading::{TimeInForce, TradeSide};
+use wyck_trading::{amounts, contract, ticket};
 use wyck_ui_kit::confirm::{Details, confirm_details};
 use wyck_ui_kit::number;
 
@@ -58,10 +57,10 @@ impl OrderTicket {
                 // A market order's protection is a distance from where it fills.
                 order.relative_stop_loss = plan
                     .stop
-                    .map(|sl| math::relative_distance(entry - sl, contract.digits));
+                    .map(|sl| contract::relative_distance(entry - sl, contract.digits));
                 order.relative_take_profit = plan
                     .target
-                    .map(|tp| math::relative_distance(tp - entry, contract.digits));
+                    .map(|tp| contract::relative_distance(tp - entry, contract.digits));
                 order
             }
             Kind::Limit => NewOrderReq::limit(symbol.id, side, volume, round(entry))
@@ -114,7 +113,7 @@ impl OrderTicket {
             let follow = follow_base.map(|atr| {
                 let rr = match (plan.entry, plan.stop, plan.target) {
                     (Some(entry), Some(stop), Some(target))
-                        if self.target_unit == math::Offset::Ratio
+                        if self.target_unit == ticket::Offset::Ratio
                             && (entry - stop).abs() > 0.0 =>
                     {
                         Some((target - entry).abs() / (entry - stop).abs())
@@ -187,7 +186,7 @@ impl OrderTicket {
             if other <= 0.0 {
                 return Err(TicketProblem::OcoPriceInvalid);
             }
-            let other_stop = other + math::protection_side(!self.buy, true) * distance;
+            let other_stop = other + ticket::protection_side(!self.buy, true) * distance;
             sides.push((!self.buy, other, other_stop));
         }
         let mut orders = Vec::new();
@@ -200,7 +199,7 @@ impl OrderTicket {
                 leg_plan.entry = Some(entry);
                 leg_plan.stop = Some(stop);
                 leg_plan.target = (target_r > 0.0)
-                    .then(|| entry + math::protection_side(buy, false) * target_r * distance);
+                    .then(|| entry + ticket::protection_side(buy, false) * target_r * distance);
                 let mut sized = sized;
                 sized.volume = *volume;
                 leg_plan.sized = Some(sized);
@@ -255,7 +254,7 @@ impl OrderTicket {
         let what = match plan.sized {
             Some(s) => format!(
                 "{} {name}",
-                math::format_lots(contract.lots_of_volume(s.volume))
+                contract::format_lots(contract.lots_of_volume(s.volume))
             ),
             None => name,
         };
@@ -289,20 +288,19 @@ impl OrderTicket {
         let (verdict, live, balance) = {
             let account = self.account.read(cx);
             (
-                account.assess_batch(&orders, self.one_click),
+                account.verdict_text(&account.assess_batch(&orders, self.one_click)),
                 account.is_live(),
                 account.summary().balance,
             )
         };
         let mut warnings = match verdict {
-            Verdict::Block(reason) => {
+            Err(reason) => {
                 wyck_ui_kit::toast::Toast::warning("Blocked by your safety settings", reason)
                     .hint("Change the limits in Settings, Safety.")
                     .show(cx);
                 return;
             }
-            Verdict::Warn(warnings) => warnings,
-            Verdict::Ok => Vec::new(),
+            Ok(warnings) => warnings,
         };
         if let Some(risk) = plan.risk
             && balance > 0.0
@@ -351,7 +349,7 @@ impl OrderTicket {
     ) -> Details {
         let contract = self.contract(cx);
         let currency = self.account.read(cx).book.currency.clone();
-        let money = |amount: f64| math::format_money(amount, &currency);
+        let money = |amount: f64| amounts::format_money(amount, &currency);
         let price = |value: Option<f64>| {
             value.map_or_else(|| "none".to_owned(), |p| contract.format_price(p))
         };
@@ -362,7 +360,7 @@ impl OrderTicket {
                 "Size",
                 format!(
                     "{} lots",
-                    math::format_lots(contract.lots_of_volume(sized.volume))
+                    contract::format_lots(contract.lots_of_volume(sized.volume))
                 ),
             );
         }

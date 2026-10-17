@@ -5,8 +5,8 @@ use super::{Kind, OrderTicket, TicketEvent};
 use gpui::{Context, Window};
 use wyck_app::account::Busy;
 use wyck_core::math::{f64_to_usize, i64_to_f64};
-use wyck_trading::math;
-use wyck_trading::math::{Offset, SizeMode};
+use wyck_trading::ticket;
+use wyck_trading::ticket::{Offset, SizeMode};
 use wyck_ui_kit::number;
 
 impl OrderTicket {
@@ -120,7 +120,7 @@ impl OrderTicket {
                 .or(Some(stop_pips * ratio * pip))
         };
         if let (Some(entry), Some(distance)) = (plan.entry, distance) {
-            let price = entry + math::protection_side(self.buy, stop) * distance;
+            let price = entry + ticket::protection_side(self.buy, stop) * distance;
             self.set_protection(stop, price, window, cx);
         }
     }

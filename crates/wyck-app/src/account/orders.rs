@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::time::Instant;
 use wyck_trading::ExecutionType;
 use wyck_trading::PositionStatus;
+use wyck_trading::contract::Contract;
 use wyck_trading::doubt::InDoubt;
 use wyck_trading::guard;
 use wyck_trading::guard::{Blocked, Cleared, Verdict};
-use wyck_trading::math::Contract;
 
 impl Account {
     /// Runs a trading call; on failure says why and reads the account again (the call may have
@@ -189,8 +189,8 @@ impl Account {
         // cannot be sent.
         let cleared = match self.clear(&order, one_click) {
             Ok(cleared) => cleared,
-            Err(Blocked(reason)) => {
-                Self::tell(Notice::blocked(reason), cx);
+            Err(Blocked(refusal)) => {
+                Self::tell(Notice::blocked(self.refusal_text(&refusal)), cx);
                 return;
             }
         };
@@ -254,7 +254,7 @@ impl Account {
             let what = format!(
                 "your {} order of {} lots on {name}",
                 if doubt.buy { "buy" } else { "sell" },
-                wyck_trading::math::format_lots(lots)
+                wyck_trading::contract::format_lots(lots)
             );
             let notice = match found {
                 Found::Working { .. } => Notice::new(
@@ -340,7 +340,6 @@ impl Account {
             &self.facts_of(&probe, one_click),
             &fingerprints,
             self.mode,
-            &|m| self.money(m),
         )
     }
 
@@ -369,8 +368,8 @@ impl Account {
         }
         let cleared = match self.clear_batch(&orders, one_click) {
             Ok(cleared) => cleared,
-            Err(Blocked(reason)) => {
-                Self::tell(Notice::blocked(reason), cx);
+            Err(Blocked(refusal)) => {
+                Self::tell(Notice::blocked(self.refusal_text(&refusal)), cx);
                 return;
             }
         };

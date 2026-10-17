@@ -10,8 +10,9 @@ use wyck_app::system::runtime;
 use wyck_chart::LineId;
 use wyck_core::math::{f64_to_i64, i64_to_f64};
 use wyck_drawings::model::style::Dash;
-use wyck_trading::math;
-use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
+use wyck_trading::contract::{Contract, Stepped};
+use wyck_trading::ticket::{Offset, Scale, SizeMode, TicketProblem};
+use wyck_trading::{amounts, risk, ticket};
 use wyck_ui_chart::chart::ChartLine;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
@@ -90,7 +91,7 @@ impl OrderTicket {
             Some(value)
         } else {
             let distance = scale.distance(unit, value)?;
-            Some(entry? + math::protection_side(self.buy, stop) * distance)
+            Some(entry? + ticket::protection_side(self.buy, stop) * distance)
         }
     }
 
@@ -103,7 +104,7 @@ impl OrderTicket {
         let entry = self.entry(cx);
         let size = Self::read(&self.size, cx).filter(|v| *v > 0.0);
         let side = |price: f64, stop: bool| {
-            entry.map(|e| (price - e) * math::protection_side(self.buy, stop))
+            entry.map(|e| (price - e) * ticket::protection_side(self.buy, stop))
         };
         let mut scale = Scale {
             pip: contract.pip(),
@@ -147,7 +148,7 @@ impl OrderTicket {
                     return Err(TicketProblem::StopLossWrongSide);
                 }
                 let rate = rate.ok_or(TicketProblem::WaitingForRate)?;
-                let lots = math::lots_for_risk(money, distance, rate, &contract)
+                let lots = risk::lots_for_risk(money, distance, rate, &contract)
                     .ok_or(TicketProblem::NoRisk)?;
                 Ok(contract.volume_at_most(lots))
             }
@@ -249,7 +250,7 @@ impl OrderTicket {
             problem(&mut plan, found);
         }
         if let Some(entry) = entry
-            && let Err(wrong) = math::check_protection(self.buy, entry, plan.stop, plan.target)
+            && let Err(wrong) = ticket::check_protection(self.buy, entry, plan.stop, plan.target)
         {
             problem(&mut plan, wrong);
         }
@@ -284,7 +285,7 @@ impl OrderTicket {
             price,
             color,
             label: label.to_owned(),
-            detail: money.map(|m| (math::format_money(m, &currency), color)),
+            detail: money.map(|m| (amounts::format_money(m, &currency), color)),
             dash: Dash::Dashed,
             draggable: true,
             closable: false,
@@ -321,7 +322,7 @@ impl OrderTicket {
                         continue;
                     }
                     let price =
-                        entry + math::protection_side(self.buy, false) * leg.target_r * distance;
+                        entry + ticket::protection_side(self.buy, false) * leg.target_r * distance;
                     let money = plan.risk.map(|r| r * leg.target_r * leg.share / 100.0);
                     lines.push(line(
                         LINE_TARGET.saturating_add(u8::try_from(index).unwrap_or(u8::MAX)),

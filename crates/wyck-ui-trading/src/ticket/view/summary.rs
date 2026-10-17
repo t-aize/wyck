@@ -2,10 +2,12 @@
 
 use super::{
     AnyElement, Frame, IconName, Limit, Line, METER_HEIGHT, OrderTicket, Slot, card, card_head,
-    div, format_units, icon, math, number, px, theme, tokens,
+    div, format_units, icon, number, px, theme, tokens,
 };
 use gpui::prelude::*;
 use wyck_core::math::{f32_of, i64_to_f64};
+use wyck_trading::amounts::format_money;
+use wyck_trading::contract::format_lots;
 
 impl OrderTicket {
     pub(super) fn summary(&self, f: &Frame) -> AnyElement {
@@ -67,7 +69,7 @@ impl OrderTicket {
             let text = match shown {
                 Line::Volume => f.lots.zip(f.units).map_or_else(
                     || "-".into(),
-                    |(l, u)| format!("{} lots, {} units", math::format_lots(l), format_units(u)),
+                    |(l, u)| format!("{} lots, {} units", format_lots(l), format_units(u)),
                 ),
                 Line::Notional => plan.sized.zip(plan.entry).zip(plan.rate).map_or_else(
                     || "-".into(),
@@ -85,7 +87,7 @@ impl OrderTicket {
                 Line::Margin => f.margin.map_or_else(|| "-".into(), |m| f.money(m)),
                 Line::PipValue => match (f.units, plan.rate) {
                     (Some(u), Some(rate)) => f.money(f.contract.pip() * u * rate),
-                    (Some(u), None) => math::format_money(f.contract.pip() * u, &f.quote_currency),
+                    (Some(u), None) => format_money(f.contract.pip() * u, &f.quote_currency),
                     _ => "-".into(),
                 },
                 Line::SpreadCost => f
@@ -106,7 +108,7 @@ impl OrderTicket {
         match f.plan.sized.and_then(|s| s.limit) {
             Some(Limit::Min) => warnings.push(format!(
                 "Raised to the least volume, {} lots: more at stake than asked",
-                math::format_lots(f.contract.lots_of_volume(f.contract.min_volume))
+                format_lots(f.contract.lots_of_volume(f.contract.min_volume))
             )),
             Some(Limit::Max) => warnings.push("Cut to the most volume the broker takes".into()),
             None => {}

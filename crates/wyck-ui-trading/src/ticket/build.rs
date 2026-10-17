@@ -7,8 +7,9 @@ use gpui::{Context, Entity, Window};
 use wyck_app::account::Account;
 use wyck_core::math::{count_f64, f64_to_usize};
 use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::math::{Contract, Offset};
+use wyck_trading::contract::Contract;
 use wyck_trading::plan;
+use wyck_trading::ticket::Offset;
 use wyck_ui_kit::input::{InputEvent, InputState};
 use wyck_ui_kit::number;
 

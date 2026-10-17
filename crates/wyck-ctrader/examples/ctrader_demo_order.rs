@@ -77,9 +77,8 @@ async fn main() -> wyck_ctrader::Result<()> {
         &facts,
         order.fingerprint(),
         Mode::Demo,
-        &|amount| format!("{amount:.2}"),
     )
-    .map_err(|blocked| Error::Config(blocked.to_string()))?;
+    .map_err(|blocked| Error::Config(format!("refused by the safety limits: {:?}", blocked.0)))?;
     let opened = trading.new_order(order, &cleared).await?;
     let position = opened
         .position

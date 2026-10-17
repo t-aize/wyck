@@ -18,7 +18,7 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 
 | Module | What it holds |
 |---|---|
-| `account` | `Account`, the live account entity: reads balance, positions and orders on every connection, follows execution events, sends orders (`orders`), follows an ATR stop (`follow`), reverses a position (`reverse`), refreshes the profit (`sync`). `notice` puts a refusal or an outcome in a `Notice` the screens show as a toast. |
+| `account` | `Account`, the live account entity: reads balance, positions and orders on every connection, follows execution events, sends orders (`orders`), follows an ATR stop (`follow`), reverses a position (`reverse`), refreshes the profit (`sync`). `notice` puts a refusal or an outcome in a `Notice` the screens show as a toast, and is where the sentences of the trading guard (`Refusal`, `Warning`, `Lock`) and of an `Outcome` are written. |
 | `sign_in` | `SignIn`, an entity with no view: finds a saved session or walks through cTrader's consent page and the choice of an account (`consent`), keeps the pure `SignInState` (`state`), the decisions that need no window (`rules`), opens the config (`config`). |
 | `alerts` | `Alerts`, the entity that judges, saves and fires alerts. `model` is the data (`Alert`, `Source`, `Condition`, `Trigger`), `eval` the plain functions that decide, `sound` the sound and the desktop notification (on a thread of its own). |
 | `market_data` | `live::LiveHub` (what to subscribe to: the union of every owner's wish) and `load` (history in chunks within the server's limits); `now_ms`. |
