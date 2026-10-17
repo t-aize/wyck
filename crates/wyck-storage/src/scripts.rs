@@ -17,6 +17,13 @@ use crate::error::{ConfigError, Result};
 use crate::fs_util::{atomic_write, read_text};
 use crate::paths::AppPaths;
 
+impl AppPaths {
+    /// The indicator scripts of the default folder: [`ScriptStore::in_config`].
+    pub(crate) fn scripts(&self) -> ScriptStore {
+        ScriptStore::in_config(self)
+    }
+}
+
 /// The extension of an indicator file.
 pub const EXTENSION: &str = "rhai";
 /// The biggest script kept, in bytes.

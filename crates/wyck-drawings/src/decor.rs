@@ -4,10 +4,10 @@
 //! Neither belongs to one tool. A trend line, a rectangle and a channel can all carry a label, and
 //! any line can end in an arrow or a dot, so they are done here, once, from the style.
 
-use super::geometry::{Anchor, P, Prim, Rect, arrow_head};
 use super::look::{Cap, HAlign, TextLayout, VAlign};
 use super::model::Drawing;
 use super::model::tool::Tool;
+use super::prim::{Anchor, P, Prim, Rect, arrow_head};
 
 /// How far the words sit from the end of a line or the edge of a shape.
 const EDGE: f32 = 6.0;

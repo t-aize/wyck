@@ -2,10 +2,10 @@
 
 use super::{DOWN, MAX_GHOST_BARS, MAX_ROWS, MIN_ROWS, POC, ROW_PX, UP, polyline, stat};
 
-use crate::geometry::fib::{label, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, lead, seg};
 use crate::model::style::Dash;
 use crate::model::{Drawing, Point};
+use crate::prim::fib::{label, visible_levels};
+use crate::prim::{Anchor, P, Prim, Projection, lead, seg};
 use wyck_core::math::{count_f64, f32_of, f32_to_usize, f64_to_usize};
 
 /// The candle of a bar shifted by `offset` in price, at `x`.
@@ -37,10 +37,7 @@ pub(super) fn candle(
 }
 
 /// The bars between the first two points of a bars pattern or a ghost feed.
-pub(super) fn source_bars(
-    drawing: &Drawing,
-    proj: &dyn Projection,
-) -> Vec<crate::geometry::BarView> {
+pub(super) fn source_bars(drawing: &Drawing, proj: &dyn Projection) -> Vec<crate::prim::BarView> {
     let Some([first, second]) = lead(&drawing.points) else {
         return Vec::new();
     };

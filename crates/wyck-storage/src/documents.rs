@@ -21,6 +21,7 @@ use tracing::{debug, warn};
 
 use crate::error::{ConfigError, Result};
 use crate::fs_util::{atomic_write, read_text};
+use crate::migrate::{self, Outcome, Plan};
 use crate::names::{is_valid_name, sanitize};
 use crate::paths::AppPaths;
 
@@ -31,7 +32,29 @@ pub struct DocumentStore {
     dir: PathBuf,
 }
 
+impl AppPaths {
+    /// The documents shared by every account: [`DocumentStore::global`].
+    pub fn documents(&self) -> DocumentStore {
+        DocumentStore::global(self)
+    }
+
+    /// The documents of one scope (an account): `DocumentStore::scoped`.
+    pub fn scope(&self, scope: &str) -> DocumentStore {
+        DocumentStore::scoped(self, scope)
+    }
+}
+
 impl DocumentStore {
+    /// Upgrades the document `plan.document` to the layout this build writes, keeping the old text
+    /// aside (see [`migrate::upgrade_document`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`migrate::upgrade_document`].
+    pub fn upgrade(&self, plan: &Plan) -> Result<Outcome> {
+        migrate::upgrade_document(&self.path(plan.document), plan)
+    }
+
     /// The documents shared by every profile.
     pub fn global(paths: &AppPaths) -> Self {
         Self {
@@ -433,5 +456,31 @@ mod tests {
         store.save("gone", &Sample::default()).unwrap();
         store.remove("gone").unwrap();
         assert_eq!(store.load::<Sample>("gone").unwrap(), None);
+    }
+
+    #[test]
+    fn a_document_from_a_newer_build_is_set_aside_and_is_not_listed() {
+        static LAYOUT: Plan = Plan {
+            document: "layout",
+            current: 1,
+            steps: &[],
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let store = DocumentStore::global(&AppPaths::at(dir.path()));
+        store
+            .save_text(
+                "layout",
+                "schema_version = 9
+",
+            )
+            .unwrap();
+
+        let outcome = store.upgrade(&LAYOUT).unwrap();
+
+        assert!(
+            matches!(outcome, Outcome::Newer { found: 9, .. }),
+            "{outcome:?}"
+        );
+        assert_eq!(store.list().unwrap(), Vec::<String>::new());
     }
 }

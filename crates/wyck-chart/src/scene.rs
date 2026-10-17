@@ -20,7 +20,6 @@ mod footprint;
 pub(crate) mod geometry;
 mod labels;
 pub(crate) mod palette;
-pub(crate) mod price;
 pub(crate) mod scale;
 mod series;
 mod studies;
@@ -30,7 +29,6 @@ use self::bands::Plan;
 pub(crate) use self::cmd::{Align, Cmd, P, font, hsla, rgb_alpha, with_alpha};
 use self::ctx::Ctx;
 pub(crate) use self::geometry::{Band, Geometry, axis_w};
-pub(crate) use self::price::PriceMap;
 use self::scale::{geometry, main_map};
 use super::data::Series;
 use super::display::{Display, effective_kind};
@@ -38,6 +36,7 @@ use super::options::CrosshairStyle;
 use super::order_flow::flow::Flow;
 use super::settings::{ChartKind, ChartSettings};
 use super::view::View;
+pub(crate) use crate::price::{self, PriceMap, quote_unit};
 use wyck_core::math::f32_of;
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::style::Dash;
@@ -53,11 +52,6 @@ pub(crate) const TPO_POC: u32 = 0xf0_a020;
 pub(crate) const TPO_VALUE_AREA: u32 = 0x5b_8def;
 pub(crate) const TPO_IB: u32 = 0xb2_7be6;
 pub(crate) const TPO_SINGLE: u32 = 0xe5_586a;
-
-/// One unit of the symbol's last decimal, in raw price units.
-pub fn quote_unit(digits: u32) -> f64 {
-    10f64.powi(5 - i32::try_from(digits.min(5)).unwrap_or(5))
-}
 
 /// A horizontal line the chart is told to show on the prices: an order, a position, an alert.
 #[derive(Debug, Clone, PartialEq)]

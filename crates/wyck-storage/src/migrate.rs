@@ -35,7 +35,6 @@ use std::path::{Path, PathBuf};
 use toml::{Table, Value};
 use tracing::{info, warn};
 
-use crate::documents::DocumentStore;
 use crate::error::{ConfigError, Result};
 use crate::fs_util::{atomic_write, read_text};
 
@@ -244,18 +243,17 @@ fn sibling(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// Upgrades the document `plan.document` of `store` (see `upgrade_file`), and moves it aside
-/// when it was written by a newer build.
+/// Upgrades the document file at `path` (see `upgrade_file`), and moves it aside when it was
+/// written by a newer build.
 ///
 /// # Errors
 ///
 /// As `upgrade_file`, and [`ConfigError::Read`] or [`ConfigError::Write`] when a newer file
 /// cannot be moved.
-pub fn upgrade_document(store: &DocumentStore, plan: &Plan) -> Result<Outcome> {
-    let path = store.path(plan.document);
-    match upgrade_file(&path, plan)? {
+pub fn upgrade_document(path: &Path, plan: &Plan) -> Result<Outcome> {
+    match upgrade_file(path, plan)? {
         Outcome::Newer { found, .. } => {
-            let kept = set_aside_newer(&path, found)?;
+            let kept = set_aside_newer(path, found)?;
             warn!(
                 document = plan.document,
                 found,
@@ -291,7 +289,6 @@ fn set_aside_newer(path: &Path, found: u32) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paths::AppPaths;
 
     #[expect(
         clippy::unnecessary_wraps,
@@ -356,11 +353,20 @@ mod tests {
 
     const OLD: &str = "schema_version = 1\nzoom = 1.5\ncolumns = \"a,b\"\nfrom_a_plugin = true\n";
 
-    fn store() -> (tempfile::TempDir, DocumentStore) {
+    /// A folder of documents: `path` is the file of one of them.
+    struct Folder(PathBuf);
+
+    impl Folder {
+        fn path(&self, name: &str) -> PathBuf {
+            self.0.join(format!("{name}.toml"))
+        }
+    }
+
+    fn store() -> (tempfile::TempDir, Folder) {
         let dir = tempfile::tempdir().unwrap();
-        let store = DocumentStore::global(&AppPaths::at(dir.path()));
-        fs::create_dir_all(store.dir()).unwrap();
-        (dir, store)
+        let folder = dir.path().join("state");
+        fs::create_dir_all(&folder).unwrap();
+        (dir, Folder(folder))
     }
 
     fn read(path: &Path) -> Table {
@@ -402,7 +408,7 @@ mod tests {
         let (_dir, store) = store();
         fs::write(store.path("layout"), OLD).unwrap();
 
-        let outcome = upgrade_document(&store, &LAYOUT).unwrap();
+        let outcome = upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
 
         let Outcome::Migrated { from, to, backup } = outcome else {
             panic!("expected a migration, got {outcome:?}");
@@ -437,7 +443,7 @@ mod tests {
             "schema_version = 3\ncolumns = \"x,y,z\"\nscale = 2.0\n",
         )
         .unwrap();
-        upgrade_document(&store, &LAYOUT).unwrap();
+        upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
         let table = read(&store.path("layout"));
         assert_eq!(table["schema_version"].as_integer(), Some(4));
         assert_eq!(table["columns"].as_array().map(Vec::len), Some(3));
@@ -448,7 +454,7 @@ mod tests {
     fn a_file_with_no_version_is_the_first_layout() {
         let (_dir, store) = store();
         fs::write(store.path("layout"), "zoom = 3.0\n").unwrap();
-        let outcome = upgrade_document(&store, &LAYOUT).unwrap();
+        let outcome = upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
         assert!(matches!(outcome, Outcome::Migrated { from: 1, to: 4, .. }));
         assert_eq!(read(&store.path("layout"))["scale"].as_float(), Some(3.0));
     }
@@ -458,20 +464,29 @@ mod tests {
         let (_dir, store) = store();
         let current = "schema_version = 4\nscale = 1.0\n";
         fs::write(store.path("layout"), current).unwrap();
-        assert_eq!(upgrade_document(&store, &LAYOUT).unwrap(), Outcome::Current);
+        assert_eq!(
+            upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap(),
+            Outcome::Current
+        );
         assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), current);
 
         fs::write(store.path("layout"), OLD).unwrap();
-        upgrade_document(&store, &LAYOUT).unwrap();
+        upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
         let once = fs::read_to_string(store.path("layout")).unwrap();
-        assert_eq!(upgrade_document(&store, &LAYOUT).unwrap(), Outcome::Current);
+        assert_eq!(
+            upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap(),
+            Outcome::Current
+        );
         assert_eq!(fs::read_to_string(store.path("layout")).unwrap(), once);
     }
 
     #[test]
     fn a_missing_file_is_absent_not_an_error() {
         let (_dir, store) = store();
-        assert_eq!(upgrade_document(&store, &LAYOUT).unwrap(), Outcome::Absent);
+        assert_eq!(
+            upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap(),
+            Outcome::Absent
+        );
     }
 
     #[test]
@@ -481,7 +496,7 @@ mod tests {
         fs::write(&kept, "the oldest layout").unwrap();
         fs::write(store.path("layout"), OLD).unwrap();
 
-        upgrade_document(&store, &LAYOUT).unwrap();
+        upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
 
         assert_eq!(fs::read_to_string(kept).unwrap(), "the oldest layout");
     }
@@ -491,7 +506,7 @@ mod tests {
         let (_dir, store) = store();
         fs::write(store.path("layout"), OLD).unwrap();
 
-        let error = upgrade_document(&store, &BROKEN).unwrap_err();
+        let error = upgrade_document(&store.path(BROKEN.document), &BROKEN).unwrap_err();
 
         assert!(
             matches!(error, ConfigError::Migration { from: 2, .. }),
@@ -505,7 +520,7 @@ mod tests {
     fn a_plan_without_the_step_is_an_error_not_a_guess() {
         let (_dir, store) = store();
         fs::write(store.path("layout"), OLD).unwrap();
-        let error = upgrade_document(&store, &MISSING).unwrap_err();
+        let error = upgrade_document(&store.path(MISSING.document), &MISSING).unwrap_err();
         assert!(
             matches!(error, ConfigError::Migration { from: 2, .. }),
             "{error:?}"
@@ -519,7 +534,7 @@ mod tests {
         let future = "schema_version = 9\nsomething_new = \"kept\"\n";
         fs::write(store.path("layout"), future).unwrap();
 
-        let outcome = upgrade_document(&store, &LAYOUT).unwrap();
+        let outcome = upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap();
 
         let Outcome::Newer { found, kept_as } = outcome else {
             panic!("expected a newer file, got {outcome:?}");
@@ -529,11 +544,6 @@ mod tests {
         assert!(kept.ends_with("layout.toml.from-v9"), "{kept:?}");
         assert_eq!(fs::read_to_string(kept).unwrap(), future);
         assert!(!store.path("layout").exists(), "the app starts afresh");
-        assert_eq!(
-            store.list().unwrap(),
-            Vec::<String>::new(),
-            "the copy is not a document"
-        );
     }
 
     #[test]
@@ -556,7 +566,7 @@ mod tests {
     fn a_file_that_is_not_toml_is_reported_and_left_alone() {
         let (_dir, store) = store();
         fs::write(store.path("layout"), "zoom = [[[").unwrap();
-        let error = upgrade_document(&store, &LAYOUT).unwrap_err();
+        let error = upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap_err();
         assert!(matches!(error, ConfigError::Parse { .. }), "{error:?}");
         assert_eq!(
             fs::read_to_string(store.path("layout")).unwrap(),
@@ -570,7 +580,7 @@ mod tests {
             let (_dir, store) = store();
             let text = format!("schema_version = {bad}\n");
             fs::write(store.path("layout"), &text).unwrap();
-            let error = upgrade_document(&store, &LAYOUT).unwrap_err();
+            let error = upgrade_document(&store.path(LAYOUT.document), &LAYOUT).unwrap_err();
             assert!(
                 matches!(error, ConfigError::Migration { .. }),
                 "{bad}: {error:?}"

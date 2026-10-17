@@ -1,11 +1,11 @@
 //! The chart patterns and the Elliott waves.
 
 use super::{add, point_label, ratio, ratio_label, scale, sub};
-use crate::geometry::fib::fill_of;
-use crate::geometry::{P, Prim, Rect, extended, lead, seg};
 use crate::model::style::Dash;
 use crate::model::tool::Tool;
 use crate::model::{Drawing, wave_label};
+use crate::prim::fib::fill_of;
+use crate::prim::{P, Prim, Rect, extended, lead, seg};
 
 /// The zigzag through every point.
 fn zigzag(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {

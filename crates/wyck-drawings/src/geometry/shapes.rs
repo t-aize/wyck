@@ -1,6 +1,5 @@
 //! The shapes of each tool, drawn from its points.
 
-use super::fib::{fib_prims, fill_of, stretch};
 use super::measure::{measure_prims, position_prims};
 use super::{Anchor, Prim, Projection, anchors, arrow_head, extended, label_size, lead, seg};
 use crate::decor;
@@ -10,6 +9,7 @@ use crate::look::Face;
 use crate::model::Drawing;
 use crate::model::style::Dash;
 use crate::model::tool::Tool;
+use crate::prim::fib::{fib_prims, fill_of, stretch};
 use wyck_core::math::count_f32;
 
 pub(super) fn shapes_of(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {

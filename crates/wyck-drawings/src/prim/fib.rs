@@ -5,7 +5,7 @@ use crate::look::{LabelSide, LevelText};
 use crate::model::style::{Dash, Level, Style};
 use crate::model::{Drawing, Point};
 
-pub(super) fn fib_prims(
+pub(crate) fn fib_prims(
     drawing: &Drawing,
     pts: &[P],
     proj: &dyn Projection,

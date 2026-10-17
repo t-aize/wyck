@@ -23,7 +23,7 @@ use tracing::{info, warn};
 
 use crate::{alerts, drawings, workspace};
 use wyck_drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
-use wyck_storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
+use wyck_storage::migrate::{Outcome, Plan, Step, StepError};
 use wyck_storage::{AppPaths, DocumentStore};
 
 /// The layouts of the documents, one plan each.
@@ -190,7 +190,7 @@ pub fn run(paths: &AppPaths) -> Report {
     let mut report = Report::default();
     for (label, store) in &stores {
         for plan in &PLANS {
-            match upgrade_document(store, plan) {
+            match store.upgrade(plan) {
                 Ok(Outcome::Migrated { from, to, .. }) => {
                     info!(
                         store = label,

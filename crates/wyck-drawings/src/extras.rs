@@ -13,11 +13,11 @@ pub(crate) mod notes;
 pub(crate) mod ranges;
 
 use super::figures;
-use super::geometry::{Anchor, P, Prim, Projection, duration_text, lead};
 use super::look::MeasureLook;
 use super::model::style::Style;
 use super::model::tool::Tool;
 use super::model::{Drawing, Point};
+use super::prim::{Anchor, P, Prim, Projection, duration_text, lead};
 use std::f32::consts::{PI, TAU};
 use wyck_core::math::{count_f32, f64_to_i64};
 

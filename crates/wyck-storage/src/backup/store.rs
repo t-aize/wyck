@@ -150,6 +150,13 @@ pub(super) fn looks_sealed(path: &Path) -> bool {
         .starts_with(&format!("format = \"{}\"", sealed::FORMAT))
 }
 
+impl AppPaths {
+    /// The copies kept in the backups folder: [`BackupStore::new`].
+    pub fn backups(&self) -> BackupStore {
+        BackupStore::new(self)
+    }
+}
+
 impl BackupStore {
     /// The copies of the install at `paths`.
     #[must_use]

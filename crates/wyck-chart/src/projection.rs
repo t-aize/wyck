@@ -4,7 +4,7 @@ use wyck_core::math::{count_f64, f32_of, f64_to_i64, f64_to_usize, i64_to_f64};
 use wyck_market::{PRICE_SCALE, format_price};
 
 use super::data::Series;
-use super::scene::PriceMap;
+use super::price::{PriceMap, quote_unit};
 use super::view::View;
 use wyck_drawings::geometry::{BarView, P, Projection, Rect};
 use wyck_drawings::model::Point;
@@ -129,7 +129,7 @@ impl Projection for ChartProjection<'_> {
     }
 
     fn tick(&self) -> f64 {
-        super::scene::quote_unit(self.digits) / i64_to_f64(PRICE_SCALE)
+        quote_unit(self.digits) / i64_to_f64(PRICE_SCALE)
     }
 
     fn pip(&self) -> f64 {

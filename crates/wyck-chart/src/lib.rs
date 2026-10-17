@@ -13,6 +13,7 @@ mod lines;
 mod look;
 mod options;
 mod order_flow;
+mod price;
 mod projection;
 mod scene;
 mod settings;
@@ -51,6 +52,7 @@ pub use order_flow::tpo::{
 pub use order_flow::volume::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
+pub use price::{PriceMap, format_value, quote_unit};
 pub use projection::ChartProjection;
 pub use scene::cmd::{
     Align, Cmd, P, fitted_origin, fitted_size, font, hsla, line_height, rgb_alpha, with_alpha,
@@ -58,9 +60,8 @@ pub use scene::cmd::{
 pub use scene::color::{Hsla, Rgba};
 pub use scene::geometry::{Band, Geometry, axis_h, axis_w, zone_w};
 pub use scene::palette::Palette;
-pub use scene::price::{PriceMap, format_value};
 pub use scene::scale::{geometry, main_map};
-pub use scene::{DrawingView, Frame, PriceMark, build, quote_unit};
+pub use scene::{DrawingView, Frame, PriceMark, build};
 pub use settings::{
     ChartKind, ChartSettings, DEFAULT_STUDIES_LIMIT, MAX_STUDIES, PaneRef, ScaleMode,
 };

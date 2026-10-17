@@ -2,10 +2,10 @@
 
 use super::{MAX_CYCLES, add, dist, length, polyline, sample, scale, sub};
 
-use crate::geometry::fib::fill_of;
-use crate::geometry::{P, Prim, Projection, lead, seg};
 use crate::model::style::Dash;
 use crate::model::{Drawing, Point};
+use crate::prim::fib::fill_of;
+use crate::prim::{P, Prim, Projection, lead, seg};
 use std::f32::consts::{PI, TAU};
 use wyck_core::math::{f64_to_i64, f64_to_usize, i64_to_f64};
 

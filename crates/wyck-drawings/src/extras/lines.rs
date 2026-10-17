@@ -6,10 +6,10 @@ use super::{
 };
 
 use crate::figures;
-use crate::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, extended, label_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use crate::prim::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
+use crate::prim::{Anchor, P, Prim, Projection, extended, label_size, lead, seg};
 use wyck_core::math::{count_f64, f32_of};
 
 pub(super) fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {

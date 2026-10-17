@@ -334,26 +334,6 @@ impl AppPaths {
         self.dir(Kind::Indicators)
     }
 
-    /// The documents shared by every account: [`crate::DocumentStore::global`].
-    pub fn documents(&self) -> crate::DocumentStore {
-        crate::DocumentStore::global(self)
-    }
-
-    /// The documents of one scope (an account): `crate::DocumentStore::scoped`.
-    pub fn scope(&self, scope: &str) -> crate::DocumentStore {
-        crate::DocumentStore::scoped(self, scope)
-    }
-
-    /// The indicator scripts of the default folder: [`crate::scripts::ScriptStore::in_config`].
-    pub(crate) fn scripts(&self) -> crate::scripts::ScriptStore {
-        crate::scripts::ScriptStore::in_config(self)
-    }
-
-    /// The copies kept in `Self::backups_dir`: `crate::backup::store::BackupStore::new`.
-    pub fn backups(&self) -> crate::backup::store::BackupStore {
-        crate::backup::store::BackupStore::new(self)
-    }
-
     /// The user's pictures folder, or the home folder when the system has none: where the app puts
     /// a picture it saves. `None` only when the system knows no home folder either.
     pub fn pictures_dir() -> Option<PathBuf> {

@@ -2,10 +2,10 @@
 
 use super::{dist, mid, polyline, sample, sub, wrap};
 
-use crate::geometry::fib::{fill_of, label, level_label, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, lead, seg};
 use crate::model::style::Dash;
 use crate::model::{Drawing, Point};
+use crate::prim::fib::{fill_of, label, level_label, visible_levels};
+use crate::prim::{Anchor, P, Prim, Projection, lead, seg};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wyck_core::math::f32_of;
 

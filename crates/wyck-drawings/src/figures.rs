@@ -7,11 +7,11 @@
 pub(crate) mod gann;
 pub(crate) mod patterns;
 
-use super::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
-use super::geometry::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use super::model::style::Dash;
 use super::model::tool::Tool;
 use super::model::{Drawing, Point};
+use super::prim::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
+use super::prim::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use wyck_core::math::f32_of;
 
 /// How far a label sits above or below the point it names.

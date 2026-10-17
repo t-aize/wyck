@@ -14,6 +14,11 @@ use crate::axis;
 use crate::settings::ScaleMode;
 use wyck_indicators::spec::ValueFormat;
 
+/// One unit of the symbol's last decimal, in raw price units.
+pub fn quote_unit(digits: u32) -> f64 {
+    10f64.powi(5 - i32::try_from(digits.min(5)).unwrap_or(5))
+}
+
 /// Prices under this are clamped before taking their logarithm.
 const LOG_FLOOR: f64 = 1e-9;
 

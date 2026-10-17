@@ -2,9 +2,9 @@
 
 use super::{ICONS, add, dist, polyline, sample, scale, sub};
 
-use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, board_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use crate::prim::{Anchor, P, Prim, Projection, arrow_head, board_size, lead, seg};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use wyck_core::math::count_f32;
 

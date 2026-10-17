@@ -2,10 +2,10 @@
 
 use super::{move_text, span_text, stat, stat_rows};
 
-use crate::geometry::fib::fill_of;
-use crate::geometry::{Anchor, P, Prim, Projection, arrow_head, label_size, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use crate::prim::fib::fill_of;
+use crate::prim::{Anchor, P, Prim, Projection, arrow_head, label_size, lead, seg};
 
 /// A line from `a` to `b` with an arrow head at `b`.
 pub(super) fn arrow(a: P, b: P, color: u32, width: f32, out: &mut Vec<Prim>) {

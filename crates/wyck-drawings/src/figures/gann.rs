@@ -1,10 +1,10 @@
 //! The Gann tools: fan, box and square.
 
 use super::{fan, sub};
-use crate::geometry::fib::{fill_of, label, level_label, level_text, visible_levels};
-use crate::geometry::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use crate::model::Drawing;
 use crate::model::style::Dash;
+use crate::prim::fib::{fill_of, label, level_label, level_text, visible_levels};
+use crate::prim::{Anchor, P, Prim, Projection, Rect, lead, seg};
 use wyck_core::math::{count_f32, f32_of};
 
 /// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
