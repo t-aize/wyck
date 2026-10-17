@@ -11,7 +11,6 @@
 use serde_json::Value;
 use tracing::{debug, warn};
 
-use crate::account::TraderUpdatedEvent;
 use crate::error::Error;
 use crate::transport::messages::{
     AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, ErrorRes,
@@ -20,6 +19,14 @@ use crate::transport::wire::{Envelope, payload};
 use wyck_market::{DepthEvent, SpotEvent, SymbolChangedEvent};
 use wyck_trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
 use wyck_trading::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
+
+/// `ProtoOATraderUpdatedEvent`: the account changed (a balance moved).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TraderUpdatedEvent {
+    /// The account after the change.
+    pub trader: wyck_trading::Trader,
+}
 
 /// Why a connection ended.
 #[derive(Debug, Clone, PartialEq, Eq)]

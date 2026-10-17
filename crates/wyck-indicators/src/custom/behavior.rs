@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use super::run::decl::Limits;
 use super::run::{Computed, Script};
-use crate::compute::StudyInput;
+use crate::data::StudyInput;
 use crate::spec::{InputKind, PlotKind};
 use wyck_core::math::{count_f64, count_i64};
 use wyck_core::ta;

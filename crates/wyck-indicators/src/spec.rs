@@ -233,3 +233,6 @@ pub(super) const PURPLE: u32 = 0x7e_57c2;
 pub(super) const TEAL: u32 = 0x00_bcd4;
 pub(super) const PINK: u32 = 0xe9_1e63;
 pub(super) const GRAY: u32 = 0x78_7b86;
+
+/// The kinds of moving average an indicator can offer, in the order of its `method` input.
+pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];

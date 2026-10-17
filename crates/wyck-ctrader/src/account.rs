@@ -12,7 +12,6 @@ mod requests;
 
 pub(crate) use requests::{
     DealListRes, OrderListRes, PositionUnrealizedPnLRes, ReconcileRes, TraderRes,
-    TraderUpdatedEvent,
 };
 
 mod client;

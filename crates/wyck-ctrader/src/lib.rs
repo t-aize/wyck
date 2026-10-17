@@ -128,6 +128,7 @@
 mod account;
 pub mod auth;
 pub mod config;
+mod connection;
 mod error;
 mod event;
 mod handle;
@@ -138,9 +139,9 @@ pub mod trading;
 mod transport;
 
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
+pub use connection::Client;
+pub use connection::builder::ClientBuilder;
 pub use error::{Error, ErrorKind, Result};
 pub use event::Event;
 pub use handle::AccountClient;
-pub use transport::connection::Client;
-pub use transport::connection::builder::ClientBuilder;
 pub use transport::messages::TraderAccount;

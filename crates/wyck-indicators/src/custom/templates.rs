@@ -42,9 +42,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::compute::StudyInput;
     use crate::custom::run::Script;
     use crate::custom::run::decl::Limits;
+    use crate::data::StudyInput;
 
     #[test]
     fn starters_compile_and_compute() {

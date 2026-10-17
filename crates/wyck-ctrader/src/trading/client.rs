@@ -1,8 +1,8 @@
 //! [`TradingClient`]: the calls themselves.
 
 use super::{AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionReq, NewOrderReq};
+use crate::connection::{Client, RateClass};
 use crate::error::{Error, Result};
-use crate::transport::connection::{Client, RateClass};
 use crate::transport::wire::payload;
 use wyck_trading::ExecutionEvent;
 use wyck_trading::guard::{Cleared, Mode};

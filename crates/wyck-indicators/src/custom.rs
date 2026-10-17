@@ -40,9 +40,9 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 #[cfg(test)]
-use super::compute::StudyInput;
-#[cfg(test)]
 use super::config::StudyConfig;
+#[cfg(test)]
+use super::data::StudyInput;
 
 #[cfg(test)]
 /// Computes the indicator a config holds over `input`. The script is looked up by the id in the

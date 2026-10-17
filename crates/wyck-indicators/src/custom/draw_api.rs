@@ -8,7 +8,7 @@ use super::api::indicators::parse_color;
 use super::run::decl::MAX_SCRIPT_DRAWINGS;
 use super::run::{Mode, with_run};
 use super::series::Fallible;
-use crate::compute::ScriptDrawing;
+use crate::data::ScriptDrawing;
 use wyck_drawings::model::style::{Level, Style};
 use wyck_drawings::model::tool::Tool;
 use wyck_drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
@@ -314,9 +314,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::compute::StudyInput;
     use crate::custom::run::Script;
     use crate::custom::run::decl::Limits;
+    use crate::data::StudyInput;
     use wyck_core::math::count_i64;
 
     fn bars() -> StudyInput {
@@ -331,7 +331,7 @@ mod tests {
         }
     }
 
-    fn compute(source: &str) -> Fallible<crate::compute::StudyOutput> {
+    fn compute(source: &str) -> Fallible<crate::data::StudyOutput> {
         let script = Script::compile(source).map_err(|p| format!("{p:?}"))?;
         script
             .compute(&bars(), &BTreeMap::new(), Limits::default(), None)

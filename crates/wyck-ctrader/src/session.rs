@@ -74,9 +74,9 @@ mod token_store;
 
 use crate::auth::{OAuthClient, TokenSet};
 use crate::config::{ClientCredentials, ConnectionConfig};
+use crate::connection::Client;
 use crate::error::{Error, Result};
 use crate::event::Event;
-use crate::transport::connection::Client;
 pub(crate) use backoff::Backoff;
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};

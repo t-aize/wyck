@@ -6,8 +6,8 @@ use super::requests::{
 use super::{DealListRes, OrderListRes, PositionUnrealizedPnLRes, ReconcileRes, TraderRes};
 use wyck_trading::{Deal, Order, Position, Trader};
 
+use crate::connection::{Client, RateClass};
 use crate::error::Result;
-use crate::transport::connection::{Client, RateClass};
 use crate::transport::messages::AccountReq;
 use crate::transport::wire::payload;
 

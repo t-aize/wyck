@@ -9,8 +9,8 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, warn};
 
+use crate::connection::{Outgoing, Shared};
 use crate::event::DisconnectReason;
-use crate::transport::connection::{Outgoing, Shared};
 use crate::transport::wire::{Envelope, payload};
 
 /// The connection task: reads the socket, writes what the client queues, sends heartbeats.

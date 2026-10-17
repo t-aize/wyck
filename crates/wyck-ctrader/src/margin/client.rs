@@ -4,8 +4,8 @@ use super::ExpectedMarginRes;
 use super::requests::ExpectedMarginReq as MarginReq;
 use wyck_trading::ExpectedMargin;
 
+use crate::connection::{Client, RateClass};
 use crate::error::Result;
-use crate::transport::connection::{Client, RateClass};
 use crate::transport::wire::payload;
 
 /// Margin bound to one account: the margin a volume would need. See

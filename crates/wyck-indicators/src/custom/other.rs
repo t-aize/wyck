@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use wyck_core::math::i64_to_f64;
 
 use super::series::Series;
-use crate::compute::StudyInput;
+use crate::data::StudyInput;
 use wyck_market::Bar;
 
 /// The bars of another symbol, as they came from the server: one value per bar, oldest first.

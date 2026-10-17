@@ -19,11 +19,11 @@
 //! ```
 
 use crate::account::AccountDataClient;
+use crate::connection::Client;
 use crate::error::Result;
 use crate::margin::MarginClient;
 use crate::market::MarketClient;
 use crate::trading::TradingClient;
-use crate::transport::connection::Client;
 
 impl Client {
     /// The client bound to `account_id`. The account must still be authorized on the connection

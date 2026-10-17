@@ -12,10 +12,10 @@ Depends on: `wyck-core`, `wyck-market`, `wyck-drawings`, `rhai`, `chrono`, `serd
 
 | Module | What it holds |
 |---|---|
-| `kind`, `spec` | `StudyKind` (the indicators on offer; the names are written in saved files) and `Spec` (what one is made of: where it is drawn, its inputs, its plots). `kind/specs.rs` and `extended/specs.rs` hold the fixed spec of each built-in. |
+| `kind`, `spec` | `StudyKind` (the indicators on offer; the names are written in saved files) and `Spec` (what one is made of: where it is drawn, its inputs, its plots). `kind/specs.rs` and `kind/specs/extended.rs` hold the fixed spec of each built-in. |
 | `config` | `StudyConfig`: one indicator on a chart as the user set it, also its saved form. Inputs and plots are named by stable keys, never by position. |
 | `style` | How plots, levels and fills look (`PlotStyle`, `LevelStyle`, `FillStyle`). |
-| `compute` | `compute(&StudyConfig, &StudyInput) -> StudyOutput`: bars in, lines out. `StudyInput` is the bars as columns of numbers. |
+| `compute`, `data` | `compute(&StudyConfig, &StudyInput) -> StudyOutput`: bars in, lines out. `data` holds what it reads and gives back (`StudyInput` is the bars as columns of numbers, `StudyOutput` the plots, fills and drawings), re-exported by `compute`; the scripts and the extended indicators build on `data`, not on `compute`. |
 | `extended` | The built-in indicators past the first batch (private; reached through `compute`). |
 | `higher` | Grouping the chart's bars into a higher timeframe and carrying a value back to the chart's bars. |
 | `profile` | The volume profile of the bars on screen (not a line per bar, so not in `compute`). |
@@ -67,7 +67,7 @@ alone before blaming a change.
 ## Where to add X
 
 - A built-in indicator: a `StudyKind` variant (a new name), its spec in `kind/specs.rs` or
-  `extended/specs.rs`, its arithmetic in `wyck_core::ta` when it is a general one, its branch in
+  `kind/specs/extended.rs`, its arithmetic in `wyck_core::ta` when it is a general one, its branch in
   `compute`, its entry in `catalog`, a test on the shared set of bars.
 - A function a script can call: `custom/api/` (thin: it hands the numbers to `wyck_core::ta`),
   its description in `custom/docs.rs`, a test in `custom/behavior.rs`.

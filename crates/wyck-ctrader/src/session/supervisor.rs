@@ -3,9 +3,9 @@
 use super::{SessionConfig, SessionEvent, SessionState, Shared, TokenStore, lock};
 
 use crate::auth::{OAuthClient, TokenSet};
+use crate::connection::Client;
 use crate::error::{Error, ErrorKind, Result};
 use crate::event::Event;
-use crate::transport::connection::Client;
 use secrecy::ExposeSecret;
 use std::future::Future;
 use std::sync::Arc;

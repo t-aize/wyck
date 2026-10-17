@@ -1,8 +1,8 @@
 //! Building a [`Client`] in one step.
 
 use crate::config::{ClientCredentials, ConnectionConfig, Environment};
+use crate::connection::Client;
 use crate::error::Result;
-use crate::transport::connection::Client;
 
 /// Builds a [`Client`]: the friendliest entry point for a newcomer, connecting and (optionally)
 /// identifying the application in one call. Skip it and call `Client::connect` directly when the

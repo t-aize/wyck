@@ -53,10 +53,10 @@ fn bars_of(name: &str) -> Fallible<Map> {
 
 #[cfg(test)]
 mod tests {
-    use crate::compute::StudyInput;
     use crate::custom::other::{OtherBars, OtherSymbols, key_of};
     use crate::custom::run::Script;
     use crate::custom::run::decl::Limits;
+    use crate::data::StudyInput;
     use std::collections::BTreeMap;
 
     fn chart() -> StudyInput {

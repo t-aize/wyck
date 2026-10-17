@@ -1,9 +1,7 @@
 //! Additional built-in indicators. Each output stays aligned with the input bars.
 
-pub(crate) mod specs;
-
-use super::compute::{FillOut, PlotOut, StudyInput, StudyOutput, plot};
 use super::config::StudyConfig;
+use super::data::{FillOut, PlotOut, StudyInput, StudyOutput, plot};
 use super::kind::StudyKind;
 use super::spec::PlotKind;
 use chrono::{Datelike, NaiveDate};

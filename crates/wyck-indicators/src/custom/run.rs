@@ -16,7 +16,7 @@ pub mod decl;
 
 use super::api;
 use super::other::{self, OtherSymbols};
-use crate::compute::{ScriptDrawing, StudyInput, StudyOutput};
+use crate::data::{ScriptDrawing, StudyInput, StudyOutput};
 use crate::spec::{PlotKind, SOURCES};
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
@@ -460,7 +460,7 @@ fn output_of(run: &Run) -> StudyOutput {
     let mut output = StudyOutput::default();
     for plot in &run.plots {
         let decl = run.declaration.plots.iter().find(|d| d.key == plot.key);
-        output.plots.push(crate::compute::PlotOut {
+        output.plots.push(crate::data::PlotOut {
             key: intern::name(&plot.key),
             kind: decl.map_or(PlotKind::Line, |d| d.kind),
             values: plot.values.clone(),
@@ -469,7 +469,7 @@ fn output_of(run: &Run) -> StudyOutput {
         });
     }
     for fill in &run.fills {
-        output.fills.push(crate::compute::FillOut {
+        output.fills.push(crate::data::FillOut {
             a: fill.a,
             b: fill.b,
             color: fill.color,

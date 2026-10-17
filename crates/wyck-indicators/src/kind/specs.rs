@@ -1,9 +1,10 @@
 //! The spec of each of the first indicators on offer: the moving averages, the bands, the
-//! oscillators and the volume studies. The later ones are in [`crate::extended::specs`].
+//! oscillators and the volume studies. The later ones are in `extended`.
+
+mod extended;
 
 use super::StudyKind;
-use crate::compute::MA_METHODS;
-use crate::extended;
+use crate::spec::MA_METHODS;
 use crate::spec::{
     ATR_SMOOTHING, BLUE, DOWN, GRAY, InputKind, InputSpec, OFFSET, ORANGE, PINK, PURPLE, Placement,
     PlotKind, PlotSpec, SOURCE, Spec, TEAL, UP, ValueFormat, choice, float, hidden_line, int, line,
@@ -563,6 +564,6 @@ pub(super) fn spec_of(kind: StudyKind) -> Spec {
             }
         }
         StudyKind::Unknown | StudyKind::Custom => UNKNOWN,
-        other => extended::specs::spec_for(other),
+        other => extended::spec_for(other),
     }
 }

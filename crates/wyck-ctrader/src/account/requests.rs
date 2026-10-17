@@ -89,14 +89,6 @@ pub(crate) struct OrderListRes {
     pub has_more: bool,
 }
 
-/// `ProtoOATraderUpdatedEvent`: the account changed (a balance moved).
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TraderUpdatedEvent {
-    /// The account after the change.
-    pub trader: Trader,
-}
-
 /// `ProtoOAGetPositionUnrealizedPnLRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]

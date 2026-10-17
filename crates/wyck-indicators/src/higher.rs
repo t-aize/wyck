@@ -7,7 +7,7 @@
 
 use wyck_market::Timeframe;
 
-use super::compute::StudyInput;
+use super::data::StudyInput;
 use wyck_core::ta::Series;
 
 /// The chart's bars grouped into the bars of a higher timeframe.

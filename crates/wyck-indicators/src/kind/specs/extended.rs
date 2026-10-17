@@ -418,6 +418,6 @@ pub(crate) const fn spec_for(kind: StudyKind) -> Spec {
             None
         ),
         // Not an extended indicator: the spec of a kind that is not known.
-        _ => crate::kind::specs::UNKNOWN,
+        _ => super::UNKNOWN,
     }
 }

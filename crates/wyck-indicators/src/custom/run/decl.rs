@@ -1,8 +1,8 @@
 //! What a script declares about itself and what it reads: limits, problems, inputs, plots and the columns of bars.
 
-use crate::compute::StudyInput;
 use crate::custom::library::choices;
 use crate::custom::series::Series;
+use crate::data::StudyInput;
 use crate::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
 use std::sync::Arc;
