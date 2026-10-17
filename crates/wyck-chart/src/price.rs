@@ -144,7 +144,6 @@ impl PriceMap {
         }
     }
 
-    /// The label of a price on the axis.
     pub(crate) fn label(&self, price: f64, format: ValueFormat, digits: u32) -> String {
         match self.mode {
             ScaleMode::Percent if self.base > 0.0 => {

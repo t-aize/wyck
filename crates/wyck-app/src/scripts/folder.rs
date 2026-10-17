@@ -104,7 +104,6 @@ fn scan(root: &Path) -> Vec<Found> {
     ScriptStore::new(root).scan()
 }
 
-/// What a read of the folder changed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Changes {
     pub(crate) added: Vec<String>,
@@ -118,7 +117,6 @@ impl Changes {
     }
 }
 
-/// What an import did.
 #[derive(Debug, Default)]
 pub struct ImportReport {
     /// The ids of the indicators that were added.
@@ -239,7 +237,6 @@ impl Library {
         changes
     }
 
-    /// Publishes what was read.
     pub(crate) fn publish(&self) -> bool {
         registry::install(self.entries())
     }

@@ -58,7 +58,6 @@ pub enum Grab {
     GripDiagonalUp,
 }
 
-/// What a press did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Press {
     /// The press is for the chart (to scroll it).
@@ -526,7 +525,8 @@ mod tests {
     }
 
     #[test]
-    fn escape_finishes_an_arrow_path_with_two_points() {
+    fn an_arrow_path_ends_on_escape_enter_or_a_double_click() {
+        // Escape: one point is not a path, two are.
         let mut book = book();
         book.set_tool(Some(Tool::ArrowPath));
         click(&mut book, 60.0, 100.0);
@@ -538,6 +538,25 @@ mod tests {
         assert!(book.cancel());
         assert_eq!(book.count(SYMBOL), 1);
         assert_eq!(book.drawings(SYMBOL)[0].points.len(), 2);
+
+        // Points placed by dragging count too, and Enter ends the path.
+        let mut book = self::book();
+        book.set_tool(Some(Tool::ArrowPath));
+        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
+        drag(&mut book, (200.0, 180.0), (320.0, 120.0));
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(3));
+        assert!(book.finish());
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
+
+        // A double click after a drag ends it as well.
+        let mut book = self::book();
+        book.set_tool(Some(Tool::ArrowPath));
+        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
+        click(&mut book, 320.0, 120.0);
+        click(&mut book, 320.0, 120.0);
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
     }
 
     #[test]
@@ -652,18 +671,6 @@ mod tests {
     }
 
     #[test]
-    fn dragging_places_the_points_of_an_arrow_path_too() {
-        let mut book = book();
-        book.set_tool(Some(Tool::ArrowPath));
-        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
-        drag(&mut book, (200.0, 180.0), (320.0, 120.0));
-        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(3));
-        assert!(book.finish());
-        assert_eq!(book.count(SYMBOL), 1);
-        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
-    }
-
-    #[test]
     fn enter_ends_an_arrow_path_and_leaves_the_other_tools_waiting() {
         let mut book = book();
         book.set_tool(Some(Tool::TrendLine));
@@ -743,17 +750,6 @@ mod tests {
             "back to the normal cursor, like TradingView"
         );
         assert!(!book.abort(SYMBOL), "the next right click is free again");
-    }
-
-    #[test]
-    fn a_double_click_still_ends_an_arrow_path_made_by_dragging() {
-        let mut book = book();
-        book.set_tool(Some(Tool::ArrowPath));
-        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
-        click(&mut book, 320.0, 120.0);
-        click(&mut book, 320.0, 120.0);
-        assert_eq!(book.count(SYMBOL), 1);
-        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
     }
 
     #[test]

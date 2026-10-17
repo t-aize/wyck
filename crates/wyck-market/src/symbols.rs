@@ -27,7 +27,6 @@ pub struct LightSymbol {
     /// The asset the symbol is priced in.
     #[serde(default, deserialize_with = "flex::opt")]
     pub quote_asset_id: Option<i64>,
-    /// The symbol's category.
     #[serde(default, deserialize_with = "flex::opt")]
     pub symbol_category_id: Option<i64>,
 }
@@ -60,7 +59,6 @@ pub struct Symbol {
     /// Volume step, in hundredths of a unit.
     #[serde(default, deserialize_with = "flex::opt")]
     pub step_volume: Option<i64>,
-    /// Time zone of the trading schedule.
     #[serde(default)]
     pub schedule_time_zone: Option<String>,
     /// When the symbol trades each week (`schedule`).
@@ -98,10 +96,8 @@ pub struct Asset {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetClass {
-    /// The class id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub id: Option<i64>,
-    /// The class name.
     #[serde(default)]
     pub name: Option<String>,
     /// Where it sorts in the platform.
@@ -116,10 +112,8 @@ pub struct SymbolCategory {
     /// The category id (what `LightSymbol::symbol_category_id` points to).
     #[serde(deserialize_with = "flex::int")]
     pub id: i64,
-    /// The asset class it belongs to.
     #[serde(deserialize_with = "flex::int")]
     pub asset_class_id: i64,
-    /// The category name.
     pub name: String,
     /// Where it sorts in the platform.
     #[serde(default)]
@@ -131,10 +125,8 @@ pub struct SymbolCategory {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolChangedEvent {
-    /// The account the changed symbols belong to.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The symbols that changed.
     #[serde(default, deserialize_with = "flex::list")]
     pub symbol_id: Vec<i64>,
 }

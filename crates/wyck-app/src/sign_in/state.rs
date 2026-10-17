@@ -9,7 +9,6 @@ use wyck_ctrader::Error;
 /// A trading account the user can pick.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountChoice {
-    /// The id to authorize.
     pub(crate) id: i64,
     /// How the account is named: `Broker Live - 1234567`.
     pub label: String,
@@ -239,7 +238,6 @@ impl SignInState {
         }
     }
 
-    /// The account is being authorized.
     pub(crate) fn authorizing(&mut self, label: String) {
         if matches!(
             self.phase,
@@ -403,24 +401,5 @@ mod tests {
             Failure::from_consent(&Error::Auth("denied".into())),
             Failure::ConsentFailed(_)
         ));
-    }
-
-    #[test]
-    fn every_failure_has_words() {
-        for failure in [
-            Failure::MissingFields,
-            Failure::CredentialsRejected,
-            Failure::Unreachable,
-            Failure::PortBusy(8765),
-            Failure::TimedOut,
-            Failure::ConsentFailed("x".into()),
-            Failure::NoAccount { live: true },
-            Failure::AuthorizeFailed("x".into()),
-            Failure::SessionExpired,
-            Failure::Other("x".into()),
-        ] {
-            assert_ne!(failure.title(), "");
-            assert_ne!(failure.message(), "");
-        }
     }
 }

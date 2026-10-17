@@ -155,34 +155,13 @@ impl BackupStore {
         Ok(entries)
     }
 
-    /// One copy by id.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::BackupNotFound`] when there is none, and what [`Self::list`] returns.
-    #[cfg(test)]
-    pub(crate) fn get(&self, id: &str) -> Result<BackupEntry> {
-        self.list()?
-            .into_iter()
-            .find(|entry| entry.id == id)
-            .ok_or_else(|| ConfigError::BackupNotFound(id.to_owned()))
-    }
-
     /// Saves `backup` as a [`BackupKind::Manual`] copy, named after when it was made.
-    ///
-    /// # Errors
-    ///
-    /// As `Self::save`.
     pub fn create(&self, backup: &Backup) -> Result<BackupEntry> {
         self.save(BackupKind::Manual, backup, None)
     }
 
     /// Saves `backup` as a copy of `kind`, sealed when a passphrase is given. The file is named
     /// after the kind and after `backup.created`, with a number added when the name is taken.
-    ///
-    /// # Errors
-    ///
-    /// As [`Backup::to_text_with`], and [`ConfigError::Write`].
     pub(crate) fn save(
         &self,
         kind: BackupKind,
@@ -214,10 +193,6 @@ impl BackupStore {
     /// Saves an automatic copy of the install when the last one is older than `policy.every`,
     /// then keeps only the newest `policy.keep`. Returns the copy, or `None` when it is not time
     /// yet or there is nothing to save. The scripts of `scripts` are part of it when given.
-    ///
-    /// # Errors
-    ///
-    /// As [`Backup::collect`] and `Self::save`.
     pub fn auto_snapshot(
         &self,
         scripts: Option<&ScriptStore>,
@@ -249,10 +224,6 @@ impl BackupStore {
     /// Saves a copy of the install right before an update is installed, and keeps only the newest
     /// `KEPT_BEFORE_UPDATE` of them. `app_version` is the version being left. `None` when there
     /// is nothing to save.
-    ///
-    /// # Errors
-    ///
-    /// As [`Backup::collect`] and `Self::save`.
     pub fn snapshot_before_update(
         &self,
         scripts: Option<&ScriptStore>,
@@ -281,35 +252,10 @@ impl BackupStore {
         read_backup_text(&path)
     }
 
-    /// A copy, read and checked.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::read_text`] and [`Backup::read`].
-    #[cfg(test)]
-    pub(crate) fn load(&self, id: &str, passphrase: Option<&SecretString>) -> Result<Backup> {
-        Backup::read(&self.read_text(id)?, passphrase)
-    }
-
     /// Asks for a copy to come back at the next start (see `stage_import`). Returns what it
     /// holds.
-    ///
-    /// # Errors
-    ///
-    /// As `Self::load` and `stage_import`.
     pub fn restore(&self, id: &str, passphrase: Option<&SecretString>) -> Result<Backup> {
         stage_import(&self.paths, &self.read_text(id)?, passphrase)
-    }
-
-    /// Writes a copy to `dest`, to carry it somewhere else. The copy is written as it is: sealed
-    /// stays sealed.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::read_text`], and [`ConfigError::Write`].
-    #[cfg(test)]
-    pub(crate) fn export(&self, id: &str, dest: &Path) -> Result<()> {
-        atomic_write(dest, self.read_text(id)?.as_bytes())
     }
 
     /// Deletes a copy. Missing is fine.
@@ -327,10 +273,6 @@ impl BackupStore {
     }
 
     /// Keeps the newest `keep` copies of `kind` and deletes the others. Returns how many went.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::list`] and [`Self::remove`].
     pub(crate) fn prune(&self, kind: BackupKind, keep: usize) -> Result<usize> {
         let old: Vec<_> = self
             .list()?

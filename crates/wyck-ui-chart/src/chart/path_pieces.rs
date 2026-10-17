@@ -29,7 +29,6 @@ impl Rect {
         }
     }
 
-    /// The length of its diagonal.
     fn diagonal(self) -> f32 {
         (self.right - self.left).hypot(self.bottom - self.top)
     }

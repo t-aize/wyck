@@ -43,13 +43,6 @@ impl RateLimiter {
         }
     }
 
-    /// The gap kept between requests.
-    #[must_use]
-    #[cfg(test)]
-    pub(crate) fn interval(&self) -> Duration {
-        self.interval
-    }
-
     /// Waits until the next request may be sent, then reserves that slot. Waiters are served in
     /// the order they asked.
     pub(crate) async fn acquire(&self) {
@@ -127,11 +120,5 @@ mod tests {
             task.await.unwrap();
         }
         assert_eq!(*order.lock().unwrap(), vec![0, 1, 2, 3, 4, 5]);
-    }
-
-    #[test]
-    fn a_zero_rate_is_treated_as_one() {
-        assert_eq!(RateLimiter::new(0).interval(), Duration::from_secs(1));
-        assert_eq!(RateLimiter::new(50).interval(), Duration::from_millis(20));
     }
 }

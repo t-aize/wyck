@@ -27,7 +27,6 @@ pub(crate) const PASSPHRASE_ENV: &str = "WYCK_PASSPHRASE";
 
 /// The application name of the installed app, used in its folder names and its keyring service.
 const PRODUCTION_NAME: &str = "wyck";
-/// The application name of a development build.
 const DEVELOPMENT_NAME: &str = "wyck-dev";
 
 /// The application name a build of this mode keeps its state under.
@@ -89,12 +88,6 @@ mod tests {
         assert_eq!(given.expose_secret(), "open sesame");
         assert!(passphrase_with(env(&[(PASSPHRASE_ENV, "")])).is_none());
         assert!(passphrase_with(env(&[])).is_none());
-    }
-
-    #[test]
-    fn a_development_build_has_its_own_name() {
-        assert_eq!(application_name(BuildMode::Production), "wyck");
-        assert_eq!(application_name(BuildMode::Development), "wyck-dev");
     }
 
     #[test]

@@ -267,7 +267,6 @@ impl ExportOptions {
         }
     }
 
-    /// The extension a file of these options gets.
     pub(crate) fn extension(&self) -> &'static str {
         match self.format {
             Format::Delimited => match self.delimiter {

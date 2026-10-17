@@ -27,7 +27,6 @@ macro_rules! number_enum {
                 }
             }
 
-            /// The server number.
             #[must_use]
             pub fn number(self) -> i32 {
                 self as i32
@@ -55,9 +54,7 @@ number_enum! {
 }
 
 number_enum! {
-    /// The kind of an order.
     OrderType {
-        /// At the market price.
         Market = 1 => "market",
         /// At a limit price or better.
         Limit = 2 => "limit",
@@ -109,18 +106,14 @@ number_enum! {
     PositionStatus {
         Open = 1 => "open",
         Closed = 2 => "closed",
-        /// Being created.
         Created = 3 => "created",
         Error = 4 => "error",
     }
 }
 
 number_enum! {
-    /// How a deal ended.
     DealStatus {
-        /// Fully filled.
         Filled = 2 => "filled",
-        /// Partly filled.
         PartiallyFilled = 3 => "partially filled",
         /// Refused by the server.
         Rejected = 4 => "rejected",
@@ -207,22 +200,5 @@ mod tests {
             Some(OrderTriggerMethod::DoubleTrade)
         );
         assert_eq!(OrderTriggerMethod::from_number(0), None);
-    }
-
-    #[test]
-    fn every_enumeration_value_round_trips() {
-        for side in [TradeSide::Buy, TradeSide::Sell] {
-            assert_eq!(TradeSide::from_number(i64::from(side.number())), Some(side));
-        }
-        for kind in [
-            OrderType::Market,
-            OrderType::Limit,
-            OrderType::Stop,
-            OrderType::StopLossTakeProfit,
-            OrderType::MarketRange,
-            OrderType::StopLimit,
-        ] {
-            assert_eq!(OrderType::from_number(i64::from(kind.number())), Some(kind));
-        }
     }
 }

@@ -67,7 +67,6 @@ mod safety;
 mod scripts;
 mod shortcuts;
 
-/// Opens the settings.
 pub(crate) fn open(
     workspace: Entity<Workspace>,
     multi: Entity<MultiChart>,

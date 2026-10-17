@@ -26,7 +26,6 @@ pub fn kind_icon(kind: ChartKind) -> IconName {
     }
 }
 
-/// The kinds of the menu, in sections.
 pub(super) const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
     (
         "Bars",

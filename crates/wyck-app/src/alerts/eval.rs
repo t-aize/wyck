@@ -195,7 +195,6 @@ pub fn is_zone_tool(tool: Tool) -> bool {
     matches!(tool, Tool::Rectangle)
 }
 
-/// Whether an alert can be made on this tool.
 pub fn is_alert_tool(tool: Tool) -> bool {
     matches!(
         tool,

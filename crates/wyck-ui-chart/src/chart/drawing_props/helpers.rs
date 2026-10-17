@@ -7,7 +7,6 @@ use wyck_drawings::wave_names;
 use wyck_market::GROUPS;
 use wyck_market::PRICE_SCALE;
 
-/// Every timeframe's code.
 pub(super) fn every_timeframe() -> Vec<String> {
     GROUPS
         .iter()

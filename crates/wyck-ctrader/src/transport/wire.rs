@@ -192,7 +192,6 @@ impl Envelope {
         })
     }
 
-    /// The heartbeat message.
     #[must_use]
     pub(crate) fn heartbeat() -> Self {
         Self {

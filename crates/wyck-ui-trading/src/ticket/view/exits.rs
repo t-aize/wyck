@@ -9,9 +9,7 @@ use super::{
 };
 use gpui::prelude::*;
 
-/// The width of the index column of the exits grid.
 const INDEX_WIDTH: f32 = 34.0;
-/// The width of the unit column of the exits grid.
 const UNIT_WIDTH: f32 = 10.0;
 
 impl OrderTicket {

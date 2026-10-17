@@ -166,7 +166,6 @@ pub use action::*;
 const COMPACT_WIDTH: f32 = 640.0;
 const COMPACT_HEIGHT: f32 = 300.0;
 
-/// The symbol on the chart.
 #[derive(Debug, Clone)]
 pub(crate) struct Symbol {
     pub(crate) id: i64,

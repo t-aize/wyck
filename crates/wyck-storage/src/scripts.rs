@@ -106,7 +106,6 @@ pub(crate) fn is_clean_id(id: &str) -> bool {
 pub struct ScriptFile {
     /// The path from the folder, without the extension, with `/` between folders.
     pub id: String,
-    /// Where the file is.
     pub path: PathBuf,
     /// When it was last changed, when the system says.
     pub modified: Option<SystemTime>,
@@ -116,7 +115,6 @@ pub struct ScriptFile {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ScriptText {
-    /// The id of the script.
     pub id: String,
     pub source: String,
 }
@@ -140,12 +138,6 @@ impl ScriptStore {
         Self::new(paths.indicators_dir())
     }
 
-    /// The folder the scripts are in.
-    #[cfg(test)]
-    pub(crate) fn dir(&self) -> &Path {
-        &self.dir
-    }
-
     /// Where the file of `id` is (or would be). The id is not checked: see [`clean_id`].
     pub fn path_of(&self, id: &str) -> PathBuf {
         let mut path = self.dir.clone();
@@ -164,12 +156,6 @@ impl ScriptStore {
         scan_into(&self.dir, &self.dir, 0, &mut found);
         found.sort_by(|a, b| a.id.cmp(&b.id));
         found
-    }
-
-    /// The ids of every script of the folder.
-    #[cfg(test)]
-    pub(crate) fn ids(&self) -> Vec<String> {
-        self.scan().into_iter().map(|file| file.id).collect()
     }
 
     /// Every script with its text, at most [`MAX_SCRIPTS`]. A file that is too big or is not text
@@ -220,21 +206,6 @@ impl ScriptStore {
         let path = self.path_of(id);
         atomic_write(&path, source.as_bytes())?;
         Ok(path)
-    }
-
-    /// Copies every script into `dest`, with the same folders, atomically. Returns how many.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Write`] when a file cannot be written.
-    #[cfg(test)]
-    pub(crate) fn export_all(&self, dest: &Path) -> Result<usize> {
-        let target = Self::new(dest);
-        let scripts = self.read_all();
-        for script in &scripts {
-            target.write(&script.id, &script.source)?;
-        }
-        Ok(scripts.len())
     }
 }
 
@@ -320,13 +291,14 @@ mod tests {
         store.write("Trend/Average", "plot(\"a\", close);").unwrap();
         store.write("Other", "plot(\"b\", open);").unwrap();
         // Not scripts: hidden, another kind, a leftover of an editor.
-        std::fs::write(store.dir().join("notes.txt"), "x").unwrap();
-        std::fs::write(store.dir().join(".hidden.rhai"), "x").unwrap();
-        std::fs::write(store.dir().join("~lock.rhai"), "x").unwrap();
-        std::fs::create_dir_all(store.dir().join(TRASH)).unwrap();
-        std::fs::write(store.dir().join(TRASH).join("gone.rhai"), "x").unwrap();
+        std::fs::write(store.dir.join("notes.txt"), "x").unwrap();
+        std::fs::write(store.dir.join(".hidden.rhai"), "x").unwrap();
+        std::fs::write(store.dir.join("~lock.rhai"), "x").unwrap();
+        std::fs::create_dir_all(store.dir.join(TRASH)).unwrap();
+        std::fs::write(store.dir.join(TRASH).join("gone.rhai"), "x").unwrap();
 
-        assert_eq!(store.ids(), ["Other", "Trend/Average"]);
+        let ids: Vec<String> = store.scan().into_iter().map(|file| file.id).collect();
+        assert_eq!(ids, ["Other", "Trend/Average"]);
         assert_eq!(
             store.read("Trend/Average").unwrap().as_deref(),
             Some("plot(\"a\", close);")
@@ -334,7 +306,7 @@ mod tests {
         assert_eq!(store.read("Nothing").unwrap(), None);
         assert!(store.read("../x").is_err());
         assert!(
-            crate::fs_util::stale_temp_files(store.dir()).is_empty(),
+            crate::fs_util::stale_temp_files(&store.dir).is_empty(),
             "no temporary file is left"
         );
     }
@@ -352,19 +324,5 @@ mod tests {
         let texts = store.read_all();
         assert_eq!(texts.len(), 1, "only the readable one is a copy: {texts:?}");
         assert_eq!(texts[0].id, "Fine");
-    }
-
-    #[test]
-    fn export_all_keeps_the_folders() {
-        let (dir, store) = store();
-        store.write("A/B", "1").unwrap();
-        store.write("C", "2").unwrap();
-        let dest = dir.path().join("out");
-        assert_eq!(store.export_all(&dest).unwrap(), 2);
-        assert_eq!(
-            std::fs::read_to_string(dest.join("A").join("B.rhai")).unwrap(),
-            "1"
-        );
-        assert_eq!(std::fs::read_to_string(dest.join("C.rhai")).unwrap(), "2");
     }
 }

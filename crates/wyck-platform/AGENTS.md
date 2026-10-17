@@ -5,7 +5,7 @@ the facts of the build, and the log files. It knows no screen, no account and no
 user: the folder of the logs is handed to it.
 
 Depends on: `tokio`, `tracing`, `tracing-appender`, `tracing-subscriber`, `chrono`, `thiserror`
-(`semver` and `tempfile` in tests only). Of the workspace only `wyck-clock`, for the time of a panic report.
+(`tempfile` in tests only). Of the workspace only `wyck-clock`, for the time of a panic report.
 
 ## Module map
 

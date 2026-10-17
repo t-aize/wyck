@@ -30,7 +30,6 @@ pub struct Interval {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Holiday {
-    /// What the holiday is called.
     #[serde(default)]
     pub name: Option<String>,
     /// Days since 1970-01-01.

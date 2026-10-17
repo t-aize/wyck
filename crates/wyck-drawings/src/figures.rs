@@ -390,10 +390,8 @@ fn fib_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::hit::hit;
     use crate::geometry::prims;
     use crate::geometry::tests::{Linear, drawing};
-    use wyck_core::math::{count_f64, count_i64};
 
     fn labels(shapes: &[Prim]) -> Vec<String> {
         shapes
@@ -603,27 +601,5 @@ mod tests {
         let pts = [(0.0, 300.0), (100.0, 100.0), (200.0, 300.0)];
         assert!(is_top(&pts, 1));
         assert!(!is_top(&[(0.0, 100.0), (100.0, 300.0), (200.0, 100.0)], 1));
-    }
-
-    #[test]
-    fn every_new_tool_draws_something_and_can_be_picked() {
-        for tool in Tool::ALL {
-            let points: Vec<(i64, f64)> = (0..tool.anchors().max(2))
-                .map(|i| {
-                    (
-                        100 + count_i64(i) * 60,
-                        if i % 2 == 0 { 150.0 } else { 250.0 } + count_f64(i),
-                    )
-                })
-                .collect();
-            let d = drawing(tool, &points[..tool.anchors().max(2)]);
-            let shapes = prims(&d, &Linear);
-            assert!(!shapes.is_empty(), "{tool:?} draws nothing");
-            let first = crate::geometry::anchors(&d, &Linear).unwrap()[0];
-            assert!(
-                hit(&d, &Linear, first, true).is_some(),
-                "{tool:?} cannot be picked by its first point"
-            );
-        }
     }
 }

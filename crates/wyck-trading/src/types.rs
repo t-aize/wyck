@@ -52,7 +52,6 @@ pub fn volume_units(raw: i64) -> f64 {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Trader {
-    /// The trading account id.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
     /// The balance, scaled by `10^moneyDigits` (see [`money`]).
@@ -83,7 +82,6 @@ pub struct Trader {
     /// How the account books positions, as its number (see [`Trader::kind`]).
     #[serde(default, deserialize_with = "flex::opt")]
     pub account_type: Option<i64>,
-    /// The broker's name.
     #[serde(default)]
     pub broker_name: Option<String>,
     /// When the account was registered, in Unix milliseconds.
@@ -197,10 +195,8 @@ pub struct Position {
     /// The entry price.
     #[serde(default)]
     pub price: Option<f64>,
-    /// The stop loss price.
     #[serde(default)]
     pub stop_loss: Option<f64>,
-    /// The take profit price.
     #[serde(default)]
     pub take_profit: Option<f64>,
     /// The last update, in Unix milliseconds.
@@ -257,7 +253,6 @@ pub struct Order {
     /// When it expires, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub expiration_timestamp: Option<i64>,
-    /// The price it was executed at.
     #[serde(default)]
     pub execution_price: Option<f64>,
     /// The volume executed, in hundredths of a unit.
@@ -266,13 +261,10 @@ pub struct Order {
     /// The limit price, for limit orders.
     #[serde(default)]
     pub limit_price: Option<f64>,
-    /// The stop price, for stop orders.
     #[serde(default)]
     pub stop_price: Option<f64>,
-    /// The stop loss price.
     #[serde(default)]
     pub stop_loss: Option<f64>,
-    /// The take profit price.
     #[serde(default)]
     pub take_profit: Option<f64>,
     /// The client's own id for the order.
@@ -287,7 +279,6 @@ pub struct Order {
 }
 
 impl Order {
-    /// The kind of order.
     #[must_use]
     pub fn kind(&self) -> Option<OrderType> {
         OrderType::from_number(self.order_type)
@@ -366,7 +357,6 @@ impl Deal {
         self.side() == Some(TradeSide::Buy)
     }
 
-    /// How the deal ended.
     #[must_use]
     pub fn status(&self) -> Option<DealStatus> {
         DealStatus::from_number(self.deal_status)

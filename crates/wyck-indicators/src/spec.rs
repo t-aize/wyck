@@ -28,7 +28,6 @@ pub enum ValueFormat {
     Count,
 }
 
-/// What an input is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputKind {
     /// A whole number.
@@ -49,7 +48,6 @@ pub enum InputKind {
     Timeframe,
     /// A trading session such as `0930-1600`, kept as text.
     Session,
-    /// Free text.
     Text,
 }
 
@@ -158,7 +156,6 @@ pub(super) const SOURCE: InputSpec = InputSpec {
 
 pub(super) const OFFSET: InputSpec = int("offset", "Offset", 0.0, -500.0, 500.0);
 
-/// How a plot is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlotKind {

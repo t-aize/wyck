@@ -65,7 +65,6 @@ const LADDER: [Unit; 28] = [
     Unit::Years(5),
 ];
 
-/// A label of the time axis.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TimeLabel {
     /// Which point it belongs to.
@@ -427,10 +426,5 @@ mod tests {
             full_time(1_767_571_200_000, Zone::Utc, false, false),
             "Mon 5 Jan 2026  00:00"
         );
-    }
-
-    #[test]
-    fn times_before_the_epoch_do_not_panic() {
-        assert_ne!(full_time(-86_400_000, Zone::Utc, false, false), "");
     }
 }

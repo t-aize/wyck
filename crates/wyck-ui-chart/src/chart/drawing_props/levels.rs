@@ -7,7 +7,6 @@ use super::{
 use gpui::prelude::*;
 use wyck_ui_kit::prelude::Disableable;
 
-/// The width of the badge that numbers a level.
 const LEVEL_BADGE_WIDTH: f32 = 44.0;
 /// The least height of the row of a level.
 const LEVEL_ROW_HEIGHT: f32 = 42.0;

@@ -43,10 +43,6 @@ impl ClientBuilder {
     }
 
     /// Connects, and identifies the application when [`ClientBuilder::credentials`] were given.
-    ///
-    /// # Errors
-    ///
-    /// Whatever `Client::connect` and `Client::authenticate_application` return.
     pub async fn connect(self) -> Result<Client> {
         let client = Client::connect(&self.config).await?;
         if let Some(credentials) = &self.credentials {

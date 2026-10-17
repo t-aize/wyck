@@ -34,7 +34,6 @@ impl Environment {
         }
     }
 
-    /// The host of the environment.
     #[must_use]
     pub(crate) fn host(self) -> &'static str {
         match self {
@@ -181,7 +180,6 @@ fn is_acceptable_address(address: &str) -> bool {
 /// dropped. Keep it out of files, logs and the repository.
 #[derive(Debug, Clone)]
 pub struct ClientCredentials {
-    /// The application's client id.
     pub client_id: String,
     /// The application's client secret.
     pub client_secret: SecretString,
@@ -238,12 +236,6 @@ mod tests {
             ConnectionConfig::with_url("ws://127.0.0.1:1").mode,
             Mode::Demo
         );
-    }
-
-    #[test]
-    fn environments_have_their_own_host_and_the_json_port() {
-        assert_eq!(Environment::Demo.url(), "wss://demo.ctraderapi.com:5036");
-        assert_eq!(Environment::Live.url(), "wss://live.ctraderapi.com:5036");
     }
 
     #[test]

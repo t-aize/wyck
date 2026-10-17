@@ -158,7 +158,6 @@ struct DrawingProps {
     level_subscriptions: Vec<Subscription>,
 }
 
-/// The fields of what a position is sized with.
 struct PositionFields {
     account: Entity<InputState>,
     risk: Entity<InputState>,

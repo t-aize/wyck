@@ -255,10 +255,6 @@ pub fn key_label(key: &str) -> String {
 }
 
 /// Writes a combination in the canonical form, or says why it cannot be used.
-///
-/// # Errors
-///
-/// What [`Chord::parse`] and [`Chord::allowed`] say.
 pub fn canonical(text: &str) -> Result<String, ChordError> {
     let chord = Chord::parse(text)?;
     chord.allowed()?;

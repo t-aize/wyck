@@ -66,7 +66,6 @@ const MAX_TAB_WALK: usize = 200;
 /// What a panel is told when it is dismissed.
 type DismissFn = Rc<dyn Fn(&mut Window, &mut App)>;
 
-/// What a modal asks for.
 pub struct Options {
     /// The size it would like, in pixels. A small window gets less.
     pub(crate) width: f32,

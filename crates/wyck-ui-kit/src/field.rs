@@ -32,7 +32,6 @@ use crate::{icon, theme, tokens};
 /// What a [`SliderField`] says when its value changes.
 pub struct ValueChanged(pub f64);
 
-/// The width of the slider itself.
 const SLIDER_WIDTH: f32 = 130.0;
 
 /// A slider and a number field that always show the same value. Dragging the slider or typing in

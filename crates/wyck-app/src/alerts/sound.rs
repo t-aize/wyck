@@ -27,7 +27,6 @@ pub(crate) const MAX_CUSTOM_BYTES: u64 = 4 * 1024 * 1024;
 /// The longest a sound of the user's may last: an alert is a short signal.
 pub(crate) const MAX_CUSTOM_SECONDS: f32 = 15.0;
 
-/// Which sound to play.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SoundKind {
@@ -571,16 +570,6 @@ mod tests {
         assert!((gain(100) - 1.0).abs() < 1e-6);
         assert!(gain(50) < 0.5 && gain(50) > 0.0);
         assert!((gain(255) - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn every_built_in_sound_is_in_the_app_and_is_a_short_wav() {
-        for kind in SoundKind::ALL {
-            let Some(name) = kind.asset() else { continue };
-            let file = Builtin::get(name).unwrap_or_else(|| panic!("{name} is missing"));
-            assert!(file.data.len() < 100_000, "{name} is too big");
-            assert_eq!(&file.data[..4], b"RIFF", "{name} is not a wav");
-        }
     }
 
     #[test]

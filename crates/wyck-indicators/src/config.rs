@@ -346,7 +346,6 @@ impl StudyConfig {
         })
     }
 
-    /// Sets a text input.
     pub fn set_text(&mut self, key: &str, value: impl Into<String>) {
         self.texts.insert(key.to_owned(), value.into());
     }

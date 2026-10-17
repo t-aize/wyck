@@ -82,7 +82,6 @@ enum Load {
     Failed(SharedString),
 }
 
-/// The symbol the dashboard is on.
 #[derive(Clone)]
 struct Active {
     entry: Entry,
@@ -117,9 +116,7 @@ struct Peek {
 enum MenuKind {
     /// The account: figures, settings, disconnect.
     Account,
-    /// The list of all timeframes.
     Timeframes,
-    /// The layout picker.
     Layouts,
 }
 

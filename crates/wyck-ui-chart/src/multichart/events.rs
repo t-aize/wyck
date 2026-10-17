@@ -9,7 +9,6 @@ use gpui::{Context, Entity};
 use wyck_core::math::u32_to_f32;
 
 impl MultiChart {
-    /// Takes a picture of the active chart.
     pub fn picture(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
         match chart.read(cx).picture(cx) {

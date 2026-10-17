@@ -12,7 +12,6 @@ use super::spec::Placement;
 pub enum Source {
     /// One the app ships.
     Builtin(StudyKind),
-    /// A script, by its id.
     Script(String),
 }
 

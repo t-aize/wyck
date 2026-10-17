@@ -107,7 +107,6 @@ pub struct Drawing {
     pub points: Vec<Point>,
     #[serde(default)]
     pub style: style::Style,
-    /// The words of a text drawing.
     #[serde(default)]
     pub text: String,
     /// A locked drawing can be selected but not moved, edited or deleted by mistake.

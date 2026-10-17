@@ -47,7 +47,6 @@ pub(super) fn choice<T: Copy + PartialEq + 'static>(
     )
 }
 
-/// A row with a switch.
 pub(super) fn switch(
     chart: &Entity<Chart>,
     id: &'static str,
@@ -66,7 +65,6 @@ pub(super) fn switch(
     )
 }
 
-/// A row with a number field.
 pub(super) fn number(
     label: &'static str,
     hint: Option<&'static str>,

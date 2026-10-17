@@ -32,7 +32,6 @@ use wyck_ui_kit::{
 
 /// The height of the bar that shows how a total is shared.
 const METER_HEIGHT: f32 = 6.0;
-/// The height of a thin progress bar.
 const THIN_METER_HEIGHT: f32 = 4.0;
 
 mod exits;

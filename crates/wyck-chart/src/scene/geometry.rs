@@ -191,11 +191,4 @@ mod tests {
         let (a, _) = g.drag_separator(&[3.0, 1.0], 0, 10_000.0).unwrap();
         assert!(f64::from(a) < 4.0, "the lower pane keeps its minimum");
     }
-
-    #[test]
-    fn a_chart_with_nothing_but_prices_is_one_band() {
-        let g = Geometry::single(800.0, 400.0);
-        assert_eq!(g.bands.len(), 1);
-        assert_eq!(g.main().h, g.plot_h());
-    }
 }

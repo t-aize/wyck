@@ -12,23 +12,18 @@ number_enum! {
     ExecutionType {
         /// The order passed validation and is working.
         OrderAccepted = 2 => "order accepted",
-        /// The order is fully filled.
         OrderFilled = 3 => "order filled",
         /// A pending order was replaced with a new one (an amend).
         OrderReplaced = 4 => "order replaced",
-        /// The order was cancelled.
         OrderCancelled = 5 => "order cancelled",
         /// A good-till-date order ran out of time.
         OrderExpired = 6 => "order expired",
-        /// The order was rejected.
         OrderRejected = 7 => "order rejected",
         /// A cancel request was itself rejected.
         OrderCancelRejected = 8 => "order cancel rejected",
-        /// A swap was charged.
         Swap = 9 => "swap",
         /// A deposit or a withdrawal took place.
         DepositWithdraw = 10 => "deposit or withdrawal",
-        /// The order was partially filled.
         OrderPartialFill = 11 => "order partially filled",
         /// A bonus deposit or withdrawal took place.
         BonusDepositWithdraw = 12 => "bonus deposit or withdrawal",
@@ -40,16 +35,13 @@ number_enum! {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionEvent {
-    /// The account the execution belongs to.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
     /// What happened, as [`ExecutionType`]'s number.
     #[serde(deserialize_with = "flex::int")]
     pub execution_type: i64,
-    /// The position the execution affected.
     #[serde(default)]
     pub position: Option<Position>,
-    /// The order the execution answers.
     #[serde(default)]
     pub order: Option<Order>,
     /// The fill this execution reports.
@@ -65,7 +57,6 @@ pub struct ExecutionEvent {
 }
 
 impl ExecutionEvent {
-    /// What kind of execution this is.
     #[must_use]
     pub fn kind(&self) -> Option<ExecutionType> {
         ExecutionType::from_number(self.execution_type)
@@ -77,7 +68,6 @@ impl ExecutionEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderErrorEvent {
-    /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
     /// The error code, for example `NOT_ENOUGH_MONEY`.
@@ -104,7 +94,6 @@ pub struct TrailingSlChangedEvent {
     /// The protective order.
     #[serde(deserialize_with = "flex::int")]
     pub order_id: i64,
-    /// The new stop price.
     pub stop_price: f64,
     /// When it moved, in Unix milliseconds.
     #[serde(deserialize_with = "flex::int")]

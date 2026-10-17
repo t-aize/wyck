@@ -31,7 +31,6 @@ pub enum Kind {
     Pips,
     /// How far a price may slip, in pips.
     Slippage,
-    /// An amount of money.
     Money,
     /// The width of a line, in pixels.
     LineWidth,
@@ -40,11 +39,18 @@ pub enum Kind {
     /// A quantity with no natural step: a contract size, the value of a point, a box size.
     Amount,
     /// A price, stepping by `step` (a pip or a tick of the symbol).
-    Price { step: f64 },
+    Price {
+        step: f64,
+    },
     /// A volume, stepping by the volume step of the symbol.
-    Volume { step: f64 },
+    Volume {
+        step: f64,
+    },
     /// A number whose step its source declares, such as an input of an indicator script.
-    Declared { step: f64, decimals: usize },
+    Declared {
+        step: f64,
+        decimals: usize,
+    },
 }
 
 /// How a [`Kind`] of number steps and reads.

@@ -18,7 +18,6 @@ pub struct Source<'a> {
     pub kind: ChartKind,
     /// The decimals of the symbol.
     pub digits: u32,
-    /// The zone of the chart.
     pub zone: Zone,
     pub raw: &'a Series,
     pub display: &'a Display,

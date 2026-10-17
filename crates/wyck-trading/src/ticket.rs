@@ -136,17 +136,13 @@ pub enum TicketProblem {
     TakeProfitWrongSide,
     /// No volume to size by lots or units.
     NoVolume,
-    /// No risk to size by.
     NoRisk,
     /// Sizing by risk needs a stop loss, and it is off.
     StopLossOff,
-    /// The stop loss has no value.
     NoStopLoss,
-    /// The take profit has no value.
     NoTakeProfit,
     /// The rate that turns the quote currency into the deposit currency is not known yet.
     WaitingForRate,
-    /// No share of the free margin to size by.
     NoMarginShare,
     /// The margin of one lot is not known yet.
     WaitingForMargin,
@@ -166,7 +162,6 @@ pub enum TicketProblem {
     NoLimitRange,
     /// A market order with a slippage limit that has no value.
     NoSlippage,
-    /// No symbol is chosen.
     NoSymbol,
     /// The volume is too small to be cut between the exits.
     VolumeTooSmallForExits,

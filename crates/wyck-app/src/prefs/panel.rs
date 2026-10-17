@@ -4,7 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A tab of the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Tab {
@@ -45,7 +44,6 @@ impl Tab {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
-    /// The tab that was open.
     pub tab: Tab,
 }
 

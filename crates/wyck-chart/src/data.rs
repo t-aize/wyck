@@ -49,12 +49,10 @@ impl Series {
         }
     }
 
-    /// The time of the first point.
     pub fn first_time(&self) -> Option<i64> {
         self.time_at(0)
     }
 
-    /// The time of the last point.
     pub fn last_time(&self) -> Option<i64> {
         self.len().checked_sub(1).and_then(|i| self.time_at(i))
     }

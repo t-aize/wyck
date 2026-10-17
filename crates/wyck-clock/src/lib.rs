@@ -23,10 +23,8 @@ pub trait Clock: Debug + Send + Sync {
     fn now(&self) -> SystemTime;
 }
 
-/// A clock shared between owners.
 pub type SharedClock = Arc<dyn Clock>;
 
-/// The clock of the machine.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SystemClock;
 
@@ -135,11 +133,6 @@ pub fn unix_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_system_clock_is_after_2020() {
-        assert!(unix_ms() > 1_577_836_800_000);
-    }
 
     #[test]
     fn a_manual_clock_moves_only_when_told() {

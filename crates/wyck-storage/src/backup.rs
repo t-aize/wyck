@@ -119,7 +119,6 @@ pub struct BackupFile {
 pub struct BackupScript {
     /// The id, see [`crate::scripts::clean_id`].
     pub id: String,
-    /// The text of the script.
     pub content: String,
 }
 
@@ -135,20 +134,6 @@ pub struct Contents {
 }
 
 impl Contents {
-    /// How many documents, in every scope.
-    #[must_use]
-    #[cfg(test)]
-    pub(crate) fn documents(&self) -> usize {
-        self.global.len() + self.scopes.values().map(Vec::len).sum::<usize>()
-    }
-
-    /// Whether there is nothing at all.
-    #[must_use]
-    #[cfg(test)]
-    pub(crate) fn is_empty(&self) -> bool {
-        self.documents() == 0 && self.scripts == 0
-    }
-
     /// Whether a document called `name` is shared by every account.
     #[must_use]
     pub fn has_global(&self, name: &str) -> bool {
@@ -289,19 +274,11 @@ impl Backup {
 
     /// The text of the backup, sealed with `passphrase` (see [`crate::sealed`]): unreadable
     /// without it.
-    ///
-    /// # Errors
-    ///
-    /// As [`sealed::seal_text`].
     pub(crate) fn to_sealed_text(&self, passphrase: &SecretString) -> Result<String> {
         sealed::seal_text(passphrase, FORMAT, &self.to_text()?)
     }
 
     /// The text of the backup as it should be written: sealed when a passphrase is given.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::to_text`] and [`Self::to_sealed_text`].
     pub(crate) fn to_text_with(&self, passphrase: Option<&SecretString>) -> Result<String> {
         match passphrase {
             Some(passphrase) => self.to_sealed_text(passphrase),
@@ -350,22 +327,7 @@ impl Backup {
         Self::parse(&sealed::open_text(passphrase, FORMAT, text)?)
     }
 
-    /// Reads a backup from a file, plain or sealed, refusing one that is far too large before
-    /// reading it.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] when the file cannot be read, and whatever [`Self::read`] returns.
-    #[cfg(test)]
-    pub(crate) fn read_file(path: &Path, passphrase: Option<&SecretString>) -> Result<Self> {
-        Self::read(&read_backup_text(path)?, passphrase)
-    }
-
     /// Writes the backup to `path`, atomically, sealed when a passphrase is given.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::to_text_with`], and [`ConfigError::Write`] on an I/O failure.
     pub(crate) fn write_file(&self, path: &Path, passphrase: Option<&SecretString>) -> Result<()> {
         atomic_write(path, self.to_text_with(passphrase)?.as_bytes())
     }
@@ -467,6 +429,14 @@ mod tests {
         SecretString::from(text.to_owned())
     }
 
+    fn load(store: &BackupStore, id: &str) -> Result<Backup> {
+        Backup::read(&store.read_text(id)?, None)
+    }
+
+    fn read_file(path: &Path) -> Result<Backup> {
+        Backup::read(&read_backup_text(path)?, None)
+    }
+
     fn setup() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         write(dir.path(), "state/preferences.toml", "magnet = true\n");
@@ -513,7 +483,10 @@ mod tests {
             ("1.2.3", "today")
         );
         let contents = backup.contents();
-        assert_eq!(contents.documents(), 5);
+        assert_eq!(
+            contents.global.len() + contents.scopes.values().map(Vec::len).sum::<usize>(),
+            5
+        );
         assert!(contents.has_global("appearance"));
         assert_eq!(contents.scopes_with("drawings"), 2);
         assert_eq!(contents.scopes_with("alerts"), 0);
@@ -566,7 +539,7 @@ mod tests {
             "plot(\"new\", close);"
         );
 
-        let kept = Backup::read_file(&applied.kept_in.unwrap(), None).unwrap();
+        let kept = read_file(&applied.kept_in.unwrap()).unwrap();
         assert_eq!(kept.scripts[0].content, "plot(\"old\", close);");
     }
 
@@ -588,7 +561,8 @@ mod tests {
         let backup = collect(dir.path());
         assert!(backup.is_empty());
         let back = Backup::parse(&backup.to_text().unwrap()).unwrap();
-        assert!(back.contents().is_empty());
+        let empty = back.contents();
+        assert!(empty.global.is_empty() && empty.scopes.is_empty() && empty.scripts == 0);
     }
 
     #[test]
@@ -739,7 +713,7 @@ mod tests {
         );
 
         // What was replaced (and only that: appearance was the same) is kept, and can be restored.
-        let kept = Backup::read_file(&applied.kept_in.unwrap(), None).unwrap();
+        let kept = read_file(&applied.kept_in.unwrap()).unwrap();
         assert_eq!(kept.files.len(), 1);
         assert_eq!(kept.files[0].content, "magnet = false\n");
         let entries = at(target.path()).backups().list().unwrap();
@@ -800,7 +774,7 @@ mod tests {
         let store = at(dir.path()).backups();
         let copy = store.list().unwrap().remove(0);
         assert_eq!(copy.kind, BackupKind::BeforeReset);
-        assert_eq!(store.load(&copy.id, None).unwrap().files.len(), 5);
+        assert_eq!(load(&store, &copy.id).unwrap().files.len(), 5);
         store.restore(&copy.id, None).unwrap();
         apply_pending(&at(dir.path()), "2026-09-25").unwrap();
         assert_eq!(
@@ -840,7 +814,7 @@ mod tests {
     }
 
     #[test]
-    fn the_store_lists_reads_exports_and_deletes_copies() {
+    fn the_store_lists_reads_and_deletes_copies() {
         let dir = setup();
         let paths = at(dir.path());
         let store = paths.backups();
@@ -868,20 +842,16 @@ mod tests {
         assert!(listed.iter().find(|e| e.id == sealed.id).unwrap().sealed);
         assert!(!listed.iter().find(|e| e.id == first.id).unwrap().sealed);
 
-        assert_eq!(store.load(&first.id, None).unwrap(), backup);
+        assert_eq!(load(&store, &first.id).unwrap(), backup);
         assert!(matches!(
-            store.load(&sealed.id, None),
+            load(&store, &sealed.id),
             Err(ConfigError::PassphraseRequired)
         ));
         assert!(matches!(
-            store.load("missing", None),
+            load(&store, "missing"),
             Err(ConfigError::BackupNotFound(_))
         ));
-        assert!(store.load("../config", None).is_err(), "an id is a name");
-
-        let out = tempfile::tempdir().unwrap().keep().join("carried.toml");
-        store.export(&first.id, &out).unwrap();
-        assert_eq!(Backup::read_file(&out, None).unwrap(), backup);
+        assert!(load(&store, "../config").is_err(), "an id is a name");
 
         store.remove(&first.id).unwrap();
         store.remove(&first.id).unwrap();
@@ -912,7 +882,11 @@ mod tests {
             2
         );
         assert!(
-            store.get(&manual.id).is_ok(),
+            store
+                .list()
+                .unwrap()
+                .iter()
+                .any(|entry| entry.id == manual.id),
             "the other kinds are left alone"
         );
     }
@@ -1002,6 +976,6 @@ mod tests {
             .iter()
             .find(|entry| entry.kind == BackupKind::BeforeUpdate)
             .unwrap();
-        assert_eq!(store.load(&copy.id, None).unwrap().app_version, "0.2.0");
+        assert_eq!(load(&store, &copy.id).unwrap().app_version, "0.2.0");
     }
 }

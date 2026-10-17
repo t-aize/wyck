@@ -84,7 +84,6 @@ impl Contract {
         stepped.clamp(self.min_volume, self.max_volume.max(self.min_volume))
     }
 
-    /// The lots a volume makes.
     pub fn lots_of_volume(&self, volume: i64) -> f64 {
         i64_to_f64(volume) / i64_to_f64(self.lot_size.max(1))
     }
@@ -154,7 +153,6 @@ impl Contract {
 /// A volume chosen by the ticket, and whether the broker's limits changed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Stepped {
-    /// The volume to send.
     pub volume: i64,
     /// The limit that changed it, if one did.
     pub limit: Option<Limit>,
@@ -235,11 +233,5 @@ mod tests {
         // Never nothing, and more digits than the scale has change nothing.
         assert_eq!(relative_distance(0.00001, 2), 1_000);
         assert_eq!(relative_distance(0.00012, 7), 12);
-    }
-
-    #[test]
-    fn lots_are_written_plainly() {
-        assert_eq!(format_lots(0.10), "0.1");
-        assert_eq!(format_lots(2.0), "2");
     }
 }

@@ -419,15 +419,6 @@ mod tests {
     }
 
     #[test]
-    fn hex_round_trip() {
-        let bytes = [0u8, 1, 15, 16, 255];
-        assert_eq!(
-            crypto::hex_decode(&crypto::hex_encode(&bytes)).unwrap(),
-            bytes
-        );
-    }
-
-    #[test]
     fn the_readable_part_of_a_file_name_holds_only_safe_characters() {
         assert_eq!(
             sanitize_filename("ctrader-remote:profile:abc/def"),

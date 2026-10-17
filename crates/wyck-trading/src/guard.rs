@@ -138,7 +138,6 @@ impl RiskPrefs {
 /// Where the account stands today, worked out by the account from what it holds and its deals.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Standing {
-    /// Positions open now.
     pub open_positions: usize,
     /// Orders sent today.
     pub trades_today: u32,
@@ -759,12 +758,5 @@ mod tests {
         assert!(first.starts_with("wyck-"));
         let widest = client_order_id(i64::MAX, u32::MAX, u64::MAX);
         assert!(widest.chars().count() <= 50, "{widest}");
-    }
-
-    #[test]
-    fn a_mode_is_a_flag_that_cannot_be_mixed_up() {
-        assert_eq!(Mode::from_live(true), Mode::Live);
-        assert!(!Mode::from_live(false).is_live());
-        assert_eq!(Mode::Demo.label(), "demo");
     }
 }

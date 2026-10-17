@@ -26,7 +26,6 @@ use wyck_ui_kit::{
     theme, tokens,
 };
 
-/// The width of the card of a starting template.
 const TEMPLATE_CARD_WIDTH: f32 = 210.0;
 /// The widest the row of template cards grows.
 const TEMPLATE_ROW_MAX: f32 = 690.0;

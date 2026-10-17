@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use wyck_core::ta;
 use wyck_market::{Bar, to_price};
 
-/// The longest an ATR can be.
 pub(crate) const MAX_LENGTH: usize = 1_000;
 /// The largest multiple of the ATR a stop can be placed at.
 pub(crate) const MAX_MULTIPLIER: f64 = 1_000.0;

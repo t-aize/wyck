@@ -299,7 +299,6 @@ impl MultiChart {
         self.active_chart().read(cx).timeframe()
     }
 
-    /// The symbol of the active chart.
     pub fn active_symbol(&self, cx: &gpui::App) -> Option<SymbolRef> {
         self.active_chart().read(cx).symbol().map(|s| SymbolRef {
             id: s.id,
@@ -319,7 +318,6 @@ impl MultiChart {
             .collect()
     }
 
-    /// Every symbol a chart shows.
     pub fn symbol_ids(&self, cx: &gpui::App) -> Vec<i64> {
         let mut ids: Vec<i64> = self
             .slots

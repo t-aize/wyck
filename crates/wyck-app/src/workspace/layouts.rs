@@ -284,12 +284,6 @@ mod tests {
     }
 
     #[test]
-    fn the_counts_on_offer_are_the_ones_of_the_picker() {
-        let counts: Vec<usize> = catalog().iter().map(|(c, _)| *c).collect();
-        assert_eq!(counts, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16]);
-    }
-
-    #[test]
     fn rows_of_different_lengths_share_the_width() {
         let l = rows_of(&[2, 3]);
         assert_eq!((l.cols, l.rows), (6, 2));

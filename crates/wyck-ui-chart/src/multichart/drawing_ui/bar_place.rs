@@ -110,7 +110,6 @@ impl MultiChart {
         }
     }
 
-    /// The bar being dragged now, if any.
     fn dragged_bar(&self) -> Option<Movable> {
         [Movable::StyleBar, Movable::Favorites]
             .into_iter()

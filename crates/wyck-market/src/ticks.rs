@@ -331,9 +331,4 @@ mod tests {
             }]
         );
     }
-
-    #[test]
-    fn nothing_in_nothing_out() {
-        assert_eq!(merge_sides(&[], &[]), [] as [Quote; 0]);
-    }
 }

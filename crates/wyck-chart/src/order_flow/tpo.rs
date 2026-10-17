@@ -93,10 +93,8 @@ impl TpoDisplay {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TpoColor {
-    /// One color for all.
     #[default]
     Single,
-    /// Each period has a color of its own.
     ByPeriod,
     /// Fainter for the early periods of the session, solid for the late ones.
     ByTime,
@@ -296,7 +294,6 @@ pub struct Profile {
     /// The rows of the open and of the close.
     pub open_row: usize,
     pub close_row: usize,
-    /// How many marks the profile has.
     pub marks: usize,
 }
 

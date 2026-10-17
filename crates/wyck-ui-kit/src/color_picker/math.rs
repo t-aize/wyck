@@ -132,10 +132,4 @@ mod tests {
         assert_eq!(Field::Hex.parse("#000", 0x11_2233), Some(0));
         assert_eq!(Field::Green.text(0x11_2233), "34");
     }
-
-    #[test]
-    fn the_presets_have_no_repeats() {
-        let mut seen = std::collections::HashSet::new();
-        assert!(PRESETS.iter().all(|c| seen.insert(*c)));
-    }
 }

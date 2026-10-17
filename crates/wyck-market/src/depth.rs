@@ -7,7 +7,6 @@ use wyck_core::flex;
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthQuote {
-    /// The entry id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub id: Option<i64>,
     /// The size, in hundredths of a unit.

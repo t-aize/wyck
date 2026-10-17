@@ -99,7 +99,6 @@ impl Page {
     }
 }
 
-/// The colors a chart can override.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ColorKey {
     Up,
@@ -285,7 +284,6 @@ struct ChartSettingsEditor {
     /// How the chart was when the panel opened, for Cancel.
     original: ChartSettings,
     page: Page,
-    /// The color whose palette is open.
     color_open: Option<ColorKey>,
     sizes: Vec<(SizeField, Entity<InputState>)>,
     line_break: Entity<InputState>,

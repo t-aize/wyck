@@ -47,8 +47,10 @@ pub enum Cmd {
         color: Hsla,
         dash: Option<[f32; 2]>,
     },
-    /// A filled polygon.
-    Fill { points: Vec<P>, color: Hsla },
+    Fill {
+        points: Vec<P>,
+        color: Hsla,
+    },
     /// Text whose top is at `y`, aligned on `x`.
     Text {
         text: String,
@@ -122,7 +124,6 @@ pub fn font() -> f32 {
     wyck_core::text_scale::scaled(11.0)
 }
 
-/// The line height of that text.
 pub fn line_height() -> f32 {
     font() * 1.3
 }

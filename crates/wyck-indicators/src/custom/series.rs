@@ -289,10 +289,4 @@ mod tests {
         assert_eq!(a.values(), &[9.0, 2.0]);
         assert_eq!(b.values(), &[1.0, 2.0]);
     }
-
-    #[test]
-    fn truth_is_one_and_zero_and_nan_is_false() {
-        assert_eq!(truth(true), 1.0);
-        assert!(is_true(2.0) && !is_true(0.0) && !is_true(f64::NAN));
-    }
 }

@@ -34,7 +34,6 @@ const HUE_H: f32 = 12.0;
 /// The size of a preset and the gap between them: eight of them make the width of the square.
 const CELL: f32 = 25.0;
 const GAP: f32 = 4.0;
-/// How many colors can be saved.
 const MAX_SAVED: usize = 24;
 
 /// What keeps the saved colors.
@@ -85,7 +84,6 @@ impl Field {
         Some((now & !(0xff << shift)) | (value << shift))
     }
 
-    /// What the field shows for a color.
     fn text(self, color: u32) -> String {
         match self {
             Self::Hex => math::hex_text(color),

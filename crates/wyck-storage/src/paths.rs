@@ -206,20 +206,12 @@ impl AppPaths {
 
     /// [`Self::discover`], reading the environment through `var` (so a test does not have to
     /// change the real one). A variable that is empty counts as not set.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::discover`].
     pub(crate) fn discover_with(var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
         Self::discover_for(BuildMode::CURRENT, var)
     }
 
     /// `Self::discover_with` for a given build mode: the standard folders of a development
     /// build are not those of the installed app (see [`crate::identity`]).
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::discover`].
     pub fn discover_for(mode: BuildMode, var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
         let set = |name: &str| {
             var(name)
@@ -286,7 +278,6 @@ impl AppPaths {
         &self.config_dir
     }
 
-    /// The full path to the config TOML file.
     pub(crate) fn config_file(&self) -> PathBuf {
         self.config_dir.join("config.toml")
     }

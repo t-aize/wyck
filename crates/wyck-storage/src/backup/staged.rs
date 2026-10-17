@@ -20,10 +20,6 @@ use tracing::{info, warn};
 /// waiting is cancelled: the last thing asked for wins.
 ///
 /// What waits is the plain text: a backup holds no credentials.
-///
-/// # Errors
-///
-/// As [`Backup::read`], and [`ConfigError::Write`].
 pub(crate) fn stage_import(
     paths: &AppPaths,
     text: &str,
@@ -41,10 +37,6 @@ pub(crate) fn stage_import(
 }
 
 /// `stage_import` for the backup file at `path`.
-///
-/// # Errors
-///
-/// As `stage_import`, and [`ConfigError::Read`].
 pub fn stage_import_file(
     paths: &AppPaths,
     path: &Path,
@@ -133,7 +125,6 @@ pub(super) fn remove_marker(path: &Path) -> Result<()> {
 /// What [`apply_pending`] did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Applied {
-    /// A reset was applied.
     pub reset: bool,
     /// An import was applied, with how many documents and scripts it wrote.
     pub imported: Option<usize>,
@@ -274,10 +265,6 @@ pub(super) fn apply_import(
 /// Writes a backup of everything to `dest` (sealed when a passphrase is given) and returns what
 /// went in. The one call behind an "Export" button: `scripts` is the folder the indicators are
 /// really in (see `AppPaths::scripts` for the default).
-///
-/// # Errors
-///
-/// As [`Backup::collect`] and `Backup::write_file`.
 pub fn export_to_file(
     paths: &AppPaths,
     scripts: Option<&ScriptStore>,

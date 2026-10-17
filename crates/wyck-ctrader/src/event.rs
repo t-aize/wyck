@@ -33,7 +33,6 @@ pub struct TraderUpdatedEvent {
 pub enum DisconnectReason {
     /// [`crate::Client::close`] was called.
     ClosedByClient,
-    /// The server closed the WebSocket.
     ClosedByServer,
     /// The server announced it was ending the connection (`ProtoOAClientDisconnectEvent`).
     ServerAnnounced(Option<String>),
@@ -65,11 +64,9 @@ pub enum Event {
     OrderError(OrderErrorEvent),
     /// A trailing stop loss moved with the price.
     TrailingSlChanged(TrailingSlChangedEvent),
-    /// The margin used by a position changed.
     MarginChanged(MarginChangedEvent),
     /// The account's margin level reached a margin call threshold.
     MarginCallTriggered(MarginCallTriggerEvent),
-    /// A margin call threshold was changed.
     MarginCallUpdated(MarginCallUpdateEvent),
     /// The broker changed one or more symbols (trading hours, volume rules, ...).
     SymbolChanged(SymbolChangedEvent),
@@ -77,9 +74,7 @@ pub enum Event {
     ServerError(Error),
     /// A message this client does not know. Its type and raw payload are kept.
     Other {
-        /// The payload type number.
         payload_type: u32,
-        /// The payload, as sent.
         payload: Value,
     },
     /// The connection ended. This is always the last event.

@@ -184,7 +184,6 @@ pub fn chart_line() -> Rgba {
     rgb(colors().line)
 }
 
-/// The background of the chart.
 pub fn chart_bg() -> Rgba {
     rgb(colors().chart_bg)
 }

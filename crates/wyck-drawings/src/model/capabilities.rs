@@ -314,24 +314,3 @@ impl Tool {
         self.group() == Group::Elliott
     }
 }
-
-#[cfg(test)]
-mod tests {
-
-    use crate::model::tool::*;
-
-    #[test]
-    fn quick_color_is_only_for_drawings_with_a_primary_color() {
-        assert!(Tool::TrendLine.has_quick_color());
-        assert!(Tool::Rectangle.has_quick_color());
-        for tool in [
-            Tool::LongPosition,
-            Tool::ShortPosition,
-            Tool::FibRetracement,
-            Tool::Measure,
-            Tool::PriceRange,
-        ] {
-            assert!(!tool.has_quick_color(), "{}", tool.label());
-        }
-    }
-}

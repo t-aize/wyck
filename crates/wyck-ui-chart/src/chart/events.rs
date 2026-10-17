@@ -90,7 +90,6 @@ pub enum AlertSeed {
         study: Box<wyck_indicators::config::StudyConfig>,
         timeframe: String,
     },
-    /// A drawing of the chart.
     Drawing {
         id: u64,
         zone: bool,

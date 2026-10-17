@@ -98,7 +98,6 @@ pub enum Use {
     Own,
 }
 
-/// The content of a marker.
 #[derive(Debug, Serialize, Deserialize)]
 struct Marker {
     format: String,

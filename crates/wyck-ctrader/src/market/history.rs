@@ -28,10 +28,6 @@ use wyck_market::{QuoteType, Tick};
 
 impl MarketClient {
     /// Every bar of `period` in `[from_ms, to_ms]`, paged. See `fetch_bars`.
-    ///
-    /// # Errors
-    ///
-    /// See `fetch_bars`.
     pub async fn bars(
         &self,
         symbol_id: i64,
@@ -43,10 +39,6 @@ impl MarketClient {
     }
 
     /// Every tick of one side in `[from_ms, to_ms]`, paged. See `fetch_ticks`.
-    ///
-    /// # Errors
-    ///
-    /// See `fetch_ticks`.
     pub async fn ticks(
         &self,
         symbol_id: i64,

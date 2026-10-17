@@ -47,10 +47,6 @@ impl AppPaths {
 impl DocumentStore {
     /// Upgrades the document `plan.document` to the layout this build writes, keeping the old text
     /// aside (see [`migrate::upgrade_document`]).
-    ///
-    /// # Errors
-    ///
-    /// As [`migrate::upgrade_document`].
     pub fn upgrade(&self, plan: &Plan) -> Result<Outcome> {
         migrate::upgrade_document(&self.path(plan.document), plan)
     }
@@ -133,7 +129,6 @@ impl DocumentStore {
         self.dir.join(format!("{}.toml", sanitize(name)))
     }
 
-    /// The directory the documents are in.
     pub fn dir(&self) -> &Path {
         &self.dir
     }
@@ -188,21 +183,6 @@ impl DocumentStore {
         atomic_write(&path, text.as_bytes())?;
         debug!(path = %path.display(), bytes = text.len(), "saved a document");
         Ok(())
-    }
-
-    /// Deletes a document. Missing is fine.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Write`] if the file exists and cannot be removed.
-    #[cfg(test)]
-    pub(crate) fn remove(&self, name: &str) -> Result<()> {
-        let path = self.path(name);
-        match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(source) => Err(ConfigError::Write { path, source }),
-        }
     }
 
     /// The text of a document as it is on disk, or `None` when it was never written: for moving
@@ -447,15 +427,6 @@ mod tests {
             Some(text),
             "a refused text leaves the document as it was"
         );
-    }
-
-    #[test]
-    fn removing_a_document_that_is_not_there_is_fine() {
-        let (_dir, store) = store();
-        store.remove("never").unwrap();
-        store.save("gone", &Sample::default()).unwrap();
-        store.remove("gone").unwrap();
-        assert_eq!(store.load::<Sample>("gone").unwrap(), None);
     }
 
     #[test]

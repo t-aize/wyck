@@ -93,7 +93,6 @@ use wyck_market::Period;
 pub struct SessionConfig {
     /// The connection settings (demo or live, timeouts, limits).
     pub connection: ConnectionConfig,
-    /// The application credentials.
     pub credentials: ClientCredentials,
     /// The trading account to authorize.
     pub account_id: i64,
@@ -141,24 +140,17 @@ impl SessionConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionState {
     /// Connecting (the attempt number, starting at 1).
-    Connecting {
-        /// Which attempt this is in a row.
-        attempt: u32,
-    },
+    Connecting { attempt: u32 },
     /// Connected, signed in, subscriptions restored.
     Ready,
     /// Waiting before the next attempt.
-    Waiting {
-        /// The attempt that failed.
-        attempt: u32,
-    },
+    Waiting { attempt: u32 },
     /// Ended on purpose ([`Session::stop`]).
     Stopped,
     /// Ended by a failure that will not pass. The text says why.
     Failed(String),
 }
 
-/// What a session reports.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionEvent {
     /// Connected and signed in, subscriptions restored. Sent again after each reconnect.
@@ -342,7 +334,6 @@ impl Session {
         self.shared.events.subscribe()
     }
 
-    /// Follows the state of the session.
     #[must_use]
     pub fn state(&self) -> watch::Receiver<SessionState> {
         self.shared.state.subscribe()
@@ -356,7 +347,6 @@ impl Session {
         self.shared.client()
     }
 
-    /// The account the session works for.
     #[must_use]
     pub fn account_id(&self) -> i64 {
         self.shared.account_id

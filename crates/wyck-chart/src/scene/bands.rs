@@ -11,7 +11,6 @@ use wyck_core::math::{count_f64, f32_of};
 use wyck_drawings::look::Face;
 use wyck_indicators::spec::ValueFormat;
 
-/// The size of the text of the watermark.
 fn watermark_size() -> f32 {
     wyck_core::text_scale::scaled(46.0)
 }

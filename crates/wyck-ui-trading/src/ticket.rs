@@ -69,7 +69,6 @@ pub(crate) const LINE_STOP: u8 = 1;
 pub(crate) const LINE_TARGET: u8 = 2;
 
 pub enum TicketEvent {
-    /// The ticket's lines on the chart changed.
     LinesChanged,
     /// How the ticket sizes orders or looks changed, to be remembered.
     Settings(Box<TicketPrefs>),
@@ -368,7 +367,6 @@ impl OrderTicket {
         self.edit_layout(cx, |layout| *layout = Layout::default());
     }
 
-    /// The ticket is for this symbol now.
     pub fn set_symbol(
         &mut self,
         symbol: Option<SymbolRef>,

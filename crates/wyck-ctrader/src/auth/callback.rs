@@ -124,7 +124,6 @@ impl CallbackListener {
         self
     }
 
-    /// The port being listened on.
     #[cfg(test)]
     #[must_use]
     pub(crate) fn port(&self) -> u16 {

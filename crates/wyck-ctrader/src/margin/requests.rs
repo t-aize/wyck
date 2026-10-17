@@ -9,7 +9,6 @@ use wyck_trading::margin::ExpectedMargin;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExpectedMarginReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     pub symbol_id: i64,
     /// The volumes to estimate, in hundredths of a unit.

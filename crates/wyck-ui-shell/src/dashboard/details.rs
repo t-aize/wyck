@@ -153,7 +153,6 @@ fn row(label: &'static str, value: String, divider: bool) -> Div {
         )
 }
 
-/// What the sheet shows.
 pub(super) struct Sheet<'a> {
     /// The symbol under the highlight (`None` when the search matches nothing).
     pub(crate) entry: Option<&'a Entry>,

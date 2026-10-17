@@ -10,7 +10,6 @@ use super::{
 use wyck_app::prefs::ticket::plans::{Distance, PlanTemplate, TimeStopPrefs};
 
 impl OrderTicket {
-    /// The time stop as typed now.
     pub(super) fn time_stop_now(&self, cx: &App) -> TimeStopPrefs {
         let mut stop = self.time_stop;
         stop.amount = Self::read(&self.time_stop_amount, cx).unwrap_or(stop.amount);

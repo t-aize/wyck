@@ -66,7 +66,6 @@ pub(crate) enum Follow {
     Pointer(Option<Hover>),
     /// Show this span of time.
     Span(Span),
-    /// Show this time at the right edge.
     RightEdge(i64),
     /// Center the time picked on another chart without changing its zoom.
     PickedTime(i64),

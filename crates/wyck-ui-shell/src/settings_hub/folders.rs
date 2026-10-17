@@ -362,7 +362,6 @@ impl SettingsHub {
         shown
     }
 
-    /// The folder of the settings, for showing it.
     fn settings_folder(&self) -> Option<std::path::PathBuf> {
         self.folders
             .as_ref()

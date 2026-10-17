@@ -21,7 +21,6 @@ use wyck_ui_kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
 
-/// The width of the column of short names.
 const SHORT_NAME_WIDTH: f32 = 58.0;
 
 /// Opens the list of indicators for `chart`.

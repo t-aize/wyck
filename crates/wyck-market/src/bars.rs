@@ -162,7 +162,6 @@ pub struct WireTrendbar {
     /// The bar period, as its number.
     #[serde(default, deserialize_with = "flex::opt")]
     pub period: Option<i64>,
-    /// The low price.
     #[serde(default, deserialize_with = "flex::opt")]
     pub low: Option<i64>,
     /// `open - low`.

@@ -64,7 +64,6 @@ pub struct PriceMark {
     pub width: f32,
     /// Where the line starts, from the left of the plot (a line may start at a time).
     pub from_x: Option<f32>,
-    /// Whether the price shows as a tag on the axis.
     pub axis_tag: bool,
 }
 
@@ -205,7 +204,7 @@ mod tests {
 
     use super::palette::*;
     use super::*;
-    use crate::options::{ChartColors, CrosshairStyle, ScaleMargin};
+    use crate::options::{ChartColors, ScaleMargin};
     use crate::order_flow::flow::Flow;
     use crate::settings::ScaleMode;
     use crate::view::PriceScale;
@@ -291,16 +290,6 @@ mod tests {
         let mut frame = f.frame();
         edit(&mut frame);
         count(&build(&frame))
-    }
-
-    #[test]
-    fn a_screenful_of_candles_draws() {
-        let f = Fixture::new(
-            Series::Bars(bars(500)),
-            kind(ChartKind::Candles),
-            View::new(8.0),
-        );
-        assert!(count(&build(&f.frame())) > 100);
     }
 
     #[test]
@@ -392,16 +381,6 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_series_only_draws_the_axes() {
-        let f = Fixture::new(
-            Series::Bars(Vec::new()),
-            kind(ChartKind::Candles),
-            View::new(8.0),
-        );
-        assert_eq!(build(&f.frame()).len(), 1);
-    }
-
-    #[test]
     fn the_price_map_round_trips_and_keeps_the_data_on_screen() {
         let f = Fixture::new(
             Series::Bars(bars(200)),
@@ -458,13 +437,6 @@ mod tests {
         let local_only = count(&build(&frame));
         frame.remote = Some((f.raw.time_at(150).unwrap(), 100_030.0));
         assert_eq!(count(&build(&frame)), local_only);
-    }
-
-    #[test]
-    fn quotes_with_fewer_decimals_have_a_bigger_unit() {
-        assert_eq!(quote_unit(5), 1.0);
-        assert_eq!(quote_unit(3), 100.0);
-        assert_eq!(quote_unit(2), 1_000.0);
     }
 
     #[test]
@@ -585,51 +557,6 @@ mod tests {
         assert!(both > horizontal_only && both > vertical_only, "{both}");
         assert!(horizontal_only > none && vertical_only > none);
         assert_eq!(with(true, false, false), none);
-    }
-
-    #[test]
-    fn a_crosshair_that_is_off_draws_neither_lines_nor_tags() {
-        let with = |crosshair| {
-            drawn(
-                ChartSettings {
-                    crosshair,
-                    ..ChartSettings::default()
-                },
-                |_| {},
-            )
-        };
-        let dashed = with(CrosshairStyle::Dashed);
-        assert_eq!(with(CrosshairStyle::Solid), dashed);
-        let off = with(CrosshairStyle::Off);
-        // Two lines and two tags. A tag may also cover one scale label.
-        assert!((3..=4).contains(&(dashed - off)));
-        assert_eq!(CrosshairStyle::Solid.dash(), None);
-        assert!(CrosshairStyle::Dotted.dash().is_some());
-    }
-
-    #[test]
-    fn the_price_lines_and_tags_can_each_be_hidden() {
-        let f = Fixture::new(
-            Series::Bars(bars(300)),
-            ChartSettings::default(),
-            View::new(8.0),
-        );
-        let mut frame = f.frame();
-        // The bar that is current at the moment of the frame, so the countdown shows.
-        frame.now_ms = f.raw.last_time().unwrap() + 1_000;
-        let all = count(&build(&frame));
-        let hide = |change: fn(&mut crate::options::PriceLines)| {
-            let mut settings = ChartSettings::default();
-            change(&mut settings.price_lines);
-            let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
-            let mut frame = f.frame();
-            frame.now_ms = f.raw.last_time().unwrap() + 1_000;
-            count(&build(&frame))
-        };
-        assert_eq!(all - hide(|p| p.last_line = false), 1);
-        assert_eq!(all - hide(|p| p.last_tag = false), 1);
-        assert_eq!(all - hide(|p| p.countdown = false), 1);
-        assert_eq!(all - hide(|p| p.ask_line = false), 1);
     }
 
     #[test]

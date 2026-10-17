@@ -159,7 +159,6 @@ impl DrawingProps {
         form::group(IconName::Ruler, "Numbers written", rows)
     }
 
-    /// The size of a marker.
     pub(super) fn marker_group(&self) -> gpui::Div {
         form::group(
             IconName::Ruler,

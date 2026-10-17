@@ -173,10 +173,6 @@ pub struct ProfileSecretReader {
 
 impl ProfileSecretReader {
     /// The credential, or `None` when nothing is stored.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
     pub fn read(&self) -> Result<Option<SecretString>> {
         self.secrets.retrieve(&self.key)
     }
@@ -262,10 +258,6 @@ impl WyckConfig {
 
     /// Adds a new, empty profile and persists the updated [`AppConfig`] to disk. Its credentials
     /// are stored afterwards with [`Self::set_profile_secret`] and [`Self::openapi_token_storage`].
-    ///
-    /// # Errors
-    ///
-    /// Any error of `AppConfig::save`; the profile is then not added.
     pub fn add_profile(
         &mut self,
         display_name: impl Into<String>,
@@ -429,17 +421,12 @@ impl WyckConfig {
         Ok(())
     }
 
-    /// The symbol the user was last on, if one was remembered.
     pub fn last_symbol(&self) -> Option<&str> {
         self.app_config.last_symbol.as_deref()
     }
 
     /// Remembers (or with `None` forgets) the symbol the user is on, and persists the change. A
     /// blank name forgets it.
-    ///
-    /// # Errors
-    ///
-    /// Any error of `AppConfig::save`.
     pub fn set_last_symbol(&mut self, symbol: Option<String>) -> Result<()> {
         let symbol = symbol
             .map(|s| s.trim().to_owned())
@@ -900,18 +887,18 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut config = config_in(dir.path());
         let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
-        assert!(config.diagnose().is_healthy());
+        assert!(config.diagnose().worst() < Some(Severity::Error));
 
         // An Open API profile with no application secret stored.
         config
             .set_openapi_profile(&id, "client".into(), 8765, 1)
             .unwrap();
         let report = config.diagnose();
-        assert!(
-            report.is_healthy(),
+        assert_eq!(
+            report.worst(),
+            Some(Severity::Warning),
             "a missing secret is a warning, not an error"
         );
-        assert_eq!(report.worst(), Some(Severity::Warning));
         assert!(
             report.to_string().contains("no application secret"),
             "{report}"

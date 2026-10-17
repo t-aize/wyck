@@ -152,7 +152,6 @@ pub struct Step {
 pub struct Held {
     /// The oldest bar whose flow is complete, `None` when nothing is held.
     pub covered: Option<i64>,
-    /// How many bars of flow are held.
     pub len: usize,
     /// The time of the last quote counted, when the quotes since it are missing.
     pub gap_after: Option<i64>,

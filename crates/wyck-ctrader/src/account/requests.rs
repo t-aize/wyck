@@ -10,7 +10,6 @@ use wyck_trading::types::{Deal, Order, Position, PositionUnrealizedPnL, Trader};
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ReconcileReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Also return the protective orders (stop loss, take profit) of the positions.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -21,7 +20,6 @@ pub(crate) struct ReconcileReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DealListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,7 +36,6 @@ pub(crate) struct DealListReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct OrderListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]

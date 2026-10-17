@@ -71,7 +71,6 @@ pub(super) fn draw_script_drawings(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     }
 }
 
-/// A ring of points around an ellipse.
 pub(crate) fn ellipse_points(center: P, rx: f32, ry: f32, steps: usize) -> Vec<P> {
     (0..=steps)
         .map(|i| {

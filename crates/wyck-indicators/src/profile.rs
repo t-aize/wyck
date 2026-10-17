@@ -11,7 +11,6 @@
 
 use wyck_core::math::{count_f64, f64_to_usize};
 
-/// One row of the profile.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Row {
     pub lo: f64,

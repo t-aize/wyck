@@ -90,7 +90,6 @@ pub struct FootprintSettings {
     /// rather than the two sides of the same row.
     pub diagonal: bool,
     pub stacked: bool,
-    /// Rows in a row that make a stack.
     pub stack_rows: u32,
     /// Extend a stack to the right until the price comes back to it.
     pub project_stacks: bool,

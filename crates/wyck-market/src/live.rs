@@ -26,7 +26,6 @@ pub struct LiveBarTracker {
 }
 
 impl LiveBarTracker {
-    /// An empty tracker.
     #[must_use]
     pub fn new() -> Self {
         Self::default()

@@ -33,7 +33,6 @@ impl From<&SpotEvent> for Spot {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotEvent {
-    /// The trading account id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
     #[serde(deserialize_with = "flex::int")]

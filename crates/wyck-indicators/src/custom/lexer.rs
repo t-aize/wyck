@@ -299,9 +299,7 @@ fn next_sign(text: &str, from: usize) -> Option<char> {
 pub(crate) enum Place {
     /// Somewhere code can be written.
     Code,
-    /// Inside a string.
     String,
-    /// Inside a comment.
     Comment,
 }
 

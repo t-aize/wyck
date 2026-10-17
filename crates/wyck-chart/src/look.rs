@@ -97,7 +97,6 @@ impl ChartSettings {
         }
     }
 
-    /// How this chart looks, which is how every chart looks.
     pub fn look(&self) -> ChartLook {
         ChartLook {
             zone: self.zone,

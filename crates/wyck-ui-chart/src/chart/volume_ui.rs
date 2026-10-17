@@ -87,7 +87,6 @@ pub(super) fn inputs<T: 'static>(
     )
 }
 
-/// The groups of the settings of the volume candles.
 pub(super) fn candle_groups(
     chart: &Entity<Chart>,
     inputs: &Inputs,

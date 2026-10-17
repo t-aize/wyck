@@ -84,7 +84,6 @@ pub fn init(cx: &mut App) {
 /// What the editor tells the dashboard around it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditorEvent {
-    /// The close button.
     Close,
     /// The button that makes the editor as tall as the window, or as it was.
     ToggleMaximize,
@@ -146,7 +145,6 @@ pub(crate) struct Prompt {
     _subscription: Subscription,
 }
 
-/// What the console shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ConsoleTab {
     Problems,

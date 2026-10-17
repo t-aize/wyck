@@ -7,7 +7,6 @@ use wyck_market::{Asset, AssetClass, LightSymbol, Symbol, SymbolCategory, WireTi
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SymbolsListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Whether archived symbols are wanted too.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -18,7 +17,6 @@ pub(crate) struct SymbolsListReq {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SymbolsListRes {
-    /// The symbols of the account.
     #[serde(default)]
     pub symbol: Vec<LightSymbol>,
 }
@@ -27,7 +25,6 @@ pub(crate) struct SymbolsListRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SymbolByIdReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The symbols asked about.
     pub symbol_id: Vec<i64>,
@@ -50,7 +47,6 @@ pub(crate) struct SymbolByIdRes {
     reason = "mirrors `ProtoOASymbolsForConversionReq`, whose fields are all ids"
 )]
 pub(crate) struct SymbolsForConversionReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The asset converted from.
     pub first_asset_id: i64,
@@ -96,9 +92,7 @@ pub(crate) struct SymbolCategoryListRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SubscribeSpotsReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbols to follow.
     pub symbol_id: Vec<i64>,
     /// Ask for the server time of each spot.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -109,7 +103,6 @@ pub(crate) struct SubscribeSpotsReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LiveTrendbarReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The bar period, as its number.
     pub period: i32,
@@ -120,7 +113,6 @@ pub(crate) struct LiveTrendbarReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GetTrendbarsReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -151,7 +143,6 @@ pub(crate) struct GetTrendbarsRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GetTickDataReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     pub symbol_id: i64,
     /// Bid (1) or ask (2) ticks.

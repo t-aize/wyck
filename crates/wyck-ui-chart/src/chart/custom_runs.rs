@@ -58,7 +58,6 @@ struct Slot {
     /// Tells one slot from another when indicators are added, removed or moved, so a run that ends
     /// finds its own.
     serial: u64,
-    /// The script this slot is for.
     script: String,
     output: Option<StudyOutput>,
     problems: Vec<Problem>,
@@ -128,7 +127,6 @@ pub(super) struct Custom {
     wanted: u64,
     /// Whether runs must be looked at (at the next frame, which has a context to spawn from).
     pending: bool,
-    /// The serial the next slot gets.
     next_serial: u64,
 }
 
@@ -442,7 +440,6 @@ impl Chart {
         cx.notify();
     }
 
-    /// A run ended.
     fn custom_done(
         &mut self,
         serial: u64,

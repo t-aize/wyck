@@ -21,7 +21,6 @@ pub(crate) mod render;
 pub(crate) mod source;
 pub(crate) mod table;
 
-/// How many rows a preview shows.
 pub const PREVIEW_ROWS: usize = 12;
 /// The decimals of the raw price scale.
 const RAW_DECIMALS: u32 = 5;

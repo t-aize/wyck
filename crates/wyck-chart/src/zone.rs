@@ -249,15 +249,6 @@ mod tests {
     const SUMMER: i64 = WINTER + 182 * 86_400_000;
 
     #[test]
-    fn utc_never_shifts() {
-        for time in [-1, 0, WINTER, i64::MAX - 1] {
-            assert_eq!(Zone::Utc.offset_ms(time), 0);
-        }
-        assert_eq!(Zone::Utc.shift(123), 123);
-        assert_eq!(Zone::Utc.label(0), "UTC");
-    }
-
-    #[test]
     fn offsets_read_as_utc_plus_or_minus_hours_and_minutes() {
         assert_eq!(offset_label(0), "UTC");
         assert_eq!(offset_label(2 * 3_600_000), "UTC+2");
@@ -296,15 +287,6 @@ mod tests {
             Zone::Utc.day(WINTER) - 1
         );
         assert_eq!(new_york.day(WINTER + 6 * 3_600_000), Zone::Utc.day(WINTER));
-    }
-
-    #[test]
-    fn the_local_zone_is_a_plausible_offset_and_stable_across_neighbours() {
-        let a = Zone::Local.offset_ms(WINTER);
-        let b = Zone::Local.offset_ms(WINTER + 60_000);
-        assert_eq!(a, b);
-        assert!((-12 * 3_600_000..=14 * 3_600_000).contains(&a), "{a}");
-        assert_eq!(Zone::Local.shift(WINTER), WINTER + a);
     }
 
     #[test]

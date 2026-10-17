@@ -153,7 +153,6 @@ pub fn danger(id: impl Into<ElementId>) -> Button {
     sized(Button::new(id).danger(), Size::Md).cursor_pointer()
 }
 
-/// An outlined button.
 pub fn outlined(id: impl Into<ElementId>) -> Button {
     sized(Button::new(id).outline(), Size::Md).cursor_pointer()
 }

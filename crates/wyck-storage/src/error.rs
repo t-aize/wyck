@@ -113,11 +113,7 @@ pub enum ConfigError {
     /// too long, or holds characters that could point outside the folder it belongs in. See
     /// `crate::names`.
     #[error("`{name}` cannot be used as a name: {reason}")]
-    InvalidName {
-        /// The name that was refused.
-        name: String,
-        reason: &'static str,
-    },
+    InvalidName { name: String, reason: &'static str },
 
     /// The config file was written by a newer version of the app than this one, so it is left
     /// alone instead of being read wrong and written back without what this version does not

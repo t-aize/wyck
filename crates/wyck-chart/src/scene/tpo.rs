@@ -112,7 +112,6 @@ fn single_rows(profile: &Profile, shown: bool) -> Vec<bool> {
     rows
 }
 
-/// The colors of the marks of a row.
 fn mark_color(cx: &Ctx<'_>, profile: &Profile, mark: u16, count: usize, widest: usize) -> Hsla {
     let p = cx.f.palette;
     match cx.f.settings.tpo.color {

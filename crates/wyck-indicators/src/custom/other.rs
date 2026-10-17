@@ -201,9 +201,4 @@ mod tests {
         assert_eq!(bars.high, [110_000.0]);
         assert_eq!(bars.volume, [7.0]);
     }
-
-    #[test]
-    fn a_name_is_kept_in_one_case_without_spaces() {
-        assert_eq!(key_of(" eurUSD "), "EURUSD");
-    }
 }

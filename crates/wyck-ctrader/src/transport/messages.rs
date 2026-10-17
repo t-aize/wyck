@@ -24,7 +24,6 @@ pub(crate) struct ApplicationAuthReq {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AccountAuthReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// A valid access token that covers the account.
     pub access_token: String,
@@ -34,7 +33,6 @@ pub(crate) struct AccountAuthReq {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AccountAuthRes {
-    /// The account that was authorized.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
 }
@@ -59,7 +57,6 @@ pub struct TraderAccount {
     /// The login number shown in the platform. For display only.
     #[serde(default, deserialize_with = "flex::opt")]
     pub trader_login: Option<i64>,
-    /// The broker's short name.
     #[serde(default)]
     pub broker_title_short: Option<String>,
 }
@@ -81,7 +78,6 @@ pub struct AccountsRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AccountReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
 }
 
@@ -109,7 +105,6 @@ pub(crate) struct ErrorRes {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountsTokenInvalidatedEvent {
-    /// The accounts whose tokens were invalidated.
     #[serde(default, deserialize_with = "flex::list")]
     pub ctid_trader_account_ids: Vec<i64>,
     #[serde(default)]

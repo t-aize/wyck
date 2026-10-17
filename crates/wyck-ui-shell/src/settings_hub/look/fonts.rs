@@ -6,13 +6,10 @@ use super::{
 };
 use gpui::prelude::*;
 
-/// The height of the preview of candle colors.
 const CANDLE_PREVIEW_HEIGHT: f32 = 96.0;
 /// The space between two candles of the preview.
 const CANDLE_GAP: f32 = 9.0;
-/// The width of a candle body of the preview.
 const CANDLE_BODY_WIDTH: f32 = 8.0;
-/// The height of the price line of the preview.
 const CANDLE_LINE_HEIGHT: f32 = 2.0;
 
 impl SettingsHub {

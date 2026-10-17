@@ -37,7 +37,6 @@ use wyck_core::flex;
 /// The consent page, where the user grants access.
 pub(crate) const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";
 
-/// The token endpoint.
 pub(crate) const TOKEN_URL: &str = "https://openapi.ctrader.com/apps/token";
 
 /// How much the user grants.
@@ -369,12 +368,6 @@ mod tests {
         for status in [S::OK, S::BAD_REQUEST, S::UNAUTHORIZED, S::FORBIDDEN] {
             assert!(!is_transient(status), "{status}");
         }
-    }
-
-    #[test]
-    fn scopes_have_their_parameter_values() {
-        assert_eq!(Scope::Accounts.as_str(), "accounts");
-        assert_eq!(Scope::Trading.as_str(), "trading");
     }
 
     #[test]

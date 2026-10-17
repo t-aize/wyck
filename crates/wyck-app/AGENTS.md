@@ -74,7 +74,7 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 
 ## Tests
 
-184 unit tests next to the code: the sign-in states and rules, the alert rules (`eval`), the
+183 unit tests next to the code: the sign-in states and rules, the alert rules (`eval`), the
 guard path of an order and its notices, the live hub and the history loading (against a fake
 server), the migrations (`src/fixtures/` holds the old layouts), the shortcuts, the workspace
 documents, the update states. The rules are plain functions so they run without a window. Some

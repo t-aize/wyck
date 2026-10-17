@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 
 use wyck_indicators::custom::Limits;
 
-/// The name of the document.
 pub(crate) const DOCUMENT: &str = "indicators";
 
 /// The most indicators that are starred, and that are remembered as recent.

@@ -9,11 +9,9 @@ use wyck_core::flex;
 number_enum! {
     /// Which of the three supported margin call thresholds this is (`ProtoOANotificationType`).
     MarginCallType {
-        /// The first threshold.
         First = 61 => "margin level threshold 1",
         /// The second threshold.
         Second = 62 => "margin level threshold 2",
-        /// The third threshold.
         Third = 63 => "margin level threshold 3",
     }
 }

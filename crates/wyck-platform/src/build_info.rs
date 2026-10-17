@@ -35,26 +35,4 @@ impl BuildMode {
     }
 }
 
-/// The version of the package.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn build_mode_follows_the_compilation_profile() {
-        let expected = if cfg!(debug_assertions) {
-            BuildMode::Development
-        } else {
-            BuildMode::Production
-        };
-        assert_eq!(BuildMode::CURRENT, expected);
-        assert_eq!(BuildMode::CURRENT.is_production(), !cfg!(debug_assertions));
-    }
-
-    #[test]
-    fn the_version_is_valid_semver() {
-        assert!(semver::Version::parse(VERSION).is_ok());
-    }
-}

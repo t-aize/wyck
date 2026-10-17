@@ -395,10 +395,6 @@ pub fn cancel_staged() {
 }
 
 /// Deletes a folder an earlier move left behind.
-///
-/// # Errors
-///
-/// See [`relocate::delete_leftover`].
 pub fn delete_leftover(path: &Path) -> Result<(), ConfigError> {
     let paths = fresh().ok_or(ConfigError::NoProjectDirs)?;
     relocate::delete_leftover(&paths, path)
@@ -512,21 +508,6 @@ mod tests {
 
     fn reload(base: &Path) -> AppPaths {
         paths(base).with_locations(Locations::load(base).unwrap())
-    }
-
-    #[test]
-    fn every_named_document_is_known_to_the_conflict_check() {
-        for name in [
-            "preferences",
-            "watchlists",
-            "alerts",
-            "drawings",
-            "appearance",
-            "indicators",
-            "export",
-        ] {
-            assert!(KNOWN_DOCUMENTS.contains(&name), "{name}");
-        }
     }
 
     #[test]

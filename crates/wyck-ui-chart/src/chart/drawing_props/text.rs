@@ -9,11 +9,8 @@ use gpui::prelude::*;
 use wyck_ui_kit::field;
 use wyck_ui_kit::form::Row;
 
-/// The height of the box where a label is typed.
 const LABEL_BOX_HEIGHT: f32 = 72.0;
-/// The height of the box where a text is typed.
 const TEXT_BOX_HEIGHT: f32 = 96.0;
-/// The height of the preview of a font.
 const FONT_PREVIEW_HEIGHT: f32 = 52.0;
 
 impl DrawingProps {

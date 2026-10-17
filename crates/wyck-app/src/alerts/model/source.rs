@@ -40,7 +40,6 @@ impl PriceKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Source {
-    /// The price of the symbol.
     Price {
         #[serde(default)]
         price: PriceKind,
@@ -71,8 +70,9 @@ pub enum PnlScope {
     Account,
     /// The positions of the alert's symbol.
     Symbol,
-    /// One position.
-    Position { id: i64 },
+    Position {
+        id: i64,
+    },
 }
 
 /// The size of a pip of a forex pair with five decimals.

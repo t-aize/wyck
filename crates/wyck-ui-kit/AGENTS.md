@@ -59,7 +59,7 @@ Each is here because the helpers have no window or context at hand when they are
 
 ## Tests
 
-25 unit tests next to the code: the color maths (hex, RGB, HSV), the palette, the tokens and
+24 unit tests next to the code: the color maths (hex, RGB, HSV), the palette, the tokens and
 the scale, the size of the dialog, the menu, the notices, the number fields, the font search and
 the hint table. The tests that read the sources of the screens (`no_inline_colors`, `keymap_guard`)
 live in `wyck` and also read this crate. Run: `cargo test -p wyck-ui-kit`.

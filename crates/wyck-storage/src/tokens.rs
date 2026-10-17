@@ -41,10 +41,6 @@ pub struct OpenApiTokenStorage {
 
 impl OpenApiTokenStorage {
     /// Saves the pair, replacing what was there.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
     pub fn save(&self, tokens: &OpenApiTokens) -> Result<()> {
         let record = StoredOpenApiTokens {
             access_token: tokens.access_token.expose_secret().to_owned(),
@@ -86,16 +82,6 @@ impl OpenApiTokenStorage {
                 .expires_at
                 .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds)),
         }))
-    }
-
-    /// Deletes the stored pair. Nothing stored is fine.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
-    #[cfg(test)]
-    pub(crate) fn clear(&self) -> Result<()> {
-        self.secrets.delete(&self.key)
     }
 }
 
@@ -162,15 +148,5 @@ mod tests {
             storage.load(),
             Err(ConfigError::MalformedEnvelope { .. })
         ));
-    }
-
-    #[test]
-    fn clearing_removes_the_pair_and_can_be_repeated() {
-        let dir = tempfile::tempdir().unwrap();
-        let storage = storage(dir.path());
-        storage.save(&pair(None)).unwrap();
-        storage.clear().unwrap();
-        storage.clear().unwrap();
-        assert!(storage.load().unwrap().is_none());
     }
 }

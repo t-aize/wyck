@@ -17,7 +17,6 @@ use gpui_kit::component::StyledExt as _;
 use crate::form::{self, Head, Tint};
 use crate::{button, modal, theme, tokens};
 
-/// The width of the dialog.
 const WIDTH: f32 = 440.0;
 /// The most it grows, and the least it shrinks to.
 const MAX_HEIGHT: f32 = 640.0;
@@ -59,7 +58,6 @@ impl Tone {
         }
     }
 
-    /// The main color of the tone.
     fn color(self) -> gpui::Rgba {
         match self {
             Self::Info => theme::accent(),

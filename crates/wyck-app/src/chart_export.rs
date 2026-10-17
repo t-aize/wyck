@@ -10,7 +10,6 @@ use wyck_chart::ExportOptions;
 use wyck_chart::Preset;
 use wyck_storage::{DocumentStore, Result};
 
-/// The name of the document.
 pub(crate) const DOCUMENT: &str = "export";
 /// The most presets kept, and the longest name of one.
 const MAX_PRESETS: usize = 100;
@@ -19,7 +18,6 @@ const MAX_NAME: usize = 60;
 /// What the export dialog remembers between sessions.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Saved {
-    /// The options of the last export.
     #[serde(default)]
     pub last: ExportOptions,
     /// The presets the user named.
@@ -100,10 +98,6 @@ pub fn read(store: &DocumentStore) -> Saved {
 }
 
 /// Writes `saved` in the store.
-///
-/// # Errors
-///
-/// Any error of [`DocumentStore::save`].
 pub fn write(store: &DocumentStore, saved: &Saved) -> Result<()> {
     store.save(DOCUMENT, saved)
 }

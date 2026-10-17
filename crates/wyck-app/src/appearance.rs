@@ -17,7 +17,6 @@ use crate::saver::Saver;
 
 use wyck_core::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
 
-/// The name of the document.
 pub(crate) const DOCUMENT: &str = "appearance";
 /// The font the app ships with.
 pub const DEFAULT_FONT: &str = "Inter";
@@ -142,7 +141,6 @@ pub fn get(cx: &App) -> Appearance {
         .unwrap_or_default()
 }
 
-/// The font of the interface.
 pub fn font(cx: &App) -> SharedString {
     cx.try_global::<State>().map_or_else(
         || SharedString::from(DEFAULT_FONT),

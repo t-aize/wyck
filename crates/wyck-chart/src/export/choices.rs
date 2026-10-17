@@ -185,7 +185,6 @@ impl LineEnding {
     }
 }
 
-/// How a time is written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeFormat {
@@ -228,11 +227,9 @@ impl TimeFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExportZone {
-    /// The zone of the chart.
     #[default]
     Chart,
     Utc,
-    /// The zone of the computer.
     Computer,
 }
 
@@ -332,7 +329,6 @@ impl Empty {
     }
 }
 
-/// The case of the names in the header.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HeaderCase {

@@ -85,7 +85,6 @@ pub enum Trigger {
     /// Once, then it stops.
     #[default]
     Once,
-    /// Every time the condition comes true.
     EveryTime,
     /// At most once for each bar of the timeframe.
     OncePerBar,

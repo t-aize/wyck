@@ -274,9 +274,7 @@ impl NewOrderReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CancelOrderReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The pending order to cancel.
     pub order_id: i64,
 }
 
@@ -286,7 +284,6 @@ pub(crate) struct CancelOrderReq {
 pub struct AmendOrderReq {
     /// The trading account id. Always overwritten by `TradingClient::amend_order`.
     pub ctid_trader_account_id: i64,
-    /// The pending order to amend.
     pub order_id: i64,
     /// A new volume, in hundredths of a unit.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -294,7 +291,6 @@ pub struct AmendOrderReq {
     /// A new limit price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit_price: Option<f64>,
-    /// A new stop price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
     /// A new expiration, in Unix milliseconds.
@@ -315,13 +311,10 @@ pub struct AmendOrderReq {
     /// A new relative take profit, in [`wyck_market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
-    /// A new guaranteed stop loss setting.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guaranteed_stop_loss: Option<bool>,
-    /// A new trailing stop loss setting.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trailing_stop_loss: Option<bool>,
-    /// A new stop trigger method.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_trigger_method: Option<i32>,
 }
@@ -342,9 +335,7 @@ impl AmendOrderReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClosePositionReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position to close.
     pub position_id: i64,
     /// The volume to close, in hundredths of a unit.
     pub volume: i64,
@@ -358,7 +349,6 @@ pub struct AmendPositionSlTpReq {
     /// The trading account id. Always overwritten by
     /// `TradingClient::amend_position_sl_tp`.
     pub ctid_trader_account_id: i64,
-    /// The position to amend.
     pub position_id: i64,
     /// The new absolute stop loss price.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,7 +356,6 @@ pub struct AmendPositionSlTpReq {
     /// The new absolute take profit price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub take_profit: Option<f64>,
-    /// Whether the stop loss is guaranteed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guaranteed_stop_loss: Option<bool>,
     /// Whether the stop loss trails the price.

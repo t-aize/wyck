@@ -22,7 +22,6 @@ use wyck_ui_kit::{
     theme, tokens,
 };
 
-/// How tall the pill is.
 const PILL_HEIGHT: f32 = 36.0;
 /// How far the pill sits above the bottom of the chart area, clear of the time axis.
 pub(super) const PILL_BOTTOM: f32 = 44.0;

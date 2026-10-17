@@ -53,7 +53,6 @@ const POLL: Duration = Duration::from_secs(15);
 
 pub enum AlertsEvent {
     Changed,
-    /// An alert fired, with what it says.
     Fired(Box<Alert>, String),
     /// An alert stopped watching because its time was up.
     Expired(Box<Alert>),
@@ -66,7 +65,6 @@ pub struct Profits {
     pub(crate) account: Option<f64>,
     /// The sum of the positions of each symbol.
     pub(crate) symbols: HashMap<i64, f64>,
-    /// Each open position.
     pub(crate) positions: HashMap<i64, f64>,
 }
 

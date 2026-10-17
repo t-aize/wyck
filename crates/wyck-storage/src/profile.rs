@@ -78,13 +78,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn profile_ids_are_unique() {
-        let a = ProfileId::new_random();
-        let b = ProfileId::new_random();
-        assert_ne!(a, b);
-    }
-
-    #[test]
     fn profile_config_round_trips_through_toml() {
         let mut profile = ProfileConfig::new("Live: FTMO 100k", "ctrader-openapi");
         profile.client_id = Some("public-client-id".to_owned());

@@ -64,16 +64,6 @@ impl Report {
         });
     }
 
-    /// Whether nothing was found that does not work (warnings and notes do not count).
-    #[must_use]
-    #[cfg(test)]
-    pub(crate) fn is_healthy(&self) -> bool {
-        !self
-            .findings
-            .iter()
-            .any(|finding| finding.severity == Severity::Error)
-    }
-
     /// The worst severity found, if anything was.
     #[must_use]
     pub fn worst(&self) -> Option<Severity> {

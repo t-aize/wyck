@@ -252,11 +252,14 @@ impl VolumeCandleSettings {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum VolumeSize {
-    /// A set volume.
-    Fixed { volume: u32 },
+    Fixed {
+        volume: u32,
+    },
     /// The average volume of a bar of the chart, times this: 1 gives about as many bars as the
     /// chart has periods, and it follows the symbol's activity without being set by hand.
-    Average { multiple: f64 },
+    Average {
+        multiple: f64,
+    },
 }
 
 impl Default for VolumeSize {

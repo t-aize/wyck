@@ -16,10 +16,6 @@ use crate::error::Result;
 #[async_trait]
 pub trait TokenStore: Send + Sync + 'static {
     /// The stored tokens, if any.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the storage reports.
     async fn load(&self) -> Result<Option<TokenSet>>;
 
     /// Stores the tokens, replacing what was there.

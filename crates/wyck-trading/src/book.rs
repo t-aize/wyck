@@ -59,7 +59,6 @@ pub enum Outcome {
     Placed {
         /// The order, when the event carried one.
         what: Option<OrderLine>,
-        /// Its id.
         order_id: i64,
     },
     /// A working order was changed.

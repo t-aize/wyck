@@ -20,7 +20,6 @@ use crate::controls::ink;
 use crate::focus::Keyboard;
 use crate::{icon, modal, theme};
 
-/// A tab of the rail.
 #[derive(Clone, Copy)]
 pub struct Tab {
     pub label: &'static str,
@@ -34,7 +33,6 @@ pub struct Head {
     pub subtitle: SharedString,
 }
 
-/// The width of the rail of tabs.
 const RAIL_WIDTH: f32 = 176.0;
 
 /// The colors of the icon of a header: the glyph, and the tile behind it.

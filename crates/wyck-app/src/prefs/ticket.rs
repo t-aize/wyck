@@ -15,7 +15,6 @@ use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::plan::ExitPlan;
 use wyck_trading::ticket::{Offset, SizeMode};
 
-/// The kind of order the ticket sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
@@ -104,7 +103,6 @@ pub enum Density {
     Compact,
 }
 
-/// A block of the ticket.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Section {
@@ -413,7 +411,6 @@ impl Default for Layout {
 }
 
 impl Layout {
-    /// Whether a block of the ticket shows.
     pub fn shows(&self, section: Section) -> bool {
         self.sections
             .iter()

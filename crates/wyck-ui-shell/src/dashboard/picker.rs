@@ -33,9 +33,7 @@ use wyck_app::lost::lost;
 use wyck_app::system::runtime;
 use wyck_ui_kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
-/// The width of the symbol picker.
 const PICKER_WIDTH: f32 = 1160.0;
-/// The width of a column of the results of the picker.
 const RESULT_COLUMN_WIDTH: f32 = 120.0;
 
 const ROW_HEIGHT: f32 = 52.;

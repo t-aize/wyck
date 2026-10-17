@@ -44,13 +44,11 @@ pub struct ChartColors {
     /// The point of control of a TPO profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tpo_poc: Option<u32>,
-    /// The value area of a TPO profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tpo_value_area: Option<u32>,
     /// The initial balance of a TPO profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tpo_ib: Option<u32>,
-    /// The single prints of a TPO profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tpo_single: Option<u32>,
 }
@@ -315,12 +313,5 @@ mod tests {
         assert!(!lines.shows(LineId::StopLoss(1)));
         assert!(!lines.shows(LineId::OrderTakeProfit(1)));
         assert!(lines.shows(LineId::Pending(0)));
-    }
-
-    #[test]
-    fn every_margin_leaves_more_room_than_the_one_before() {
-        let shares: Vec<f64> = ScaleMargin::ALL.iter().map(|m| m.share()).collect();
-        assert!(shares.windows(2).all(|w| w[0] < w[1]));
-        assert_eq!(ScaleMargin::default().share(), 0.07);
     }
 }

@@ -86,7 +86,6 @@ impl TextInput {
         }
     }
 
-    /// The current text.
     pub fn text(&self) -> &str {
         &self.content
     }

@@ -15,7 +15,6 @@ pub struct PlotStyle {
     /// How opaque the plot is, from 0 to 1.
     #[serde(default = "opaque")]
     pub opacity: f32,
-    /// The line style of a line plot.
     #[serde(default)]
     pub dash: Dash,
     /// Replace the default presentation of a numeric series.

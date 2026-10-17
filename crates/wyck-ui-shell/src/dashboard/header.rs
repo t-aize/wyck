@@ -18,7 +18,6 @@ use wyck_ui_kit::{anim, icon, layout, theme, tokens};
 const SUBTITLE_MAX: f32 = 170.0;
 /// The width kept for the arrow that shows the last price move.
 const TICK_WIDTH: f32 = 14.0;
-/// The width of the field where a custom timeframe is typed.
 const CUSTOM_TIMEFRAME_WIDTH: f32 = 78.0;
 
 /// Which parts of the bar the window is wide enough for.

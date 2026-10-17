@@ -45,9 +45,7 @@ pub struct Connection {
     pub label: String,
     /// Demo or live.
     pub environment: Environment,
-    /// The application credentials.
     pub credentials: ClientCredentials,
-    /// The account to trade on.
     pub account_id: i64,
     /// The tokens to start from.
     pub tokens: TokenSet,
@@ -128,7 +126,6 @@ impl SavedPlan {
     }
 }
 
-/// The sign-in entity.
 pub struct SignIn {
     config: WyckConfig,
     state: SignInState,
@@ -154,7 +151,6 @@ impl SignIn {
         }
     }
 
-    /// The state to show.
     pub fn state(&self) -> &SignInState {
         &self.state
     }
@@ -177,7 +173,6 @@ impl SignIn {
         Some(secret.expose_secret().to_owned())
     }
 
-    /// The environment of the saved profile.
     pub fn saved_environment(&self) -> Option<Environment> {
         saved_profile(self.config.active_profile(), self.config.profiles())
             .and_then(|profile| environment_of(&profile.service))

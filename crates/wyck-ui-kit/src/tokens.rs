@@ -114,7 +114,6 @@ pub mod bar {
     pub fn toolbar() -> f32 {
         scaled(40.0)
     }
-    /// The header of the dashboard.
     pub fn header() -> f32 {
         scaled(48.0)
     }

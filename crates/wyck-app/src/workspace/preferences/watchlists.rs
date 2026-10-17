@@ -21,7 +21,6 @@ pub struct Watchlist {
     pub symbols: Vec<String>,
 }
 
-/// Why a watchlist name was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NameError {
     Empty,

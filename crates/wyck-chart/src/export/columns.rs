@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A column that can be exported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColumnKey {
     Time,

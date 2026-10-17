@@ -30,10 +30,6 @@ pub(super) struct Staged {
 /// Checks the moves in `changes` and puts them aside to be made at the next start. Returns what
 /// they will do. Nothing is written when there is nothing to do. A move that waited is replaced:
 /// the last thing asked for wins.
-///
-/// # Errors
-///
-/// As [`plan`], and [`ConfigError::Serialize`] and [`ConfigError::Write`].
 pub fn stage(paths: &AppPaths, changes: &[Change]) -> std::result::Result<Vec<Step>, PlanError> {
     let steps = plan(paths, changes)?;
     if steps.is_empty() {

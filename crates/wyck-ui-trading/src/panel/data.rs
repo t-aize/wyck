@@ -123,7 +123,6 @@ pub(crate) struct Row {
     pub(crate) cells: Vec<Cell>,
 }
 
-/// A column of a table.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Column {
     pub(crate) label: &'static str,

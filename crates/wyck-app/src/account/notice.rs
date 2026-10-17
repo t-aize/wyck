@@ -10,7 +10,6 @@ use wyck_trading::contract::format_lots;
 use wyck_trading::enums::OrderType;
 use wyck_trading::guard::{Lock, Refusal, Warning};
 
-/// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
     /// Worth knowing.
@@ -29,7 +28,6 @@ pub enum NoticeAction {
     ClosePosition(i64),
     /// Move the stop loss of this position to its entry price.
     BreakEven(i64),
-    /// Cancel this working order.
     CancelOrder(i64),
 }
 
