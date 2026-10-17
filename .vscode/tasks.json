@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "crate",
+      "type": "pickString",
+      "description": "The crate",
+      "default": "wyck-chart",
+      "options": [
+        "wyck",
+        "wyck-app",
+        "wyck-chart",
+        "wyck-clock",
+        "wyck-core",
+        "wyck-ctrader",
+        "wyck-drawings",
+        "wyck-indicators",
+        "wyck-market",
+        "wyck-platform",
+        "wyck-storage",
+        "wyck-trading",
+        "wyck-ui-chart",
+        "wyck-ui-editor",
+        "wyck-ui-kit",
+        "wyck-ui-shell",
+        "wyck-ui-trading",
+        "xtask"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "label": "xtask check",
+      "detail": "Format, clippy, tests, cargo-deny, rustdoc, dependency rules, docs files",
+      "type": "shell",
+      "command": "cargo xtask check",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "xtask check --full",
+      "detail": "The same, then machete, typos, taplo, zizmor, actionlint (before a pull request)",
+      "type": "shell",
+      "command": "cargo xtask check --full",
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo build wyck",
+      "type": "shell",
+      "command": "cargo build -p wyck",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo run wyck",
+      "type": "shell",
+      "command": "cargo run -p wyck",
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo test (one crate)",
+      "type": "shell",
+      "command": "cargo test -p ${input:crate}",
+      "group": "test",
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo clippy (workspace)",
+      "type": "shell",
+      "command": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo doc (workspace)",
+      "type": "shell",
+      "command": "cargo doc --workspace --no-deps --locked",
+      "options": { "env": { "RUSTDOCFLAGS": "-D warnings" } },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "cargo deny",
+      "type": "shell",
+      "command": "cargo deny check",
+      "problemMatcher": []
+    },
+    {
+      "label": "xtask deps",
+      "type": "shell",
+      "command": "cargo xtask deps",
+      "problemMatcher": []
+    },
+    {
+      "label": "xtask docs-check",
+      "type": "shell",
+      "command": "cargo xtask docs-check",
+      "problemMatcher": []
+    }
+  ]
+}

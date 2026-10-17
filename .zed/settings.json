@@ -1,0 +1,50 @@
+{
+  // rust-analyzer checks with clippy, on the whole workspace, in a target folder of its own so that
+  // `cargo run` and `cargo xtask` are never blocked by the lock of its build.
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "check": {
+          "command": "clippy",
+          "workspace": true,
+          "allTargets": true
+        },
+        "cargo": {
+          "targetDir": true,
+          "allTargets": true
+        }
+      }
+    }
+  },
+  "languages": {
+    "Rust": {
+      "tab_size": 4,
+      "preferred_line_length": 100,
+      "wrap_guides": [100],
+      "format_on_save": "on"
+    },
+    "TOML": {
+      "tab_size": 2,
+      "preferred_line_length": 100,
+      "wrap_guides": [100],
+      "format_on_save": "on"
+    },
+    "YAML": {
+      "tab_size": 2
+    },
+    "JSON": {
+      "tab_size": 2
+    },
+    "Markdown": {
+      "format_on_save": "off",
+      "remove_trailing_whitespace_on_save": false
+    }
+  },
+  "ensure_final_newline_on_save": true,
+  "remove_trailing_whitespace_on_save": true,
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/target",
+    "**/dist"
+  ]
+}

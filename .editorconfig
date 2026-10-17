@@ -12,6 +12,11 @@ indent_size = 2
 [*.md]
 trim_trailing_whitespace = false
 
-# Rust: rustfmt's default indent (kept in sync with any future rustfmt.toml)
+# Rust: four spaces and 100 columns, as rustfmt.toml says
 [*.rs]
 indent_size = 4
+max_line_length = 100
+
+# TOML: 100 columns, as .taplo.toml says
+[*.toml]
+max_line_length = 100
