@@ -11,4 +11,5 @@ pub mod flex;
 pub mod format;
 pub mod intern;
 pub mod math;
+pub mod ta;
 pub mod text_scale;

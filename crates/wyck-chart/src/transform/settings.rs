@@ -3,7 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::PricePath;
-use wyck_core::math::{self, f64_to_i64, i64_to_f64};
+use wyck_core::math::{f64_to_i64, i64_to_f64};
+use wyck_core::ta;
 use wyck_market::Bar;
 
 /// How a box (or a reversal, or a range) is sized.
@@ -33,7 +34,7 @@ impl BoxSize {
                 let high: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.high)).collect();
                 let low: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.low)).collect();
                 let close: Vec<f64> = bars.iter().map(|b| i64_to_f64(b.close)).collect();
-                math::atr(&high, &low, &close, length.max(1) as usize)
+                ta::atr(&high, &low, &close, length.max(1) as usize)
                     .last()
                     .copied()
                     .filter(|v| v.is_finite() && *v > 0.0)

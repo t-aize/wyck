@@ -14,8 +14,9 @@ pub(crate) mod symbols;
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
 use rhai::{Dynamic, Engine, Map};
-use wyck_core::math::Series as _;
-use wyck_core::math::{self, count_i64, i64_to_f64};
+use wyck_core::math::{count_i64, i64_to_f64};
+use wyck_core::ta;
+use wyck_core::ta::Series as _;
 
 /// The longest period a function takes.
 pub(crate) const MAX_PERIOD: i64 = 100_000;
@@ -164,22 +165,22 @@ fn windows(engine: &mut Engine) {
             });
         };
     }
-    window!("sma", math::sma);
-    window!("ema", math::ema);
-    window!("wma", math::wma);
-    window!("hma", math::hma);
-    window!("rma", math::rma);
-    window!("stdev", math::stdev);
-    window!("highest", math::highest);
-    window!("lowest", math::lowest);
-    window!("sum", math::sum);
-    window!("rsi", math::rsi);
-    window!("roc", math::roc);
-    window!("momentum", math::momentum);
+    window!("sma", ta::sma);
+    window!("ema", ta::ema);
+    window!("wma", ta::wma);
+    window!("hma", ta::hma);
+    window!("rma", ta::rma);
+    window!("stdev", ta::stdev);
+    window!("highest", ta::highest);
+    window!("lowest", ta::lowest);
+    window!("sum", ta::sum);
+    window!("rsi", ta::rsi);
+    window!("roc", ta::roc);
+    window!("momentum", ta::momentum);
 
     engine.register_fn("vwma", |s: Series, n: i64| -> Fallible<Series> {
         let volume = columns()?.volume;
-        Ok(Series::new(math::vwma(
+        Ok(Series::new(ta::vwma(
             s.values(),
             volume.values(),
             period("vwma", n)?,
@@ -187,20 +188,20 @@ fn windows(engine: &mut Engine) {
     });
     engine.register_fn("linreg", |s: Series, n: i64| -> Fallible<Series> {
         let p = period("linreg", n)?;
-        Ok(Series::new(math::linear_regression(s.values(), p).0))
+        Ok(Series::new(ta::linear_regression(s.values(), p).0))
     });
     engine.register_fn("slope", |s: Series, n: i64| -> Fallible<Series> {
         let p = period("slope", n)?;
-        Ok(Series::new(math::linear_regression(s.values(), p).1))
+        Ok(Series::new(ta::linear_regression(s.values(), p).1))
     });
     engine.register_fn("change", |s: Series| s.zip(&s.shifted(1), |a, b| a - b));
     engine.register_fn("change", |s: Series, n: i64| -> Fallible<Series> {
         let p = count_i64(period("change", n)?);
         s.zip(&s.shifted(p), |a, b| a - b)
     });
-    engine.register_fn("cum", |s: Series| Series::new(math::cumulative(s.values())));
+    engine.register_fn("cum", |s: Series| Series::new(ta::cumulative(s.values())));
     engine.register_fn("barssince", |cond: Series| {
-        Series::new(math::bars_since(cond.values()))
+        Series::new(ta::bars_since(cond.values()))
     });
 }
 

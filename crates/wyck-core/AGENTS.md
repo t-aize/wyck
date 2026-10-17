@@ -10,7 +10,8 @@ Depends on: `serde` only (no other crate of the workspace). Everything above may
 |---|---|
 | `flex` | `serde` readers for integers that arrive as a number or as text (the cTrader JSON gateway sends 64 bit values either way). Every wire type uses `flex::int`, `flex::opt` or `flex::list`. |
 | `format` | Number to text: `trim` (no trailing zeros), `grouped` (thousands), `signed`. |
-| `math` | Arithmetic on series for indicators: moving averages, deviations, oscillators. A series in, a series of the same length out, `NaN` where a value is not defined yet. |
+| `math` | The conversions between integer and float types (`i64_to_f64`, `f64_to_i64`, `count_f64`...), each written down once instead of an unmarked `as`: what rounds, what saturates. |
+| `ta` | Technical analysis arithmetic on series, for indicators: moving averages, deviations, oscillators. A series in, a series of the same length out, `NaN` where a value is not defined yet. `Series` reads and writes by index without a panic. |
 | `defaults` | `yes()`, the `#[serde(default = "...")]` function of a setting that is on when absent. |
 | `appearance` | The look as plain data: `Colors` (the one palette), `Look`, the scale bounds `SCALE_MIN` / `SCALE_MAX`, contrast and luminance. |
 | `text_scale` | How big the text drawn on a chart is, as a percent. Process wide. |
@@ -18,12 +19,12 @@ Depends on: `serde` only (no other crate of the workspace). Everything above may
 
 ## Invariants and traps
 
-- Series passed together to a `math` function must have the same length. A shorter one reads as
+- Series passed together to a `ta` function must have the same length. A shorter one reads as
   gaps (`NaN`) past its end instead of panicking, but the result is then meaningless: a caller that
   takes a series from outside (a script) compares the lengths first.
 - A `NaN` in a series is a gap: averages restart after it. Keep outputs aligned index for index
   with the bars they were computed from.
-- `math` is here, and not in `wyck-indicators`, because `wyck-trading` needs `atr` below the
+- `ta` is here, and not in `wyck-indicators`, because `wyck-trading` needs `atr` below the
   indicators. Do not add a function here that only indicators use; add it to `wyck-indicators`.
 - `flex` refuses what is not a whole number (`1.5`, `"x"`, a `u64` above `i64::MAX`) instead of
   rounding it.
@@ -38,7 +39,7 @@ Depends on: `serde` only (no other crate of the workspace). Everything above may
 
 ## Tests
 
-Unit tests sit next to the code (`#[cfg(test)]`). `math` is checked against values worked out by
+Unit tests sit next to the code (`#[cfg(test)]`). `ta` is checked against values worked out by
 hand. Run: `cargo test -p wyck-core`.
 
 ## Where to add X

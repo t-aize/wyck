@@ -2,7 +2,9 @@
 //! broker, no clock. The engine ([`super::Alerts`]) gathers the numbers (a price, the plot of an
 //! indicator, the level of a drawing) and asks these.
 
-use wyck_core::math::{Series as _, i64_to_f64};
+use wyck_core::math::i64_to_f64;
+
+use wyck_core::ta::Series as _;
 use wyck_drawings::model::Point;
 use wyck_drawings::model::tool::Tool;
 

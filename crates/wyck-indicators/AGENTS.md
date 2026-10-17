@@ -28,7 +28,7 @@ Depends on: `wyck-core`, `wyck-market`, `wyck-drawings`, `rhai`, `chrono`, `serd
   never change; an unknown kind loads as `StudyKind::Unknown` and is dropped, a missing input takes
   its default, an unknown one is ignored. `StudyConfig::normalized` repairs a file.
 - A built-in output stays aligned with the input bars: one value per bar, `NaN` where there is no
-  value yet. The arithmetic itself lives in `wyck_core::math`; this crate wires it.
+  value yet. The arithmetic itself lives in `wyck_core::ta`; this crate wires it.
 - A script is bounded. `Limits` caps the operations (20 million) and the wall time (4 s) of a run,
   and a declaration (a run on 0 bars) gets far less. The engine has no modules and no time, and
   nothing a script can call reaches the file system, the network or the clock. Keep it that way.
@@ -67,9 +67,9 @@ alone before blaming a change.
 ## Where to add X
 
 - A built-in indicator: a `StudyKind` variant (a new name), its spec in `kind/specs.rs` or
-  `extended/specs.rs`, its arithmetic in `wyck_core::math` when it is a general one, its branch in
+  `extended/specs.rs`, its arithmetic in `wyck_core::ta` when it is a general one, its branch in
   `compute`, its entry in `catalog`, a test on the shared set of bars.
-- A function a script can call: `custom/api/` (thin: it hands the numbers to `wyck_core::math`),
+- A function a script can call: `custom/api/` (thin: it hands the numbers to `wyck_core::ta`),
   its description in `custom/docs.rs`, a test in `custom/behavior.rs`.
 - A starter: a `.rhai` file in `assets/starters/`, an entry in `custom/templates.rs`. It must be
   ASCII, compile, and compute.

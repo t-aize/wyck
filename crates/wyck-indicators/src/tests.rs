@@ -4,7 +4,8 @@ use crate::compute::*;
 use crate::config::*;
 use crate::kind::*;
 use crate::spec::*;
-use wyck_core::math::{self, count_f64, count_i64};
+use wyck_core::math::{count_f64, count_i64};
+use wyck_core::ta;
 
 fn input(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)
@@ -222,7 +223,7 @@ fn the_chart_s_own_timeframe_gives_the_plain_average() {
     let mut config = StudyConfig::new(StudyKind::MtfMa);
     config.set_text("timeframe", "");
     config.inputs.insert("length".to_owned(), 5.0);
-    let plain = math::sma(&bars.source(3.0), 5);
+    let plain = ta::sma(&bars.source(3.0), 5);
     let out = compute(&config, &bars);
     for (a, b) in out.plots[0].values.iter().zip(&plain) {
         assert!((a.is_nan() && b.is_nan()) || (a - b).abs() < 1e-9);

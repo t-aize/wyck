@@ -4,12 +4,12 @@ use super::{columns, map_of, period};
 
 use crate::custom::series::{Fallible, Series};
 use rhai::{Engine, Map};
-use wyck_core::math;
+use wyck_core::ta;
 
 pub(super) fn indicators(engine: &mut Engine) {
     engine.register_fn("tr", || -> Fallible<Series> {
         let c = columns()?;
-        Ok(Series::new(math::true_range(
+        Ok(Series::new(ta::true_range(
             c.high.values(),
             c.low.values(),
             c.close.values(),
@@ -17,7 +17,7 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn("atr", |n: i64| -> Fallible<Series> {
         let (c, p) = (columns()?, period("atr", n)?);
-        Ok(Series::new(math::atr(
+        Ok(Series::new(ta::atr(
             c.high.values(),
             c.low.values(),
             c.close.values(),
@@ -26,11 +26,11 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn("cci", |n: i64| -> Fallible<Series> {
         let (c, p) = (columns()?, period("cci", n)?);
-        Ok(Series::new(math::cci(c.hlc3.values(), p)))
+        Ok(Series::new(ta::cci(c.hlc3.values(), p)))
     });
     engine.register_fn("williams_r", |n: i64| -> Fallible<Series> {
         let (c, p) = (columns()?, period("williams_r", n)?);
-        Ok(Series::new(math::williams_r(
+        Ok(Series::new(ta::williams_r(
             c.high.values(),
             c.low.values(),
             c.close.values(),
@@ -39,19 +39,15 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn("obv", || -> Fallible<Series> {
         let c = columns()?;
-        Ok(Series::new(math::obv(c.close.values(), c.volume.values())))
+        Ok(Series::new(ta::obv(c.close.values(), c.volume.values())))
     });
     engine.register_fn("mfi", |n: i64| -> Fallible<Series> {
         let (c, p) = (columns()?, period("mfi", n)?);
-        Ok(Series::new(math::mfi(
-            c.hlc3.values(),
-            c.volume.values(),
-            p,
-        )))
+        Ok(Series::new(ta::mfi(c.hlc3.values(), c.volume.values(), p)))
     });
     engine.register_fn("vwap", || -> Fallible<Series> {
         let c = columns()?;
-        Ok(Series::new(math::vwap(
+        Ok(Series::new(ta::vwap(
             c.hlc3.values(),
             c.volume.values(),
             &c.day,
@@ -62,17 +58,13 @@ pub(super) fn indicators(engine: &mut Engine) {
         if s.len() != c.len {
             return Err("vwap: the series must have a value for every bar".into());
         }
-        Ok(Series::new(math::vwap(
-            s.values(),
-            c.volume.values(),
-            &c.day,
-        )))
+        Ok(Series::new(ta::vwap(s.values(), c.volume.values(), &c.day)))
     });
     engine.register_fn(
         "psar",
         |start: f64, step: f64, max: f64| -> Fallible<Series> {
             let c = columns()?;
-            Ok(Series::new(math::parabolic_sar(
+            Ok(Series::new(ta::parabolic_sar(
                 c.high.values(),
                 c.low.values(),
                 start,
@@ -91,7 +83,7 @@ pub(super) fn indicators(engine: &mut Engine) {
                 period("macd", slow)?,
                 period("macd", signal)?,
             );
-            let (line, sig, hist) = math::macd(s.values(), f, sl, sg);
+            let (line, sig, hist) = ta::macd(s.values(), f, sl, sg);
             Ok(map_of(vec![
                 ("macd", Series::new(line)),
                 ("signal", Series::new(sig)),
@@ -103,7 +95,7 @@ pub(super) fn indicators(engine: &mut Engine) {
         "bollinger",
         |s: Series, n: i64, mult: f64| -> Fallible<Map> {
             let p = period("bollinger", n)?;
-            let (basis, dev) = (math::sma(s.values(), p), math::stdev(s.values(), p));
+            let (basis, dev) = (ta::sma(s.values(), p), ta::stdev(s.values(), p));
             let band = |sign: f64| -> Series {
                 Series::new(
                     basis
@@ -127,7 +119,7 @@ pub(super) fn indicators(engine: &mut Engine) {
             period("stoch", smooth)?,
             period("stoch", d)?,
         );
-        let (k, d_line) = math::stochastic(
+        let (k, d_line) = ta::stochastic(
             c.high.values(),
             c.low.values(),
             c.close.values(),
@@ -143,7 +135,7 @@ pub(super) fn indicators(engine: &mut Engine) {
     engine.register_fn("dmi", |n: i64, smoothing: i64| -> Fallible<Map> {
         let c = columns()?;
         let (n, smoothing) = (period("dmi", n)?, period("dmi", smoothing)?);
-        let (plus, minus, adx) = math::dmi(
+        let (plus, minus, adx) = ta::dmi(
             c.high.values(),
             c.low.values(),
             c.close.values(),
@@ -159,7 +151,7 @@ pub(super) fn indicators(engine: &mut Engine) {
     engine.register_fn("supertrend", |n: i64, mult: f64| -> Fallible<Map> {
         let (c, p) = (columns()?, period("supertrend", n)?);
         let (line, direction) =
-            math::supertrend(c.high.values(), c.low.values(), c.close.values(), p, mult);
+            ta::supertrend(c.high.values(), c.low.values(), c.close.values(), p, mult);
         Ok(map_of(vec![
             ("line", Series::new(line)),
             ("direction", Series::new(direction)),
@@ -167,8 +159,8 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn("donchian", |n: i64| -> Fallible<Map> {
         let (c, p) = (columns()?, period("donchian", n)?);
-        let upper = math::highest(c.high.values(), p);
-        let lower = math::lowest(c.low.values(), p);
+        let upper = ta::highest(c.high.values(), p);
+        let lower = ta::lowest(c.low.values(), p);
         let basis = upper
             .iter()
             .zip(&lower)
@@ -185,8 +177,8 @@ pub(super) fn indicators(engine: &mut Engine) {
         |n: i64, mult: f64, atr_n: i64| -> Fallible<Map> {
             let c = columns()?;
             let (p, a) = (period("keltner", n)?, period("keltner", atr_n)?);
-            let basis = math::ema(c.close.values(), p);
-            let range = math::atr(c.high.values(), c.low.values(), c.close.values(), a);
+            let basis = ta::ema(c.close.values(), p);
+            let range = ta::atr(c.high.values(), c.low.values(), c.close.values(), a);
             let band = |sign: f64| -> Series {
                 Series::new(
                     basis

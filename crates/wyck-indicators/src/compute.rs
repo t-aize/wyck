@@ -3,7 +3,8 @@
 use super::config::StudyConfig;
 use super::kind::StudyKind;
 use super::spec::{DOWN, PlotKind, UP};
-use wyck_core::math::{self, Series, count_f64, count_i64, f64_to_i64, f64_to_usize};
+use wyck_core::math::{count_f64, count_i64, f64_to_i64, f64_to_usize};
+use wyck_core::ta::{self, Series};
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
 pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
@@ -11,11 +12,11 @@ pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
 /// A moving average of `values`, by its position in [`MA_METHODS`].
 pub(crate) fn moving_average(values: &[f64], length: usize, method: usize) -> Vec<f64> {
     match method {
-        1 => math::ema(values, length),
-        2 => math::wma(values, length),
-        3 => math::rma(values, length),
-        4 => math::hma(values, length),
-        _ => math::sma(values, length),
+        1 => ta::ema(values, length),
+        2 => ta::wma(values, length),
+        3 => ta::rma(values, length),
+        4 => ta::hma(values, length),
+        _ => ta::sma(values, length),
     }
 }
 
@@ -180,10 +181,10 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             let length = config.length("length");
             let src = source();
             let values = match config.kind {
-                StudyKind::Sma => math::sma(&src, length),
-                StudyKind::Ema => math::ema(&src, length),
-                StudyKind::Wma => math::wma(&src, length),
-                _ => math::hma(&src, length),
+                StudyKind::Sma => ta::sma(&src, length),
+                StudyKind::Ema => ta::ema(&src, length),
+                StudyKind::Wma => ta::wma(&src, length),
+                _ => ta::hma(&src, length),
             };
             out.plots.push(PlotOut {
                 offset,
@@ -295,7 +296,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             let src = source();
             let basis =
                 super::extended::average(&src, length, f64_to_usize(config.input("method")));
-            let dev = math::stdev(&src, length);
+            let dev = ta::stdev(&src, length);
             let upper = basis.iter().zip(&dev).map(|(b, d)| b + mult * d).collect();
             let lower = basis.iter().zip(&dev).map(|(b, d)| b - mult * d).collect();
             out.plots.push(plot("basis", basis));
@@ -313,7 +314,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             let (length, mult) = (config.length("length"), config.input("mult"));
             let basis =
                 super::extended::average(&source(), length, f64_to_usize(config.input("method")));
-            let range = math::atr(&input.high, &input.low, &input.close, config.length("atr"));
+            let range = ta::atr(&input.high, &input.low, &input.close, config.length("atr"));
             let upper = basis
                 .iter()
                 .zip(&range)
@@ -337,8 +338,8 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         }
         StudyKind::Donchian => {
             let length = config.length("length");
-            let upper = math::highest(&input.high, length);
-            let lower = math::lowest(&input.low, length);
+            let upper = ta::highest(&input.high, length);
+            let lower = ta::lowest(&input.low, length);
             let basis = upper
                 .iter()
                 .zip(&lower)
@@ -358,8 +359,8 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Ichimoku => {
             let middle = |length: usize| -> Vec<f64> {
                 let (h, l) = (
-                    math::highest(&input.high, length),
-                    math::lowest(&input.low, length),
+                    ta::highest(&input.high, length),
+                    ta::lowest(&input.low, length),
                 );
                 h.iter().zip(&l).map(|(h, l)| (h + l) / 2.0).collect()
             };
@@ -395,7 +396,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             });
         }
         StudyKind::ParabolicSar => {
-            let values = math::parabolic_sar(
+            let values = ta::parabolic_sar(
                 &input.high,
                 &input.low,
                 config.input("start"),
@@ -418,17 +419,17 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 ..plot("volume", input.volume.clone())
             });
             out.plots
-                .push(plot("ma", math::sma(&input.volume, config.length("ma"))));
+                .push(plot("ma", ta::sma(&input.volume, config.length("ma"))));
         }
         StudyKind::Rsi => {
             out.plots
-                .push(plot("rsi", math::rsi(&source(), config.length("length"))));
+                .push(plot("rsi", ta::rsi(&source(), config.length("length"))));
             let (upper, lower) = (config.input("upper"), config.input("lower"));
             out.levels = vec![upper, 50.0, lower];
             out.band = Some((lower, upper));
         }
         StudyKind::Macd => {
-            let (line, signal, hist) = math::macd(
+            let (line, signal, hist) = ta::macd(
                 &source(),
                 config.length("fast"),
                 config.length("slow"),
@@ -445,7 +446,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             out.levels = vec![0.0];
         }
         StudyKind::Stochastic => {
-            let (k, d) = math::stochastic(
+            let (k, d) = ta::stochastic(
                 &input.high,
                 &input.low,
                 &input.close,
@@ -460,12 +461,12 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             out.band = Some((lower, upper));
         }
         StudyKind::Atr => {
-            let tr = math::true_range(&input.high, &input.low, &input.close);
+            let tr = ta::true_range(&input.high, &input.low, &input.close);
             let smooth = |values: &[f64], length: usize, method: usize| match method {
-                1 => math::sma(values, length),
-                2 => math::ema(values, length),
-                3 => math::wma(values, length),
-                _ => math::rma(values, length),
+                1 => ta::sma(values, length),
+                2 => ta::ema(values, length),
+                3 => ta::wma(values, length),
+                _ => ta::rma(values, length),
             };
             let mut atr = smooth(
                 &tr,
@@ -498,7 +499,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Cci => {
             let typical = input.source(5.0);
             out.plots
-                .push(plot("cci", math::cci(&typical, config.length("length"))));
+                .push(plot("cci", ta::cci(&typical, config.length("length"))));
             let (upper, lower) = (config.input("upper"), config.input("lower"));
             out.levels = vec![upper, 0.0, lower];
             out.band = Some((lower.min(upper), upper.max(lower)));
@@ -506,7 +507,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::WilliamsR => {
             out.plots.push(plot(
                 "r",
-                math::williams_r(
+                ta::williams_r(
                     &input.high,
                     &input.low,
                     &input.close,
@@ -520,16 +521,16 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Momentum => {
             out.plots.push(plot(
                 "mom",
-                math::momentum(&source(), config.length("length")),
+                ta::momentum(&source(), config.length("length")),
             ));
             out.levels = vec![0.0];
         }
         StudyKind::Obv => {
             out.plots
-                .push(plot("obv", math::obv(&input.close, &input.volume)));
+                .push(plot("obv", ta::obv(&input.close, &input.volume)));
         }
         StudyKind::Dmi => {
-            let (plus, minus, adx) = math::dmi(
+            let (plus, minus, adx) = ta::dmi(
                 &input.high,
                 &input.low,
                 &input.close,

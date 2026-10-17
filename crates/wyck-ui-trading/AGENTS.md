@@ -26,7 +26,7 @@ Used by: `wyck-ui-shell`.
 
 ## Invariants and traps
 
-- **The ticket decides nothing about risk.** The plan comes from `wyck_trading::math` (sizing,
+- **The ticket decides nothing about risk.** The plan comes from `wyck_trading::ticket` and `wyck_trading::risk` (sizing,
   risk, margin) and from the fields; what stops an order is a `TicketProblem` that `problem::text`
   words.
 - **The safety limits come before the confirmation.** `send` asks the account to `assess_batch` the
@@ -71,6 +71,6 @@ setups (`templates`), the rows and totals of the tables (`panel::data`), the sma
 ## Do not
 
 - Do not add a way to send an order that skips `assess_batch` and the confirmation.
-- Do not work out risk, margin or lots here: `wyck_trading::math` does.
+- Do not work out risk, margin or lots here: `wyck_trading::ticket` and `wyck_trading::risk` do.
 - Do not reach the network, the files or the system: go through `wyck-app`.
 - Do not re-export a type of another crate: import it from its owner.

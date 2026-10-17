@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use wyck_core::math;
+use wyck_core::ta;
 use wyck_market::{Bar, to_price};
 
 /// The longest an ATR can be.
@@ -84,12 +84,12 @@ impl AtrStop {
         let high: Vec<_> = usable.iter().map(|b| to_price(b.high)).collect();
         let low: Vec<_> = usable.iter().map(|b| to_price(b.low)).collect();
         let close: Vec<_> = usable.iter().map(|b| to_price(b.close)).collect();
-        let tr = math::true_range(&high, &low, &close);
+        let tr = ta::true_range(&high, &low, &close);
         let series = match self.smoothing {
-            Smoothing::Rma => math::rma(&tr, self.length),
-            Smoothing::Sma => math::sma(&tr, self.length),
-            Smoothing::Ema => math::ema(&tr, self.length),
-            Smoothing::Wma => math::wma(&tr, self.length),
+            Smoothing::Rma => ta::rma(&tr, self.length),
+            Smoothing::Sma => ta::sma(&tr, self.length),
+            Smoothing::Ema => ta::ema(&tr, self.length),
+            Smoothing::Wma => ta::wma(&tr, self.length),
         };
         series.last().copied().filter(|v| v.is_finite() && *v > 0.0)
     }

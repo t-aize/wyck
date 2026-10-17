@@ -7,14 +7,15 @@ use super::config::StudyConfig;
 use super::kind::StudyKind;
 use super::spec::PlotKind;
 use chrono::{Datelike, NaiveDate};
-use wyck_core::math::{self, Series, count_f64, f64_to_i64, f64_to_usize};
+use wyck_core::math::{count_f64, f64_to_i64, f64_to_usize};
+use wyck_core::ta::{self, Series};
 
 pub(super) fn average(values: &[f64], len: usize, method: usize) -> Vec<f64> {
     match method {
-        1 => math::ema(values, len),
-        2 => math::wma(values, len),
-        3 => math::rma(values, len),
-        _ => math::sma(values, len),
+        1 => ta::ema(values, len),
+        2 => ta::wma(values, len),
+        3 => ta::rma(values, len),
+        _ => ta::sma(values, len),
     }
 }
 
@@ -53,9 +54,9 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
     let source = || input.source(config.input("source"));
     let typical = || input.source(5.0);
     let mut output = match kind {
-        StudyKind::Rma => values("rma", math::rma(&source(), config.length("length"))),
+        StudyKind::Rma => values("rma", ta::rma(&source(), config.length("length"))),
         StudyKind::Supertrend => {
-            let (line, dir) = math::supertrend(
+            let (line, dir) = ta::supertrend(
                 &input.high,
                 &input.low,
                 &input.close,
@@ -107,7 +108,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             .into_iter()
             .map(|(key, shift)| PlotOut {
                 offset: f64_to_i64(config.input(shift)),
-                ..plot(key, math::rma(&median, config.length(key)))
+                ..plot(key, ta::rma(&median, config.length(key)))
             })
             .collect();
             StudyOutput {
@@ -136,7 +137,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         StudyKind::LinearRegression => {
             let src = source();
             let len = config.length("length");
-            let (basis, slope) = math::linear_regression(&src, len);
+            let (basis, slope) = ta::linear_regression(&src, len);
             let dev: Vec<f64> = (0..n)
                 .map(|i| {
                     if i + 1 < len || !basis.at(i).is_finite() {
@@ -230,14 +231,14 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             }
         }
         StudyKind::StochasticRsi => {
-            let rsi = math::rsi(&source(), config.length("rsi"));
-            let hi = math::highest(&rsi, config.length("stoch"));
-            let lo = math::lowest(&rsi, config.length("stoch"));
+            let rsi = ta::rsi(&source(), config.length("rsi"));
+            let hi = ta::highest(&rsi, config.length("stoch"));
+            let lo = ta::lowest(&rsi, config.length("stoch"));
             let raw: Vec<f64> = (0..n)
                 .map(|i| 100.0 * ratio(rsi.at(i) - lo.at(i), hi.at(i) - lo.at(i)))
                 .collect();
-            let k = math::sma(&raw, config.length("k"));
-            let d = math::sma(&k, config.length("d"));
+            let k = ta::sma(&raw, config.length("k"));
+            let d = ta::sma(&k, config.length("d"));
             StudyOutput {
                 plots: vec![plot("k", k), plot("d", d)],
                 levels: vec![config.input("upper"), config.input("lower")],
@@ -247,15 +248,15 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         }
         StudyKind::Roc => StudyOutput {
             levels: vec![0.0],
-            ..values("roc", math::roc(&source(), config.length("length")))
+            ..values("roc", ta::roc(&source(), config.length("length")))
         },
         StudyKind::AwesomeOscillator | StudyKind::AcceleratorOscillator => {
             let median = input.source(4.0);
-            let fast = math::sma(&median, config.length("fast"));
-            let slow = math::sma(&median, config.length("slow"));
+            let fast = ta::sma(&median, config.length("fast"));
+            let slow = ta::sma(&median, config.length("slow"));
             let ao: Vec<f64> = fast.iter().zip(&slow).map(|(a, b)| a - b).collect();
             let (key, data) = if kind == StudyKind::AcceleratorOscillator {
-                let signal = math::sma(&ao, config.length("signal"));
+                let signal = ta::sma(&ao, config.length("signal"));
                 ("ac", ao.iter().zip(&signal).map(|(a, b)| a - b).collect())
             } else {
                 ("ao", ao)
@@ -277,7 +278,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         StudyKind::Dpo => {
             let src = source();
             let len = config.length("length");
-            let ma = math::sma(&src, len);
+            let ma = ta::sma(&src, len);
             let shift = len / 2 + 1;
             values(
                 "dpo",
@@ -293,9 +294,9 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             )
         }
         StudyKind::Trix => {
-            let a = math::ema(&source(), config.length("length"));
-            let b = math::ema(&a, config.length("length"));
-            let c = math::ema(&b, config.length("length"));
+            let a = ta::ema(&source(), config.length("length"));
+            let b = ta::ema(&a, config.length("length"));
+            let c = ta::ema(&b, config.length("length"));
             let trix: Vec<f64> = (0..n)
                 .map(|i| {
                     if i > 0 {
@@ -305,7 +306,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                     }
                 })
                 .collect();
-            let signal = math::ema(&trix, config.length("signal"));
+            let signal = ta::ema(&trix, config.length("signal"));
             StudyOutput {
                 plots: vec![plot("trix", trix), plot("signal", signal)],
                 levels: vec![0.0],
@@ -313,7 +314,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             }
         }
         StudyKind::UltimateOscillator => {
-            let tr = math::true_range(&input.high, &input.low, &input.close);
+            let tr = ta::true_range(&input.high, &input.low, &input.close);
             let bp: Vec<f64> = (0..n)
                 .map(|i| {
                     input.close.at(i)
@@ -329,8 +330,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 config.length("middle"),
                 config.length("long"),
             ];
-            let [short, middle, long] =
-                periods.map(|len| (math::sum(&bp, len), math::sum(&tr, len)));
+            let [short, middle, long] = periods.map(|len| (ta::sum(&bp, len), ta::sum(&tr, len)));
             let out = (0..n)
                 .map(|i| {
                     100.0
@@ -361,14 +361,14 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                     })
                     .collect::<Vec<_>>()
             };
-            let numerator = math::sma(&smooth(&body), config.length("length"));
-            let denominator = math::sma(&smooth(&range), config.length("length"));
+            let numerator = ta::sma(&smooth(&body), config.length("length"));
+            let denominator = ta::sma(&smooth(&range), config.length("length"));
             let rvi: Vec<f64> = numerator
                 .iter()
                 .zip(&denominator)
                 .map(|(a, b)| ratio(*a, *b))
                 .collect();
-            let signal = math::sma(&smooth(&rvi), config.length("signal"));
+            let signal = ta::sma(&smooth(&rvi), config.length("signal"));
             StudyOutput {
                 plots: vec![plot("rvi", rvi), plot("signal", signal)],
                 levels: vec![0.0],
@@ -382,8 +382,8 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 up.put(i, (input.high.at(i) - input.high.at(i - 1)).max(0.0));
                 down.put(i, (input.low.at(i - 1) - input.low.at(i)).max(0.0));
             }
-            let a = math::sma(&up, config.length("length"));
-            let b = math::sma(&down, config.length("length"));
+            let a = ta::sma(&up, config.length("length"));
+            let b = ta::sma(&down, config.length("length"));
             StudyOutput {
                 levels: vec![0.7, 0.3],
                 ..values(
@@ -393,12 +393,9 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             }
         }
         StudyKind::StandardDeviation => {
-            values("dev", math::stdev(&source(), config.length("length")))
+            values("dev", ta::stdev(&source(), config.length("length")))
         }
-        StudyKind::TrueRange => values(
-            "tr",
-            math::true_range(&input.high, &input.low, &input.close),
-        ),
+        StudyKind::TrueRange => values("tr", ta::true_range(&input.high, &input.low, &input.close)),
         StudyKind::HistoricalVolatility => {
             let returns: Vec<f64> = (0..n)
                 .map(|i| {
@@ -410,7 +407,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 })
                 .collect();
             let len = config.length("length");
-            let dev = math::stdev(&returns, len);
+            let dev = ta::stdev(&returns, len);
             values(
                 "hv",
                 dev.into_iter()
@@ -420,15 +417,15 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
         }
         StudyKind::ChaikinVolatility => {
             let spread: Vec<f64> = (0..n).map(|i| input.high.at(i) - input.low.at(i)).collect();
-            let smoothed = math::ema(&spread, config.length("ema"));
-            values("cv", math::roc(&smoothed, config.length("roc")))
+            let smoothed = ta::ema(&spread, config.length("ema"));
+            values("cv", ta::roc(&smoothed, config.length("roc")))
         }
         StudyKind::ChoppinessIndex => {
             let len = config.length("length");
-            let tr = math::true_range(&input.high, &input.low, &input.close);
-            let total = math::sum(&tr, len);
-            let hi = math::highest(&input.high, len);
-            let lo = math::lowest(&input.low, len);
+            let tr = ta::true_range(&input.high, &input.low, &input.close);
+            let total = ta::sum(&tr, len);
+            let hi = ta::highest(&input.high, len);
+            let lo = ta::lowest(&input.low, len);
             values(
                 "chop",
                 (0..n)
@@ -444,7 +441,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             )
         }
         StudyKind::MoneyFlowIndex => {
-            let out = math::mfi(&typical(), &input.volume, config.length("length"));
+            let out = ta::mfi(&typical(), &input.volume, config.length("length"));
             StudyOutput {
                 levels: vec![80.0, 20.0],
                 ..values("mfi", out)
@@ -463,10 +460,10 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 })
                 .collect();
             if kind == StudyKind::AccumulationDistribution {
-                values("ad", math::cumulative(&flow))
+                values("ad", ta::cumulative(&flow))
             } else {
-                let a = math::sum(&flow, config.length("length"));
-                let b = math::sum(&input.volume, config.length("length"));
+                let a = ta::sum(&flow, config.length("length"));
+                let b = ta::sum(&input.volume, config.length("length"));
                 StudyOutput {
                     levels: vec![0.0],
                     ..values(
@@ -489,7 +486,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                     }
                 })
                 .collect();
-            values("pvt", math::cumulative(&flow))
+            values("pvt", ta::cumulative(&flow))
         }
         StudyKind::ForceIndex => {
             let raw: Vec<f64> = (0..n)
@@ -503,12 +500,12 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
                 .collect();
             StudyOutput {
                 levels: vec![0.0],
-                ..values("force", math::ema(&raw, config.length("length")))
+                ..values("force", ta::ema(&raw, config.length("length")))
             }
         }
         StudyKind::VolumeOscillator => {
-            let fast = math::ema(&input.volume, config.length("fast"));
-            let slow = math::ema(&input.volume, config.length("slow"));
+            let fast = ta::ema(&input.volume, config.length("fast"));
+            let slow = ta::ema(&input.volume, config.length("slow"));
             StudyOutput {
                 levels: vec![0.0],
                 ..values(
@@ -532,7 +529,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             }
             StudyOutput {
                 levels: vec![0.0],
-                ..values("emv", math::sma(&raw, config.length("length")))
+                ..values("emv", ta::sma(&raw, config.length("length")))
             }
         }
         // Not an extended indicator: it has no lines, like the kind that is not known.

@@ -7,7 +7,8 @@ use super::run::decl::Limits;
 use super::run::{Computed, Script};
 use crate::compute::StudyInput;
 use crate::spec::{InputKind, PlotKind};
-use wyck_core::math::{self, count_f64, count_i64};
+use wyck_core::math::{count_f64, count_i64};
+use wyck_core::ta;
 
 fn bars(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)
@@ -83,13 +84,13 @@ fn the_windowed_functions_are_the_arithmetic_they_stand_for() {
         &input,
         &[],
     );
-    assert!(same(plot(&done, "sma"), &math::sma(&input.close, 10)));
-    assert!(same(plot(&done, "ema"), &math::ema(&input.close, 10)));
-    assert!(same(plot(&done, "rsi"), &math::rsi(&input.close, 14)));
-    assert!(same(plot(&done, "hi"), &math::highest(&input.high, 7)));
-    assert!(same(plot(&done, "sd"), &math::stdev(&input.close, 9)));
-    assert!(same(plot(&done, "wma"), &math::wma(&input.close, 6)));
-    assert!(same(plot(&done, "hma"), &math::hma(&input.close, 9)));
+    assert!(same(plot(&done, "sma"), &ta::sma(&input.close, 10)));
+    assert!(same(plot(&done, "ema"), &ta::ema(&input.close, 10)));
+    assert!(same(plot(&done, "rsi"), &ta::rsi(&input.close, 14)));
+    assert!(same(plot(&done, "hi"), &ta::highest(&input.high, 7)));
+    assert!(same(plot(&done, "sd"), &ta::stdev(&input.close, 9)));
+    assert!(same(plot(&done, "wma"), &ta::wma(&input.close, 6)));
+    assert!(same(plot(&done, "hma"), &ta::hma(&input.close, 9)));
 }
 
 #[test]
@@ -114,45 +115,45 @@ fn the_ready_made_indicators_are_the_arithmetic_they_stand_for() {
         &input,
         &[],
     );
-    let (line, signal, hist) = math::macd(&input.close, 12, 26, 9);
+    let (line, signal, hist) = ta::macd(&input.close, 12, 26, 9);
     assert!(same(plot(&done, "macd"), &line));
     assert!(same(plot(&done, "signal"), &signal));
     assert!(same(plot(&done, "hist"), &hist));
-    let basis = math::sma(&input.close, 20);
-    let dev = math::stdev(&input.close, 20);
+    let basis = ta::sma(&input.close, 20);
+    let dev = ta::stdev(&input.close, 20);
     let upper: Vec<f64> = basis.iter().zip(&dev).map(|(b, d)| b + 2.0 * d).collect();
     assert!(same(plot(&done, "upper"), &upper));
     assert!(same(plot(&done, "basis"), &basis));
     assert!(same(
         plot(&done, "atr"),
-        &math::atr(&input.high, &input.low, &input.close, 14)
+        &ta::atr(&input.high, &input.low, &input.close, 14)
     ));
     let typical: Vec<f64> = (0..150)
         .map(|i| (input.high[i] + input.low[i] + input.close[i]) / 3.0)
         .collect();
     assert!(same(
         plot(&done, "vwap"),
-        &math::vwap(&typical, &input.volume, &input.day)
+        &ta::vwap(&typical, &input.volume, &input.day)
     ));
     assert!(same(
         plot(&done, "obv"),
-        &math::obv(&input.close, &input.volume)
+        &ta::obv(&input.close, &input.volume)
     ));
-    let (k, d) = math::stochastic(&input.high, &input.low, &input.close, 14, 3, 3);
+    let (k, d) = ta::stochastic(&input.high, &input.low, &input.close, 14, 3, 3);
     assert!(same(plot(&done, "k"), &k) && same(plot(&done, "d"), &d));
-    let (_, _, adx) = math::dmi(&input.high, &input.low, &input.close, 14, 14);
+    let (_, _, adx) = ta::dmi(&input.high, &input.low, &input.close, 14, 14);
     assert!(same(plot(&done, "adx"), &adx));
     assert!(same(
         plot(&done, "st"),
-        &math::supertrend(&input.high, &input.low, &input.close, 10, 3.0).0
+        &ta::supertrend(&input.high, &input.low, &input.close, 10, 3.0).0
     ));
     assert!(same(
         plot(&done, "psar"),
-        &math::parabolic_sar(&input.high, &input.low, 0.02, 0.02, 0.2)
+        &ta::parabolic_sar(&input.high, &input.low, 0.02, 0.02, 0.2)
     ));
     assert!(same(
         plot(&done, "mfi"),
-        &math::mfi(&typical, &input.volume, 14)
+        &ta::mfi(&typical, &input.volume, 14)
     ));
 }
 
