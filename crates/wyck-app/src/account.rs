@@ -14,6 +14,7 @@ pub(crate) mod actions;
 pub(crate) mod follow;
 pub(crate) mod notice;
 pub(crate) mod orders;
+pub(crate) mod plans;
 pub(crate) mod reverse;
 pub(crate) mod sync;
 

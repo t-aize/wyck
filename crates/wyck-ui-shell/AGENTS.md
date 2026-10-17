@@ -20,7 +20,8 @@ Three modules are public, the ones `wyck` calls; the rest is private.
 | `app_view` | `AppView`: owns the sign-in and the open dashboard; `locked_frame` draws a soft copy of the dashboard behind the sign-in modal. |
 | `sign_in_gate` | The sign-in modal, one card per `Phase` of `wyck_app::sign_in` (restoring, editing, verifying, waiting for the browser, choosing an account, authorizing). |
 | `dashboard` | `Dashboard`: the screen the app lands on, its actions (module `action`), and what it draws (`view`). |
-| `dashboard::{session, catalog, picker, details, lists, marks}` | Following the broker session and the active symbol; the list of symbols an account can trade (no UI); the symbol picker and its details sheet; favorites and watchlists; the logos and glyphs of symbols. |
+| `dashboard::{session, catalog, picker, details, lists}` | Following the broker session and the active symbol; the list of symbols an account can trade (no UI); the symbol picker and its details sheet; favorites and watchlists. |
+| `dashboard::marks` | The picture of a symbol (`icon_for`): one module per asset class (`forex`, `index`, `metal`, `crypto`, `shares`, `commodity`) says which logo, flag or glyph, and `paint` draws it. |
 | `dashboard::{header, chart_buttons, layout_menu, editor_dock, notice}` | The bar across the top and the account menu; the chart type and indicator buttons; the layout picker; the drawer of the script editor; the toast for what the account has to say. |
 | `dashboard::trade` | The trading side: account, order ticket, account panel, price alerts and the lines they put on the charts. |
 | `keymap` | `DEFS`, the one table of every binding (custom, fixed), `HANDLED` (keys a screen reads by hand), and `apply`, which binds the result in gpui and tells the kit the keys for its tooltips. |
@@ -33,7 +34,8 @@ Three modules are public, the ones `wyck` calls; the rest is private.
   `wyck`). The settings page shows the table, so a binding outside it is invisible to the user and
   to the clash tests.
 - **A screen takes its colors from the theme.** `no_inline_colors` (in `wyck`) fails on a `0xRRGGBB`
-  in this crate, except in `dashboard/marks.rs`, whose brand colors are the point of the file.
+  in this crate, except in `dashboard/marks.rs` and `dashboard/marks/`, whose brand colors are the
+  point of the files.
 - **Preferences are changed through the workspace** (`edit_preferences`, `appearance::update`,
   `indicators::update_prefs`), never by writing a file; saving is `wyck-app`'s business.
 - **A backup import or a folder move is staged, not done.** The page records what waits
@@ -64,8 +66,8 @@ The windows are not unit tested. Run: `cargo test -p wyck-ui-shell`.
   `keymap_guard::READS_KEYS`).
 - A settings page: a file in `settings_hub/`, its `Page` and its tab in `settings_hub.rs`.
 - A button in the header: `dashboard/header.rs`; what it does belongs in the screen crate.
-- A symbol class or a logo: `dashboard/catalog.rs` (the class) and `dashboard/marks.rs` (the logo,
-  with its license next to the file in `wyck-ui-kit/assets/marks`).
+- A symbol class or a logo: `dashboard/catalog.rs` (the class) and the module of the class in
+  `dashboard/marks/` (the logo, with its license next to the file in `wyck-ui-kit/assets/marks`).
 - A new screen: its own crate under `wyck-ui-*`, then hosted here.
 
 ## Do not

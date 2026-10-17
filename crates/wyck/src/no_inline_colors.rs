@@ -5,10 +5,11 @@ use std::path::Path;
 
 use crate::keymap_guard::rust_files;
 
-/// Files that may hold color literals: the brand colors of the symbol marks, the palette, and
-/// the color picker.
+/// Files (or, ending in a slash, folders) that may hold color literals: the brand colors of the
+/// symbol marks, the palette, and the color picker.
 const ALLOWED: &[&str] = &[
     "wyck-ui-shell/src/dashboard/marks.rs",
+    "wyck-ui-shell/src/dashboard/marks/",
     "wyck-ui-kit/src/theme.rs",
     "wyck-ui-kit/src/color_picker.rs",
     "wyck-ui-kit/src/color_picker/math.rs",
@@ -50,7 +51,10 @@ fn screens_read_their_colors_from_the_theme() {
             .unwrap_or_else(|_| file.clone())
             .to_string_lossy()
             .replace('\\', "/");
-        if ALLOWED.iter().any(|a| name.ends_with(a)) {
+        if ALLOWED
+            .iter()
+            .any(|a| name.ends_with(a) || (a.ends_with('/') && name.contains(a)))
+        {
             continue;
         }
         let text = std::fs::read_to_string(&file).unwrap_or_default();
