@@ -61,7 +61,8 @@ Used by: `wyck-app`, `wyck-chart`, `wyck-ui-chart`, `wyck-ui-editor`, `wyck-ui-s
 
 Unit tests next to the code, `src/tests.rs` for the ones that cross modules (every indicator on one
 set of bars), `custom/behavior.rs` for scripts end to end (each function against its arithmetic),
-and one test that compiles and computes every starter. Math is checked against worked examples:
+and the tests of `custom/templates.rs`, which compile and compute every starter (on 0, 1 and 600
+bars, every choice and every switch of each). Math is checked against worked examples:
 those and the `docs` cross-check are the tests that must not be weakened. Run:
 `cargo test -p wyck-indicators`. If a script test fails by timeout on a loaded machine, rerun it
 alone before blaming a change.
@@ -74,7 +75,9 @@ alone before blaming a change.
 - A function a script can call: `custom/api/` (thin: it hands the numbers to `wyck_core::ta`),
   its description in `custom/docs.rs`, a test in `custom/behavior.rs`.
 - A starter: a `.rhai` file in `assets/starters/`, an entry in `custom/templates.rs`. It must be
-  ASCII, compile, and compute.
+  ASCII, compile, and compute. Its name becomes a file name (letters, digits, spaces, `- _ ( )`).
+  The ten starters are the user's tour of the language: when a function or an option
+  is added, show it in one of them.
 
 ## Do not
 
