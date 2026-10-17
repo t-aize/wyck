@@ -506,7 +506,7 @@ fn check_dependencies(
 
 /// Every dependency of a manifest, of every kind and for every target: the table it is in
 /// (`dependencies`, `target.'cfg(windows)'.build-dependencies`, ...), its name and its value.
-fn dependencies(manifest: &Table) -> Vec<(String, &str, &Value)> {
+pub(crate) fn dependencies(manifest: &Table) -> Vec<(String, &str, &Value)> {
     let mut found = Vec::new();
     collect_dependencies(&mut found, "", manifest);
     if let Some(targets) = manifest.get("target").and_then(Value::as_table) {

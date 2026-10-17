@@ -7,7 +7,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 publish.workspace = true
-description = "Developer commands of the workspace: `cargo xtask ci`, `cargo xtask check`, `cargo xtask deps`, `cargo xtask release`."
+description = "Developer commands of the workspace: `cargo xtask ci`, `cargo xtask check`, `cargo xtask deps`, `cargo xtask docs-check`, `cargo xtask release`."
 
 [dependencies]
 anyhow.workspace = true

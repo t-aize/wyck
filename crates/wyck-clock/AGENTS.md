@@ -4,8 +4,9 @@ The one place the workspace reads the wall clock. Nothing else calls `SystemTime
 `chrono::Local::now` or `chrono::Utc::now`: `clippy.toml` forbids them, and the single exception is
 `SystemClock::now` in this crate.
 
-Depends on: nothing (std only). Used by: `wyck-ctrader`, `wyck-platform`, `wyck-storage`,
-`wyck-app`, `wyck` and `xtask`.
+Depends on: nothing (std only).
+Used by: `wyck`, `wyck-app`, `wyck-ctrader`, `wyck-platform`, `wyck-storage`, `wyck-ui-shell`,
+`xtask`.
 
 ## Module map
 

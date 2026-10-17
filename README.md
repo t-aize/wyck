@@ -62,8 +62,7 @@ afresh.
 
 A Cargo workspace (see the root `Cargo.toml`): one crate per area in `crates/`, and `xtask` for the
 commands of the project (`cargo xtask check`). A crate only depends on the ones above it in this
-table, and `cargo xtask deps` checks it ([docs/PLAN.md](docs/PLAN.md) tracks the rest of the
-restructuring):
+table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder says what is inside):
 
 | Crate | Owns |
 |---|---|

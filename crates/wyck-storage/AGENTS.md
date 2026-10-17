@@ -7,6 +7,7 @@ backups, the credentials and the encryption behind them. No screen, no network.
 Depends on: `wyck-clock`, `wyck-platform`, `serde`, `serde_json`, `toml`, `secrecy`, `zeroize`, `keyring`,
 `directories`, `argon2`, `chacha20poly1305`, `getrandom`, `uuid`, `thiserror`, `tracing`
 (`proptest` and `tempfile` in tests only).
+Used by: `wyck`, `wyck-app`.
 
 ## Module map
 

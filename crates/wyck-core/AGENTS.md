@@ -3,6 +3,8 @@
 The smallest vocabulary every other crate shares. No domain knowledge, no I/O, no UI toolkit.
 
 Depends on: `serde` only (no other crate of the workspace). Everything above may use it.
+Used by: `wyck`, `wyck-app`, `wyck-chart`, `wyck-ctrader`, `wyck-drawings`, `wyck-indicators`,
+`wyck-market`, `wyck-trading`, `wyck-ui-chart`, `wyck-ui-kit`, `wyck-ui-shell`, `wyck-ui-trading`.
 
 ## Module map
 

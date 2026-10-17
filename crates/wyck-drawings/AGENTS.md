@@ -5,6 +5,8 @@ changed with the pointer, and the undo history. Pure code: no window, no file, n
 is reached through one trait, `geometry::Projection`.
 
 Depends on: `wyck-core`, `wyck-trading`, `serde`, `serde_json` (`toml` in tests only).
+Used by: `wyck-app`, `wyck-chart`, `wyck-indicators`, `wyck-ui-chart`, `wyck-ui-editor`,
+`wyck-ui-shell`, `wyck-ui-trading`.
 
 ## Module map
 

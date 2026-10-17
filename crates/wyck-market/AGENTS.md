@@ -4,6 +4,8 @@ Market data as the app understands it: symbols, bars, ticks, quotes, trading hou
 Pure code: no file, no socket, no window.
 
 Depends on: `wyck-core`, `serde`, `chrono`, `chrono-tz`.
+Used by: `wyck-app`, `wyck-chart`, `wyck-ctrader`, `wyck-indicators`, `wyck-trading`,
+`wyck-ui-chart`, `wyck-ui-shell`, `wyck-ui-trading`.
 
 ## What lives here and what does not
 

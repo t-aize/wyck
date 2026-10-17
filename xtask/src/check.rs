@@ -15,6 +15,10 @@ pub(crate) fn run(full: bool) -> Result<()> {
         name: "dependency rules",
         action: Action::Function(crate::deps::run),
     });
+    steps.push(Step {
+        name: "documentation files",
+        action: Action::Function(crate::docs::run),
+    });
     if full {
         steps.extend(external_tools());
     }

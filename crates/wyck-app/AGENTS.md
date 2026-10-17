@@ -5,11 +5,13 @@ the screens above it: sign-in, the live account and its orders, alerts, the live
 history loading, the arrangement the user saved, the look, the indicator folder, updates. These are
 gpui entities and globals with no view of their own; the screens in `wyck` read them and call them.
 
-Depends on: `wyck-chart`, `wyck-core`, `wyck-ctrader`, `wyck-drawings`, `wyck-indicators`,
+Depends on: `wyck-chart`, `wyck-clock`, `wyck-core`, `wyck-ctrader`, `wyck-drawings`, `wyck-indicators`,
 `wyck-market`, `wyck-platform`, `wyck-storage`, `wyck-trading`, `gpui`, `tokio`, `serde`,
 `serde_json`, `toml`, `secrecy`, `thiserror`, `tracing`, `chrono`, `async-trait`,
 `cargo-packager-updater`, `notify-rust`, `rodio`, `rust-embed` (`tempfile` in tests only).
-Used by: `wyck` (every screen). Not `gpui-kit`: this crate draws nothing.
+Used by: `wyck`, `wyck-ui-chart`, `wyck-ui-editor`, `wyck-ui-shell`, `wyck-ui-trading`: every screen
+reads it, and reaches the broker, the files and the system only through its `broker`, `storage` and
+`system` doors.
 
 ## Module map
 

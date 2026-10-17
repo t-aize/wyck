@@ -6,6 +6,7 @@ user: the folder of the logs is handed to it.
 
 Depends on: `tokio`, `tracing`, `tracing-appender`, `tracing-subscriber`, `chrono`, `thiserror`
 (`tempfile` in tests only). Of the workspace only `wyck-clock`, for the time of a panic report.
+Used by: `wyck`, `wyck-app`, `wyck-storage`.
 
 ## Module map
 

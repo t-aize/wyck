@@ -7,6 +7,7 @@ trading. No screen, no file, no keyring: tokens come in as arguments and go out 
 Depends on: `wyck-clock`, `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungstenite`, `reqwest`,
 `futures-util`, `serde`, `serde_json`, `secrecy`, `uuid`, `async-trait`, `thiserror`, `tracing`
 (`dotenvy` in the examples).
+Used by: `wyck-app`.
 
 ## Module map
 
@@ -56,7 +57,7 @@ tokio runtime under it (`reqwest` and `tokio-tungstenite` panic without one).
 
 Only what the app calls. The rest of the Open API (margin calls, dynamic leverage, order details,
 cash flow, deals by position, depth subscriptions, the version and profile requests, the
-logout...) was deleted with its tests; `docs/PLAN.md` (phase 4d) has the list. The server offers it
+logout...) was deleted with its tests (commit 48a92fa has the list). The server offers it
 still: add a call back when the app needs it, following "Where to add X".
 
 ## Tests

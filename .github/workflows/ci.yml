@@ -119,6 +119,9 @@ jobs:
       - name: Check the dependency rules of the workspace
         run: cargo run --locked --quiet --package xtask -- deps
 
+      - name: Check the AGENTS.md and CLAUDE.md files
+        run: cargo run --locked --quiet --package xtask -- docs-check
+
   workflows:
     name: Workflow security
     runs-on: ubuntu-latest

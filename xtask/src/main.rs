@@ -12,6 +12,7 @@
 mod check;
 mod ci;
 mod deps;
+mod docs;
 mod release;
 mod run;
 
@@ -47,6 +48,9 @@ enum Command {
     /// Check that every crate takes its dependencies, metadata and lints from the root
     /// Cargo.toml, and only depends on the crates its layer allows.
     Deps,
+    /// Check that every crate has its AGENTS.md and CLAUDE.md, that their `Depends on` and
+    /// `Used by` lines agree with Cargo.toml, and that the Markdown links point somewhere.
+    DocsCheck,
     /// The steps of the release pipeline that are written in Rust (see release.yml).
     Release {
         #[command(subcommand)]
@@ -60,6 +64,7 @@ fn main() -> ExitCode {
         Command::Check { full } => check::run(full),
         Command::Ci => ci::run(),
         Command::Deps => deps::run(),
+        Command::DocsCheck => docs::run(),
         Command::Release { step } => release::run(step),
     };
     match result {
