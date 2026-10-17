@@ -1,44 +1,87 @@
-# cargo-deny configuration. Run with `cargo deny check`.
-# Reference: https://embarkstudios.github.io/cargo-deny/
+# cargo-deny configuration: known vulnerabilities, licenses, duplicate crates and sources.
+# Run it with `cargo deny check` (CI does, through `cargo xtask ci`).
 
 [graph]
 all-features = true
+# The platforms the app ships on; dependencies used only elsewhere are not checked.
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+]
 
 [advisories]
-# Known vulnerabilities and yanked crates fail the check.
+# A yanked version is a version its author withdrew; do not ship it.
 yanked = "deny"
-# Unmaintained notices are only enforced for direct dependencies. The ones in the graph today
-# (instant, paste, rustls-pemfile, rustybuzz, ttf-parser) are pulled in by gpui and cannot be
-# swapped from here.
-unmaintained = "workspace"
+# Add an advisory here only with a comment giving its id, why it does not apply or cannot be
+# fixed yet, and a date to look at it again. Prefer upgrading the dependency.
+ignore = [
+  # RUSTSEC-2024-0384, `instant` is unmaintained. Pulled by gpui-base 0.7.1 and gpui-component
+  # 0.7.1 (the UI kit), no patched version exists; it is a clock shim, nothing of ours calls it.
+  # Re-check on 2027-01-15, or when gpui-component moves to `web-time`.
+  { id = "RUSTSEC-2024-0384", reason = "unmaintained, no fix; only through gpui-component" },
+  # RUSTSEC-2024-0436, `paste` is unmaintained. A proc-macro run at build time, pulled by
+  # gpui-component, metal and pulp (image's exr decoder); it ships no code of its own.
+  # Re-check on 2027-01-15.
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro, build time only" },
+  # RUSTSEC-2026-0192, `ttf-parser` is unmaintained. Pulled by fontdb, usvg, rustybuzz and
+  # owned_ttf_parser (ab_glyph, a direct dependency of `wyck`); no patched version exists.
+  # Fonts come from the system and from the app's assets, not from the network.
+  # Re-check on 2027-01-15, or when ab_glyph and usvg move to skrifa/read-fonts.
+  { id = "RUSTSEC-2026-0192", reason = "unmaintained, no fix; parses only local fonts" },
+  # RUSTSEC-2026-0206, `rustybuzz` is unmaintained. Pulled by usvg (SVG icons of gpui).
+  # Re-check on 2027-01-15, or when usvg moves to harfrust.
+  { id = "RUSTSEC-2026-0206", reason = "unmaintained, no fix; shapes the app's own SVG icons" },
+  # RUSTSEC-2026-0249, `smartstring` is unmaintained. Pulled by rhai 1.26.1 (the indicator
+  # scripts engine of wyck-indicators); no patched version exists. Re-check on 2027-01-15, or at
+  # the next rhai release.
+  { id = "RUSTSEC-2026-0249", reason = "unmaintained, no fix; only through rhai" },
+]
 
 [licenses]
-confidence-threshold = 0.9
+confidence-threshold = 0.93
+# Permissive licenses only. A copyleft license (GPL, AGPL, LGPL) is never added without a
+# decision from the maintainer.
 allow = [
-  "0BSD",
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
-  "BSL-1.0",
-  "CC0-1.0",
   "ISC",
   "MIT",
   "MIT-0",
-  "MPL-2.0",
   "Unicode-3.0",
-  "Unlicense",
   "Zlib",
+  "CC0-1.0",
+  # enum-iterator and enum-iterator-derive, pulled by gpui-component. 0BSD is MIT-like with no
+  # attribution clause.
+  "0BSD",
+  # libbz2-rs-sys, pulled by bzip2 <- compression-codecs <- async-compression. The license of the
+  # bzip2 library: BSD-style, permissive.
   "bzip2-1.0.6",
+  # MPL-2.0 is a file-level copyleft: it only asks that changes to the MPL files themselves stay
+  # open, which does not reach our code as long as we use these crates unmodified. Allowed by the
+  # maintainer. Crates: symphonia and its sub-crates (rodio, the alert sounds), smartstring (rhai),
+  # option-ext (directories, dirs), dwrote (gpui fonts on Windows), cbindgen (gpui build on macOS).
+  # A strong copyleft (GPL, AGPL, LGPL) is still never added without a decision.
+  "MPL-2.0",
 ]
 
 [bans]
-# Several graphics and windowing crates pull in two majors of the same crate; that is not
-# something this project can fix, so it is reported and not denied.
+# Two versions of one crate bloat the binary and double the surface to audit.
 multiple-versions = "warn"
+# `*` requirements are not reproducible; path dependencies inside the workspace are fine.
 wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+# A deliberate exception goes here, with the reason in a comment.
+skip = []
+deny = []
 
 [sources]
+# Crates come from crates.io only: no unknown registry, no git dependency.
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

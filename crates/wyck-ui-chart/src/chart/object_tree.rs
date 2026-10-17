@@ -1,0 +1,294 @@
+//! The list of the drawings of a symbol: pick one, show or hide it, lock it, move it up or down
+//! the stack, open its settings or delete it.
+
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use wyck_ui_kit::icon::IconName;
+use wyck_ui_kit::prelude::Disableable;
+
+use super::drawing_props;
+use super::tool_icon::tool_icon;
+use wyck_app::drawings::Drawings;
+use wyck_chart::Zone;
+use wyck_drawings::book::{Book, Order};
+use wyck_drawings::model::Drawing;
+use wyck_ui_kit::{button, form, form::Head, icon, modal, theme, tokens};
+
+/// Opens the list of the drawings of `symbol`.
+pub(crate) fn open(
+    drawings: Entity<Drawings>,
+    symbol: String,
+    zone: Zone,
+    digits: u32,
+    chart: Option<Entity<super::Chart>>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    // Opened once whatever asked is done updating, since the dialog reads the drawings.
+    window.defer(cx, move |window, cx| {
+        let tree = cx.new(|cx| ObjectTree {
+            _observe: cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
+            drawings,
+            symbol,
+            zone,
+            digits,
+            chart,
+        });
+        modal::open(
+            tree,
+            modal::Options::new(600.0, 560.0).label("Objects on the chart"),
+            window,
+            cx,
+        );
+    });
+}
+
+struct ObjectTree {
+    drawings: Entity<Drawings>,
+    symbol: String,
+    zone: Zone,
+    digits: u32,
+    chart: Option<Entity<super::Chart>>,
+    _observe: Subscription,
+}
+
+/// What a button of a row does to the drawing: it gets the book, the symbol, the id and a flag.
+type RowChange = fn(&mut Book, &str, u64, bool) -> bool;
+
+impl ObjectTree {
+    fn edit(&self, cx: &mut App, change: impl FnOnce(&mut Book, &str) -> bool) {
+        let symbol = self.symbol.clone();
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| change(book, &symbol))
+        });
+    }
+
+    /// One row of the list: the drawing, and the buttons that act on it.
+    fn row(
+        drawing: &Drawing,
+        position: usize,
+        count: usize,
+        selected: bool,
+        this: &Entity<Self>,
+    ) -> AnyElement {
+        let id = drawing.id;
+        let (hidden, locked) = (drawing.hidden, drawing.locked);
+        let restricted = drawing.timeframes.is_some();
+        let button = |name: &str, icon: IconName, tip: &'static str| {
+            button::dense(SharedString::from(format!("{name}-{id}")))
+                .icon(icon)
+                .tooltip(tip)
+        };
+        // A click that runs `change` on this drawing with `flag`.
+        let act = |change: RowChange, flag: bool| {
+            let this = this.clone();
+            move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
+                this.update(cx, |tree, cx| {
+                    tree.edit(cx, |book, symbol| change(book, symbol, id, flag));
+                });
+            }
+        };
+        let (pick, settings) = (this.clone(), this.clone());
+        div()
+            .id(SharedString::from(format!("tree-row-{id}")))
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .h(px(tokens::height::large()))
+            .px_2()
+            .rounded_md()
+            .when(selected, |el| el.bg(theme::accent_selected()))
+            .hover(|s| s.bg(theme::surface_hover()))
+            .cursor_pointer()
+            .on_click(move |_, _window, cx| {
+                pick.update(cx, |tree, cx| {
+                    tree.edit(cx, |book, _| {
+                        book.select(Some(id));
+                        true
+                    });
+                });
+            })
+            .child(icon::tinted(
+                tool_icon(drawing.tool),
+                15.,
+                if hidden {
+                    theme::muted_fg()
+                } else {
+                    gpui::rgb(drawing.style.color)
+                },
+            ))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_size(px(tokens::text::emphasis()))
+                    .text_color(if hidden {
+                        theme::muted_fg()
+                    } else {
+                        theme::fg()
+                    })
+                    .child(drawing.title()),
+            )
+            .when(restricted, |el| {
+                el.child(
+                    div()
+                        .text_size(px(tokens::text::small()))
+                        .text_color(theme::muted_fg())
+                        .child("Some timeframes"),
+                )
+            })
+            .child(
+                button("tree-up", IconName::ChevronUp, "Bring forward")
+                    .disabled(position + 1 == count)
+                    .on_click(act(
+                        |book, symbol, id, _| book.reorder(symbol, id, Order::Forward),
+                        false,
+                    )),
+            )
+            .child(
+                button("tree-down", IconName::ChevronDown, "Send backward")
+                    .disabled(position == 0)
+                    .on_click(act(
+                        |book, symbol, id, _| book.reorder(symbol, id, Order::Backward),
+                        false,
+                    )),
+            )
+            .child(
+                button(
+                    "tree-eye",
+                    if hidden {
+                        IconName::Eye
+                    } else {
+                        IconName::EyeOff
+                    },
+                    if hidden { "Show" } else { "Hide" },
+                )
+                .on_click(act(Book::set_hidden, !hidden)),
+            )
+            .child(
+                button(
+                    "tree-lock",
+                    if locked {
+                        IconName::Lock
+                    } else {
+                        IconName::LockOpen
+                    },
+                    if locked { "Unlock" } else { "Lock" },
+                )
+                .on_click(act(Book::set_locked, !locked)),
+            )
+            .child(
+                button("tree-settings", IconName::Settings2, "Settings").on_click(
+                    move |_, window, cx| {
+                        let (drawings, symbol, zone, digits, chart) = {
+                            let tree = settings.read(cx);
+                            (
+                                tree.drawings.clone(),
+                                tree.symbol.clone(),
+                                tree.zone,
+                                tree.digits,
+                                tree.chart.clone(),
+                            )
+                        };
+                        drawing_props::open(
+                            drawings,
+                            symbol,
+                            id,
+                            drawing_props::PropsContext {
+                                zone,
+                                digits,
+                                atr_seed: chart
+                                    .as_ref()
+                                    .and_then(|chart| chart.read(cx).atr_seed()),
+                                chart,
+                            },
+                            window,
+                            cx,
+                        );
+                    },
+                ),
+            )
+            .child(
+                button("tree-delete", IconName::Trash, "Delete")
+                    .disabled(locked)
+                    .on_click(act(|book, symbol, id, _| book.delete(symbol, id), false)),
+            )
+            .into_any_element()
+    }
+}
+
+impl Render for ObjectTree {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let book = self.drawings.read(cx).book();
+        let list = book.drawings(&self.symbol).to_vec();
+        let selected = book.selected();
+        let this = cx.entity();
+        let count = list.len();
+        // Some hidden is enough to offer showing them again.
+        let some_hidden = list.iter().any(|d| d.hidden);
+        let head = Head {
+            icon: IconName::ListTree,
+            title: format!("Drawings on {}", self.symbol).into(),
+            subtitle: match count {
+                0 => "Nothing drawn yet".into(),
+                1 => "1 drawing".into(),
+                n => format!("{n} drawings, the top one first").into(),
+            },
+        };
+        let body = if list.is_empty() {
+            form::empty(
+                IconName::Pencil,
+                "No drawings on this symbol yet. Pick a tool on the left of the chart.",
+            )
+            .into_any_element()
+        } else {
+            let mut rows = div().flex().flex_col().gap_1();
+            for (position, drawing) in list.iter().enumerate().rev() {
+                let is_selected = selected == Some(drawing.id);
+                rows = rows.child(Self::row(drawing, position, count, is_selected, &this));
+            }
+            rows.into_any_element()
+        };
+        let (show, clear) = (this.clone(), this);
+        let footer = form::footer(
+            vec![
+                button::action(
+                    "tree-show-all",
+                    if some_hidden { "Show all" } else { "Hide all" },
+                    Some(if some_hidden {
+                        IconName::Eye
+                    } else {
+                        IconName::EyeOff
+                    }),
+                    false,
+                    move |_window, cx| {
+                        show.update(cx, |tree, cx| {
+                            tree.edit(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
+                        });
+                    },
+                )
+                .disabled(list.is_empty())
+                .into_any_element(),
+                button::action(
+                    "tree-clear",
+                    "Remove unlocked",
+                    Some(IconName::Trash),
+                    false,
+                    move |_window, cx| {
+                        clear.update(cx, |tree, cx| {
+                            tree.edit(cx, Book::clear);
+                        });
+                    },
+                )
+                .disabled(list.is_empty())
+                .into_any_element(),
+            ],
+            vec![
+                button::action("tree-close", "Close", None, true, modal::close).into_any_element(),
+            ],
+        );
+        form::dialog(head, modal::dismiss, body, footer)
+    }
+}

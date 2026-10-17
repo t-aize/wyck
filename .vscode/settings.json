@@ -1,18 +1,52 @@
 {
-  "editor.defaultFormatter": "rust-lang.rust-analyzer",
-  "editor.formatOnSave": true,
-  "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
-  "[toml]": { "editor.defaultFormatter": "tamasfe.even-better-toml" },
+  // rust-analyzer checks with clippy, on the whole workspace, in a target folder of its own so
+  // that `cargo run` and `cargo xtask` are never blocked by the lock of its build.
   "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.workspace": true,
+  "rust-analyzer.check.allTargets": true,
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.cargo.allTargets": true,
 
-  "editor.tabSize": 4,
+  // The formatters: rustfmt (100 columns, rustfmt.toml), taplo for TOML (.taplo.toml), the YAML
+  // extension for workflows. Markdown has no formatter on purpose.
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.tabSize": 4,
+    "editor.rulers": [100]
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml",
+    "editor.tabSize": 2,
+    "editor.rulers": [100]
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.tabSize": 2
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "editor.formatOnSave": false,
+    "files.trimTrailingWhitespace": false
+  },
+
   "editor.insertSpaces": true,
-  "editor.rulers": [100],
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
-  "[markdown]": {
-    "files.trimTrailingWhitespace": false
+
+  // Schemas for the workflows and the composite actions.
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml",
+    "https://json.schemastore.org/github-action.json": ".github/actions/*/action.yml",
+    "https://json.schemastore.org/dependabot-2.0.json": ".github/dependabot.yml"
   },
 
   "files.exclude": {
@@ -20,9 +54,11 @@
   },
   "search.exclude": {
     "**/target": true,
+    "**/dist": true,
     "**/Cargo.lock": true
   },
   "files.watcherExclude": {
-    "**/target/**": true
+    "**/target/**": true,
+    "**/dist/**": true
   }
 }

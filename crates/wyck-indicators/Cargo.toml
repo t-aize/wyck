@@ -1,0 +1,23 @@
+[package]
+name = "wyck-indicators"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Indicators of Wyck: the built-in studies, their settings and the Rhai scripts a user writes."
+
+[dependencies]
+chrono.workspace = true
+rhai = { workspace = true, features = ["sync", "metadata", "no_module", "no_time"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml.workspace = true
+wyck-core.workspace = true
+wyck-drawings.workspace = true
+wyck-market.workspace = true
+
+[lints]
+workspace = true

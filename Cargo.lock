@@ -236,10 +236,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "anstream"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824a212faf96e9acacdbd09febd34438f8f711fb84e09a8916013cd7815ca28d"
+dependencies = [
+ "anstyle",
+ "anstyle-parse",
+ "anstyle-query",
+ "anstyle-wincon",
+ "colorchoice",
+ "is_terminal_polyfill",
+ "utf8parse",
+]
+
+[[package]]
 name = "anstyle"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
+
+[[package]]
+name = "anstyle-parse"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ce7f38b242319f7cabaa6813055467063ecdc9d355bbb4ce0c68908cd8130e"
+dependencies = [
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle-query"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "anstyle-wincon"
+version = "3.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
+dependencies = [
+ "anstyle",
+ "once_cell_polyfill",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "anyhow"
@@ -1140,6 +1184,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa8876b300ab35ba921adea3dfd70157a46249b33f95c9084ae5709785478946"
+dependencies = [
+ "clap_builder",
+ "clap_derive",
+]
+
+[[package]]
+name = "clap_builder"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0797fb7aeb1406c84efac526901f7ec3ead2124f946b494e72879d4b54704d"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "clap_lex",
+ "strsim",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9c751b79415d4e559e3d1fcf128e09e720eb673a06d26cf6f392d37d75b66e0"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.7",
+]
+
+[[package]]
+name = "clap_lex"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
+
+[[package]]
 name = "cmov"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,6 +1304,12 @@ name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "colorchoice"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "combine"
@@ -3868,6 +3958,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_terminal_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
 name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5227,6 +5323,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
 name = "oo7"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6484,7 +6586,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d84e8ba78bd384263e5922f084cbe1b081c3b7e69add59c8fb097b879ba968a"
 dependencies = [
  "globset",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "walkdir",
 ]
 
@@ -6578,9 +6680,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "once_cell",
  "ring",
@@ -6784,7 +6886,7 @@ dependencies = [
  "num",
  "once_cell",
  "serde",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "zbus",
 ]
 
@@ -6989,9 +7091,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
@@ -7249,6 +7351,12 @@ dependencies = [
  "proc-macro2",
  "quote",
 ]
+
+[[package]]
+name = "strsim"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
@@ -7659,7 +7767,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -8403,6 +8511,12 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "utf8parse"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
@@ -9708,46 +9822,274 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 name = "wyck"
 version = "0.2.1"
 dependencies = [
- "ab_glyph",
- "anyhow",
- "argon2",
+ "chrono",
+ "gpui-pre",
+ "tempfile",
+ "tracing",
+ "winresource",
+ "wyck-app",
+ "wyck-clock",
+ "wyck-core",
+ "wyck-platform",
+ "wyck-storage",
+ "wyck-ui-editor",
+ "wyck-ui-kit",
+ "wyck-ui-shell",
+]
+
+[[package]]
+name = "wyck-app"
+version = "0.2.1"
+dependencies = [
  "async-trait",
  "cargo-packager-updater",
- "chacha20poly1305",
  "chrono",
- "chrono-tz",
- "directories",
- "dotenvy",
- "futures-util",
- "getrandom 0.4.3",
- "gpui-kit",
  "gpui-pre",
- "keyring",
- "lsp-types",
  "notify-rust",
- "proc-macro2",
- "proptest",
- "reqwest 0.13.5",
- "rhai",
  "rodio",
  "rust-embed",
  "secrecy",
  "serde",
  "serde_json",
- "syn 3.0.7",
  "tempfile",
  "thiserror 2.0.21",
- "tiny-skia 0.12.0",
+ "tokio",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+ "wyck-chart",
+ "wyck-clock",
+ "wyck-core",
+ "wyck-ctrader",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-platform",
+ "wyck-storage",
+ "wyck-trading",
+]
+
+[[package]]
+name = "wyck-chart"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+]
+
+[[package]]
+name = "wyck-clock"
+version = "0.2.1"
+
+[[package]]
+name = "wyck-core"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "wyck-ctrader"
+version = "0.2.1"
+dependencies = [
+ "async-trait",
+ "dotenvy",
+ "futures-util",
+ "reqwest 0.13.5",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
+ "uuid",
+ "wyck-clock",
+ "wyck-core",
+ "wyck-market",
+ "wyck-trading",
+]
+
+[[package]]
+name = "wyck-drawings"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
  "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-trading",
+]
+
+[[package]]
+name = "wyck-indicators"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "rhai",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-market",
+]
+
+[[package]]
+name = "wyck-market"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
+ "wyck-core",
+]
+
+[[package]]
+name = "wyck-platform"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "unicode-segmentation",
+ "wyck-clock",
+]
+
+[[package]]
+name = "wyck-storage"
+version = "0.2.1"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "directories",
+ "getrandom 0.4.3",
+ "keyring",
+ "proptest",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
  "uuid",
- "winresource",
+ "wyck-clock",
+ "wyck-platform",
  "zeroize",
+]
+
+[[package]]
+name = "wyck-trading"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+ "wyck-core",
+ "wyck-market",
+]
+
+[[package]]
+name = "wyck-ui-chart"
+version = "0.2.1"
+dependencies = [
+ "ab_glyph",
+ "gpui-pre",
+ "thiserror 2.0.21",
+ "tiny-skia 0.12.0",
+ "tracing",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-kit",
+]
+
+[[package]]
+name = "wyck-ui-editor"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "gpui-pre",
+ "lsp-types",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-app",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-ui-chart",
+ "wyck-ui-kit",
+]
+
+[[package]]
+name = "wyck-ui-kit"
+version = "0.2.1"
+dependencies = [
+ "gpui-kit",
+ "gpui-pre",
+ "rust-embed",
+ "tracing",
+ "unicode-segmentation",
+ "wyck-core",
+]
+
+[[package]]
+name = "wyck-ui-shell"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "gpui-pre",
+ "serde",
+ "serde_json",
+ "tracing",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-clock",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-chart",
+ "wyck-ui-editor",
+ "wyck-ui-kit",
+ "wyck-ui-trading",
+]
+
+[[package]]
+name = "wyck-ui-trading"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "gpui-pre",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-app",
+ "wyck-chart",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
+ "wyck-trading",
+ "wyck-ui-chart",
+ "wyck-ui-kit",
 ]
 
 [[package]]
@@ -9866,6 +10208,23 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "xtask"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "percent-encoding",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-clock",
+]
 
 [[package]]
 name = "y4m"

@@ -2,6 +2,11 @@
   "recommendations": [
     "rust-lang.rust-analyzer",
     "tamasfe.even-better-toml",
-    "editorconfig.editorconfig"
+    "editorconfig.editorconfig",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions",
+    "tekumara.typos-vscode",
+    "ms-vscode.cpptools",
+    "vadimcn.vscode-lldb"
   ]
 }

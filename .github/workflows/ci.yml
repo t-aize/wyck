@@ -1,17 +1,22 @@
 name: CI
 
+# `ci-ok` is the one check the main branch requires, so the jobs behind it can change without
+# touching the branch rules. No `paths-ignore` here: a pull request that only touches Markdown
+# would then never report `ci-ok` and could not be merged. The `changes` job decides instead which
+# jobs a pull request needs, and `ci-ok` counts a skipped job as fine.
+
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - "**/*.md"
-      - "LICENSE"
-      - ".github/FUNDING.yml"
-      - ".github/ISSUE_TEMPLATE/**"
-  # No paths-ignore here: `main` requires the check `ci-ok`, and a pull request that touches only
-  # Markdown would wait for it forever.
   pull_request:
   workflow_dispatch:
+    inputs:
+      save_cache:
+        description: >-
+          Write the cargo cache from this branch, so that the next run starts warm. Main always does;
+          this is how a change to the build is timed before it is merged.
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -27,119 +32,203 @@ env:
   RUSTUP_MAX_RETRIES: 10
   RUST_BACKTRACE: 1
   # Nothing in CI is run under a debugger. Debug info is the biggest part of a dev target
-  # directory: dropping it makes builds faster, the cache smaller, and avoids running out of
-  # disk on the Windows runner.
+  # directory: dropping it makes builds faster and the cache smaller.
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
 
-# Action versions are updated by Dependabot, see .github/dependabot.yml.
+defaults:
+  run:
+    shell: bash
+
+# Action versions are pinned to a commit and updated by Dependabot, see .github/dependabot.yml.
 jobs:
-  fmt:
+  changes:
+    name: Changed files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # A pull request is checked out as a merge commit: its first parent is the base branch.
+          fetch-depth: 2
+
+      - name: Decide whether anything but documentation changed
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "Not a pull request: every job runs." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          # Only these paths are documentation or editor settings. Anything else counts as code,
+          # so a file nobody thought of can never skip the build.
+          docs='^(docs/|.*\.md$|LICENSE$|\.vscode/|\.zed/|\.claude/|\.github/ISSUE_TEMPLATE/|\.github/FUNDING\.yml$)'
+          code=$(printf '%s\n' "$changed" | grep -Ev "$docs" || true)
+          if [ -n "$code" ]; then value=true; else value=false; fi
+          echo "code=$value" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Changed files (code: $value)"
+            echo '```'
+            printf '%s\n' "$changed"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lint:
+    name: Typos, TOML, dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          system-libraries: "false"
+          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
+          cache-key: lint
+
+      - name: Install the lint tools
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: typos,taplo,cargo-machete
+
+      - name: Check the format of the TOML files
+        run: taplo fmt --check
+
+      - name: Look for typos
+        run: typos
+
+      - name: Look for unused dependencies
+        run: cargo machete
+
+      - name: Check the dependency rules of the workspace
+        run: cargo run --locked --quiet --package xtask -- deps
+
+      - name: Check the AGENTS.md and CLAUDE.md files
+        run: cargo run --locked --quiet --package xtask -- docs-check
+
+  workflows:
+    name: Workflow security
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@v1
+      - name: Install zizmor
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
-          toolchain: stable
-          components: rustfmt
+          tool: zizmor
 
-      - run: cargo fmt --check
+      - name: Audit the workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --format github .github
 
-  # One job per OS so clippy and the tests share a single restored cache and one dependency
-  # build. fmt runs apart because it needs no build at all and fails in seconds.
   check:
-    needs: fmt
+    name: Checks (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
-            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
-
-      - uses: dtolnay/rust-toolchain@v1
+      - name: Set up Rust
+        uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
-          components: clippy
+          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
 
-      # Only main writes the cache. Pull requests and branches restore it read-only, which
-      # keeps the 10 GB repository cache quota from filling up with one entry per branch.
-      - uses: Swatinem/rust-cache@v2.9.2
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tool: cargo-deny
 
-      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
-      - run: cargo test --locked --all-features
+      # Format, clippy, tests, cargo-deny and rustdoc, in this order, stopping at the first
+      # failure. The commands are in xtask/src/ci.rs and nowhere else, so a developer runs the
+      # very same thing with `cargo xtask ci`.
+      - name: Run the checks
+        run: cargo xtask ci
 
-      # Docs are platform independent: build them once.
-      - if: runner.os == 'Linux'
-        run: cargo doc --locked --no-deps
-        env:
-          RUSTDOCFLAGS: -D warnings
-
-  # Confirms the release profile still compiles. Not needed on every pull request, so it only
-  # runs on main. Fat LTO and one codegen unit (see [profile.release] in Cargo.toml) turn this
-  # into a full relink of every dependency, so both are relaxed here; a real
-  # `cargo build --release` still gets the fully optimized profile.
+  # Confirms the release profile still compiles. Not needed on every pull request, so it only runs
+  # on main. Fat LTO and one codegen unit turn it into a full relink of every dependency, so both
+  # are relaxed here; a real `cargo build --release` still gets the fully optimized profile.
   release-build:
+    name: Release build
     if: github.event_name != 'pull_request'
-    needs: fmt
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
+    env:
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
-            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
-
-      - uses: dtolnay/rust-toolchain@v1
+      - name: Set up Rust
+        uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
+          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
+          cache-key: release
 
-      - uses: Swatinem/rust-cache@v2.9.2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build the app in release mode
+        run: cargo build --release --locked
 
-      - run: cargo build --release --locked
-        env:
-          CARGO_PROFILE_RELEASE_LTO: "false"
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
-
-  # A single job to mark as required in branch protection, so the matrix can change without
-  # editing the rules. Skipped jobs (release-build on pull requests) count as fine.
+  # The single job to mark as required in branch protection. A skipped job (the build jobs on a
+  # pull request that only changes documentation) counts as fine; a failed or cancelled one does
+  # not, and neither does `changes` failing, which would leave the jobs behind it skipped.
   ci-ok:
+    name: ci-ok
     if: always()
-    needs: [ fmt, check, release-build ]
+    needs: [ changes, lint, workflows, check, release-build ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: |
-          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "A required job failed or was cancelled."
+      - name: Fail if a job did not pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          CHANGES: ${{ needs.changes.result }}
+        run: |
+          echo "Results: $RESULTS"
+          if [ "$CHANGES" != "success" ]; then
+            echo "The job that looks at the changed files did not succeed." >&2
             exit 1
           fi
+          case " $RESULTS " in
+            *" failure "* | *" cancelled "*)
+              echo "A required job failed or was cancelled." >&2
+              exit 1
+              ;;
+          esac

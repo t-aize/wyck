@@ -1,0 +1,66 @@
+[
+  {
+    "label": "xtask check",
+    "command": "cargo",
+    "args": ["xtask", "check"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "xtask check --full",
+    "command": "cargo",
+    "args": ["xtask", "check", "--full"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "cargo run wyck",
+    "command": "cargo",
+    "args": ["run", "-p", "wyck"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "cargo test (workspace)",
+    "command": "cargo",
+    "args": ["test", "--workspace"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "cargo clippy (workspace)",
+    "command": "cargo",
+    "args": ["clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "cargo doc (workspace)",
+    "command": "cargo",
+    "args": ["doc", "--workspace", "--no-deps", "--locked"],
+    "env": { "RUSTDOCFLAGS": "-D warnings" },
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "cargo deny",
+    "command": "cargo",
+    "args": ["deny", "check"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "xtask deps",
+    "command": "cargo",
+    "args": ["xtask", "deps"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "xtask docs-check",
+    "command": "cargo",
+    "args": ["xtask", "docs-check"],
+    "use_new_terminal": false,
+    "reveal": "always"
+  }
+]

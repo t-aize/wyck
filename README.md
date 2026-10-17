@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Wyck" width="120">
+  <img src="crates/wyck-ui-kit/assets/logo.png" alt="Wyck" width="120">
 </p>
 
 # wyck
@@ -25,9 +25,9 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `assets/marks` are trademarks of their owners, shown only to identify the
-instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
-next to it).
+marks bundled in `crates/wyck-ui-kit/assets/marks` are trademarks of their owners, shown only to
+identify the instrument being traded, and are used under the license of each set (see the
+`LICENSE.txt` next to it).
 
 ## Install
 
@@ -60,18 +60,26 @@ afresh.
 
 ## Layout
 
-One Cargo package, `wyck`: `src/lib.rs` declares the modules, `src/main.rs` only starts the app.
-The code is in four layers, and a lower layer never imports a higher one (a test checks it):
+A Cargo workspace (see the root `Cargo.toml`): one crate per area in `crates/`, and `xtask` for the
+commands of the project (`cargo xtask check`). A crate only depends on the ones above it in this
+table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder says what is inside):
 
-| Layer | Owns |
+| Crate | Owns |
 |---|---|
-| `src/domain` | Pure logic: market data, trading maths, indicators, drawings, chart models |
-| `src/infra` | The cTrader Open API client, settings and credential storage, the async runtime |
-| `src/app` | State and use cases: sign-in, account, alerts, preferences, market data |
-| `src/ui` | GPUI screens: the widget kit (`ui/kit`), the window and dashboard (`ui/shell`), the features |
+| `wyck-clock` | The one place the wall clock is read, so tests and replays can give another |
+| `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
+| `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
+| `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
+| `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
+| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
+| `wyck-ui-kit` | The widget kit: controls, menus, dialogs, colors, the font and the symbol marks |
+| `wyck-ui-chart` | The price chart and the screen that arranges several of them |
+| `wyck-ui-trading`, `wyck-ui-editor` | The order ticket and the account panel; the indicator script editor |
+| `wyck-ui-shell` | The frame of the window: dashboard, settings, sign-in gate, keyboard shortcuts |
+| `wyck` | The program: `src/main.rs` starts the logs, the saved data and the window |
 
 Every control, menu, dialog and color comes from the widget kit. The Open API client is described
-in the rustdoc of `infra::ctrader` (`cargo doc --open`).
+in the rustdoc of `wyck-ctrader` (`cargo doc -p wyck-ctrader --open`).
 
 ## Your own indicators
 
@@ -169,7 +177,7 @@ cargo test
 
 The first build is slow because the dependency graph is large and dependencies are compiled
 with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
-Later builds only recompile what changed in this package.
+Later builds only recompile what changed.
 
 ## Development build and installed app
 
@@ -232,28 +240,32 @@ stderr gets `debug` for Wyck. `WYCK_DATA_DIR` moves the log folder with the rest
 
 ## Test against a real demo account
 
-Testing the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
-Fill in `.env` from [.env.example](.env.example), then:
+Trying the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
+Fill in `.env` from [.env.example](crates/wyck-ctrader/.env.example), then run one of the examples in `crates/wyck-ctrader/examples/`:
 
 ```sh
-cargo test --test ctrader live -- --ignored --nocapture
+cargo run -p wyck-ctrader --example ctrader_accounts
 ```
 
 ## Checks
 
-The same checks run in CI on Linux, Windows and macOS:
+One command runs what CI runs, on any system (it needs `cargo install --locked cargo-deny`):
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
+cargo xtask ci             # format, clippy, tests, cargo-deny and rustdoc, all strict, stops at the first failure
+cargo xtask check          # the same, then the dependency rules (cargo-deny is skipped if missing)
+cargo xtask check --full   # also cargo-machete, typos, taplo, zizmor and actionlint
 ```
 
-Clippy refuses `unwrap` and `expect` outside tests (`clippy.toml`).
+`--full` skips the tools that are not installed and says how to install them. CI runs
+`cargo xtask ci` on Linux, Windows and macOS (see `.github/workflows/ci.yml`). The lint levels are
+in `[workspace.lints]` of the root `Cargo.toml`, the rules for `unwrap`, `expect` and the clock in
+`clippy.toml`; the toolchain is pinned in `rust-toolchain.toml`.
 
-Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
-(`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.
+`cargo xtask deps` checks the rules that make the workspace one thing: a crate takes its
+dependency versions, its metadata and its lints from the root `Cargo.toml`, and only depends on
+the crates its layer allows. Dependencies are audited with
+[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (`deny.toml`) and updated by Dependabot.
 
 ## Contributing
 

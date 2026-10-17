@@ -28,6 +28,8 @@ Cargo.lock -diff linguist-generated=true
 *.jpeg binary
 *.gif binary
 *.ico binary
+*.icns binary
+*.wav binary
 *.woff binary
 *.woff2 binary
 *.ttf binary

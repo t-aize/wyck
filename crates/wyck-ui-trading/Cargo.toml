@@ -1,0 +1,30 @@
+[package]
+name = "wyck-ui-trading"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "The trading screens of Wyck: the order ticket, the account panel and the lines that show orders, positions and alerts on the charts."
+
+[dependencies]
+chrono.workspace = true
+gpui.workspace = true
+serde_json.workspace = true
+wyck-app.workspace = true
+wyck-chart.workspace = true
+wyck-core.workspace = true
+wyck-drawings.workspace = true
+wyck-indicators.workspace = true
+wyck-market.workspace = true
+wyck-trading.workspace = true
+wyck-ui-chart.workspace = true
+wyck-ui-kit.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+[lints]
+workspace = true
