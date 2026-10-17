@@ -13,11 +13,11 @@ Used by: `wyck-app`, `wyck-chart`, `wyck-indicators`, `wyck-ui-chart`, `wyck-ui-
 | Module | What it holds |
 |---|---|
 | `model` | `Drawing` (a tool, its points, its look), `Point` (time in ms + raw price), `DrawingsDoc` (the saved file), templates, and the size limits. Submodules: `tool` (`Tool`, its groups and how many points it takes), `style` (line, fill, text, levels), `capabilities` (which properties a tool has), `defaults` (the look a new drawing starts with). |
-| `look` | The small pieces of a look beyond line and fill: text layout, line ends (`Caps`), level text, measure and volume-profile looks. |
+| `look` | The small pieces of a look beyond line and fill: the dash of a line (`Dash`, re-exported by `model::style`), text layout, line ends (`Caps`), level text, measure and volume-profile looks. |
 | `prim` | The vocabulary under every tool's shapes: `Projection` (the chart seen from here), `Prim` (a shape to draw), `P`, `Anchor`, `Part` and the helpers the shapes are built from (`seg`, `lead`, `extended`, `fib`). It depends on nothing above it. |
 | `geometry` | The public face of `prim`, plus `prims_with` (drawing -> shapes, by tool), `handles` and the hit tests. Submodules: `shapes`, `measure`, `hit`. |
-| `book` | `Book`: the drawings of every symbol plus the pointer state machine (create, pick, move, reshape, undo). Submodules: `create`, `pick`, `edit`, `actions`, `history`, `templates`. |
-| `position` | `PositionSettings`: the sizing of a long or short position drawing (risk, leverage, lot step, point value). |
+| `book` | `Book`: the drawings of every symbol plus the pointer state machine (create, pick, hover, move, reshape, undo). Submodules: `create`, `pick`, `edit`, `actions`, `history`, `templates`. |
+| `position` | `PositionSettings`: the sizing of a long or short position drawing (risk, leverage, lot step, point value) and its look beyond line and fill (colors, zone opacities, outer lines, tags, whether the zones take a press). |
 
 Private, built on `prim` and reached through `geometry`: `figures` (pitchforks, Gann, patterns, Elliott waves), `extras`
 (information lines, regression, ranges, cycles, curves, notes, tables, bars, VWAP, volume) and `decor`
@@ -42,6 +42,11 @@ re-exported at the root, for the menus.
 - `Book` has no idea of a window: a press, a move and a release come in with a `Projection`, and
   drawings come out. Keep it that way, it is what makes the fiddly rules testable. The rule for placing
   points is written at the top of `book.rs`; read it before touching `create`.
+- A grip is on what is drawn. `geometry::handles` gives a tool whose last point only sets a size or an offset (`grips_may_leave_shape`: channels, rotated rectangle, wedge, cycles, regression) a grip placed on a drawn line where a press changes nothing, and `book/edit.rs` keeps the third point of a channel inside the span of its lines while it is placed or dragged. A new tool of that kind goes in both, and in the test `a_grip_stays_on_what_is_drawn_even_when_its_point_is_far_from_it`.
+- Every drawing under the pointer offers its grips (`Book::hit_resolved`), not only the selected one: the chart shows them on hover. `Book::pick_resolved` (the selected one's grips first, then the topmost drawing) is what both a press and the hover ask, so the cursor never disagrees with what a press does.
+- `Book` is shared by every chart. `hold` / `release_hold` / `held_elsewhere` say which chart holds the button, so that a second chart of the same symbol does not move a drawing with its own projection. Escape during a drag puts the drawing back (`Book::cancel`).
+- The tags of a position show while the pointer is over it (or always, with `always_stats`), so they are part of it for the hit tests. When the zones are shorter than a tag, or the box narrower than its words, the three tags become one, beside the box (`position_prims`), which is not part of it.
+- A position takes a press in its zones only if they are painted and `grab_zones` is on; otherwise its lines, edges and grips do. A new position starts small (a few percent of the price span, 2R) or like the last one edited (`position_shape`, kept for the session, not saved).
 - The money on a position drawing is a plan, not a quote: no live rate. The quantity comes from
   `wyck_trading::contract::quantity_for_risk`, the same formula as the order ticket. Do not copy it.
 - Raw prices (what the chart holds) and real prices (what a trader reads) differ; only
@@ -64,7 +69,7 @@ that must not be weakened. Run: `cargo test -p wyck-drawings`.
 
 - A new tool: a variant of `Tool` (a new name, never a rename), its group, label and `anchors` in
   `model/tool.rs`, its capabilities and default look in `model/`, its shapes in `figures` or
-  `extras`, its handles in `geometry/hit.rs`, and tests for geometry and for the saved round trip.
+  `extras`, its handles in `geometry/hit.rs` (on the shape, see above), and tests for geometry and for the saved round trip.
 - A new property of a look: a field with `#[serde(default)]` in `model/style.rs` or `look.rs`,
   skipped when at its default, with `normalized` keeping it in range.
 - A new rule for the pointer: `book/` (`create`, `edit`, `pick`), tested through `Book`.

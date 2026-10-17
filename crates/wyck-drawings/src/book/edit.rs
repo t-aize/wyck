@@ -1,7 +1,7 @@
 //! Moving a drawing, one of its handles, or a new point under the pointer.
 
-use super::{BRUSH_STEP, Book, DRAG_START, EditKind, Editing, Press, Snapshot};
-use crate::geometry::{self, Part, Projection};
+use super::{BRUSH_STEP, Book, DRAG_START, EditKind, Editing, PositionShape, Press, Snapshot};
+use crate::geometry::{Part, Projection};
 use crate::model::tool::Tool;
 use crate::model::{Drawing, MAX_BRUSH_POINTS, Point};
 
@@ -21,19 +21,7 @@ impl Book {
         resolve: &dyn Fn(&Drawing) -> Option<Drawing>,
     ) -> Press {
         let at = (x, y);
-        // The selected drawing's grips come first, wherever it is in the stack.
-        let mut found: Option<(u64, Part)> = None;
-        if let Some(id) = self.selected
-            && let Some(drawing) = self.get(symbol, id).filter(|d| d.shows_on(timeframe))
-            && let Some(resolved) = resolve(drawing)
-            && let Some(part @ Part::Handle(_)) = geometry::hit::hit(&resolved, proj, at, true)
-        {
-            found = Some((id, part));
-        }
-        if found.is_none() {
-            found = self.hit_resolved(symbol, timeframe, proj, at, resolve);
-        }
-        let Some((id, part)) = found else {
+        let Some((id, part)) = self.pick_resolved(symbol, timeframe, proj, at, resolve) else {
             // Shift keeps the selection, so a box can be dragged from empty space to add to it.
             if !add {
                 self.selected = None;
@@ -160,6 +148,12 @@ impl Book {
         for slot in creating.drawing.points.iter_mut().skip(creating.placed) {
             *slot = point;
         }
+        if creating.placed == 2
+            && let Some(inside) = offset_grip_in_span(&creating.drawing, proj, (x, y), magnet)
+            && let Some(slot) = creating.drawing.points.get_mut(2)
+        {
+            *slot = inside;
+        }
         if let Some(press) = creating.press
             && ((x - press.0).powi(2) + (y - press.1).powi(2)).sqrt() >= DRAG_START
         {
@@ -173,17 +167,22 @@ impl Book {
             return false;
         };
         let symbol = editing.symbol.clone();
-        let Some(now) = proj.point_at(
-            x,
-            y,
-            self.magnet && matches!(editing.kind, EditKind::Handle(_)),
-        ) else {
+        let magnet = self.magnet && matches!(editing.kind, EditKind::Handle(_));
+        let Some(now) = proj.point_at(x, y, magnet) else {
             return false;
         };
         let mut updated = editing.original.clone();
         let mut moved_group: Vec<Drawing> = Vec::new();
         match editing.kind {
-            EditKind::Handle(index) => apply_handle(&mut updated, index, now),
+            EditKind::Handle(index) => {
+                apply_handle(&mut updated, index, now);
+                if index == 2
+                    && let Some(point) = offset_grip_in_span(&updated, proj, (x, y), magnet)
+                    && let Some(slot) = updated.points.get_mut(2)
+                {
+                    *slot = point;
+                }
+            }
             EditKind::Move(start) => {
                 let (Some(from), Some(to)) = (proj.index_of(start.t), proj.index_of(now.t)) else {
                     return false;
@@ -266,8 +265,10 @@ impl Book {
             }
             // Off the plot there is no point under the pointer: the drawing keeps the last one it
             // followed.
-            let point = proj
-                .point_at(x, y, magnet)
+            let point = (creating.placed == 2)
+                .then(|| offset_grip_in_span(&creating.drawing, proj, (x, y), magnet))
+                .flatten()
+                .or_else(|| proj.point_at(x, y, magnet))
                 .or_else(|| creating.drawing.points.get(creating.placed).copied());
             if let Some(point) = point {
                 self.place_point(symbol, point, (x, y));
@@ -275,9 +276,11 @@ impl Book {
             return true;
         }
         if let Some(editing) = self.editing.take() {
-            let changed = self
-                .get(&editing.symbol, editing.id)
-                .is_some_and(|now| *now != editing.original);
+            let now = self.get(&editing.symbol, editing.id);
+            let changed = now.is_some_and(|now| *now != editing.original);
+            if changed && let Some(shape) = now.and_then(|now| position_shape(now, proj)) {
+                self.position_shape = Some(shape);
+            }
             if changed {
                 self.remember(Snapshot {
                     symbol: editing.symbol,
@@ -288,6 +291,61 @@ impl Book {
         }
         false
     }
+}
+
+/// The shape of a position as the user left it, for the next one to start the same way: `None`
+/// for another drawing, a stop on the entry or a target on the wrong side.
+fn position_shape(drawing: &Drawing, proj: &dyn Projection) -> Option<PositionShape> {
+    if !drawing.tool.is_position() {
+        return None;
+    }
+    let [entry, stop, target, edge] = drawing.points.as_slice() else {
+        return None;
+    };
+    let (risk, reward) = ((entry.p - stop.p).abs(), (target.p - entry.p).abs());
+    let sensible = (target.p - entry.p) * (entry.p - stop.p) > 0.0;
+    let span = proj.price_span();
+    let bars = proj.index_of(edge.t)? - proj.index_of(entry.t)?;
+    (sensible && span > 0.0 && risk > 0.0 && bars >= 1.0).then(|| PositionShape {
+        risk: (risk / span).clamp(0.001, 1.0),
+        reward: (reward / risk).clamp(0.1, 100.0),
+        bars: bars.min(10_000.0),
+    })
+}
+
+/// Where the third point of a channel goes so that its grip stays on the lines it sets. That point
+/// only gives the gap between the first line and the second, so it can sit at any time; the lines
+/// are drawn between the first two points, and a grip dragged past either end would leave them.
+/// The time is kept inside that span and the price keeps the gap the pointer asked for. `None` when
+/// the pointer is already inside the span, or the tool is not a channel.
+pub(super) fn offset_grip_in_span(
+    drawing: &Drawing,
+    proj: &dyn Projection,
+    (x, y): (f32, f32),
+    magnet: bool,
+) -> Option<Point> {
+    if !matches!(
+        drawing.tool,
+        Tool::ParallelChannel | Tool::FibChannel | Tool::FlatTopBottom
+    ) {
+        return None;
+    }
+    let [a, b, _] = drawing.points.as_slice() else {
+        return None;
+    };
+    let (a, b) = (proj.to_screen(*a)?, proj.to_screen(*b)?);
+    let (low, high) = (a.0.min(b.0), a.0.max(b.0));
+    if (low..=high).contains(&x) {
+        return None;
+    }
+    let inside = x.clamp(low, high);
+    let y_inside = if drawing.tool == Tool::FlatTopBottom || (b.0 - a.0).abs() < 1e-6 {
+        y
+    } else {
+        let on_line = |at: f32| a.1 + (b.1 - a.1) * (at - a.0) / (b.0 - a.0);
+        on_line(inside) + (y - on_line(x))
+    };
+    proj.point_at(inside, y_inside, magnet)
 }
 
 /// Moves one point of a drawing, keeping the shape the tool needs: a position's stop and target

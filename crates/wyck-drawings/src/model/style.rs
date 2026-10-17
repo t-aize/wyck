@@ -1,19 +1,11 @@
 //! How a drawing is drawn: its line, fill and text, and the levels of the tools that have some.
 
+pub use crate::look::Dash;
 use crate::look::{
     Caps, Face, LabelSide, LevelText, MeasureLook, ProfileLook, TextLayout, is_default,
 };
 use crate::position::PositionSettings;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum Dash {
-    #[default]
-    Solid,
-    Dashed,
-    Dotted,
-}
 
 /// How a drawing looks. Colors are `0xRRGGBB`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

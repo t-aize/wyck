@@ -45,6 +45,7 @@ The modules below are private; a type is reached by its name at the root.
 - The work of a frame is bounded by the screen, never by the data: only the points that reach the
   plot are visited, and points narrower than a pixel are folded into one column (low, high, first,
   last). Keep that when adding a chart type, a hundred thousand bars must cost a screenful.
+- Drawings never hide the candles: their fills, lines and tags are painted under the prices. Only the grips (of the selected drawings and of the hovered one) go over them (`scene/drawings.rs` returns that layer to `bands::prices`), since a candle over a grip makes it hard to use. The tags of a position show only on the drawing the pointer is over or dragging in this chart (`DrawingView::hovered`), so a position seen on another chart, or ten of them, add nothing to read.
 - `Display` is computed on a change of prices or settings, a frame only reads it. Do not compute
   indicators or transforms inside `scene`.
 - `scene` makes commands (`Cmd`) in window coordinates, it names shapes, not a graphics library. It

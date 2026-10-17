@@ -49,6 +49,7 @@ in the last column.
 - **No `[]` on a slice or a vector**: the workspace denies it for data that can be short. Use `get`,
   a slice pattern or an iterator. The one exception is `MultiChart::active_chart`, whose reason is
   written on it (a layout always holds a chart and `active` stays inside it).
+- **One book, several charts.** Every chart draws into the same drawing book, and two charts of one symbol both see the pointer. The chart that takes a press calls `Book::hold` (and `release_hold` on the release); the others ignore the moves meanwhile (`glue::drawing_moved`). A drag past the edge of the plot keeps the point on the edge. The chart tells the frame which drawing is under the pointer (`over_drawing`), and that one shows its grips and, for a position, its tags (the one being dragged counts while the book is busy).
 - **Positions on a chart are drawings**: a position drawing (`Tool::LongPosition`, `ShortPosition`)
   starts with three points (entry, stop, target); `resolved_position` fills the stop and target from
   the ATR and the risk/reward, and `position_plan` hands the result to the order ticket.

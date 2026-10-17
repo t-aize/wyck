@@ -285,8 +285,8 @@ pub struct Chart {
     drawings_observe: Option<gpui::Subscription>,
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
-    /// Whether the pointer is over a drawing, for the mouse cursor.
-    over_drawing: Option<wyck_drawings::book::Grab>,
+    /// The drawing under the pointer and how it can be grabbed there.
+    over_drawing: Option<(u64, wyck_drawings::book::Grab)>,
     /// A drawing was double-clicked: its settings open at the next render, which has the window.
     settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.

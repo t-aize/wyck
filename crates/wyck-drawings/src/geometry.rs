@@ -723,7 +723,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn positions_move_from_the_zones_but_not_their_tags() {
+    fn positions_move_from_the_zones_and_from_their_tags() {
         for (tool, stop, target, stop_y, target_y) in [
             (Tool::LongPosition, 90.0, 130.0, 405.0, 385.0),
             (Tool::ShortPosition, 110.0, 80.0, 395.0, 415.0),
@@ -734,13 +734,14 @@ pub(super) mod tests {
             );
             assert_eq!(hit(&d, &Linear, (150.0, stop_y), true), Some(Part::Body));
             assert_eq!(hit(&d, &Linear, (150.0, target_y), true), Some(Part::Body));
-            assert_eq!(hit(&d, &Linear, (250.0, 400.0), true), None);
+            // A tag shows while the pointer is over the position, so it is part of it.
+            assert_eq!(hit(&d, &Linear, (250.0, 400.0), true), Some(Part::Body));
             assert_eq!(
                 hit(&d, &Linear, (100.0, 400.0), true),
                 Some(Part::Handle(0))
             );
             d.style.position.always_stats = true;
-            assert_eq!(hit(&d, &Linear, (250.0, 400.0), false), None);
+            assert_eq!(hit(&d, &Linear, (250.0, 400.0), false), Some(Part::Body));
         }
     }
 
@@ -780,5 +781,174 @@ pub(super) mod tests {
                 .any(|s| matches!(s, Prim::Rect { .. } | Prim::Label { .. }))
         );
         assert_eq!(bare.len(), 3, "the three lines are left");
+    }
+
+    #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "the values compared are copied from the settings into the shapes unchanged, so they are exact"
+    )]
+    fn the_zones_and_the_outer_lines_have_looks_of_their_own() {
+        let mut d = long_position();
+        d.style.fill_opacity = 0.2;
+        d.style.position.stop_opacity = Some(0.6);
+        d.style.position.edge_dash = Dash::Dashed;
+        d.style.position.edge_width = Some(4.0);
+        let shapes = prims(&d, &Linear);
+        let alphas: Vec<f32> = shapes
+            .iter()
+            .filter_map(|s| match s {
+                Prim::Rect {
+                    fill: Some((_, alpha)),
+                    ..
+                } => Some(*alpha),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            alphas,
+            vec![0.2, 0.6],
+            "the target follows the fill, the stop has its own"
+        );
+        let outer = shapes
+            .iter()
+            .filter(
+                |s| matches!(s, Prim::Segment { dash: Dash::Dashed, width, .. } if *width == 4.0),
+            )
+            .count();
+        assert_eq!(outer, 2, "the target and the stop, not the entry");
+
+        // A zone with no opacity of its own and none in the fill is not painted at all.
+        d.style.fill_opacity = 0.0;
+        d.style.position.stop_opacity = None;
+        d.style.position.target_opacity = Some(0.3);
+        let painted = prims(&d, &Linear)
+            .iter()
+            .filter(|s| matches!(s, Prim::Rect { .. }))
+            .count();
+        assert_eq!(painted, 1);
+    }
+
+    #[test]
+    fn each_tag_can_be_hidden_and_the_plate_left_out() {
+        let mut d = long_position();
+        d.style.position.show_target_tag = false;
+        assert_eq!(position_labels(&d, true).len(), 2);
+        d.style.position.show_stop_tag = false;
+        d.style.position.show_entry_tag = false;
+        assert_eq!(position_labels(&d, true), [] as [String; 0]);
+
+        let mut d = long_position();
+        let plates = |d: &Drawing| {
+            prims_with(d, &Linear, true)
+                .iter()
+                .filter(|s| {
+                    matches!(
+                        s,
+                        Prim::Label {
+                            background: Some(_),
+                            ..
+                        }
+                    )
+                })
+                .count()
+        };
+        assert_eq!(plates(&d), 3);
+        d.style.position.tag_background = false;
+        assert_eq!(plates(&d), 0);
+        // With no plate the words take the color of their level, so they can be read on any chart.
+        assert!(prims_with(&d, &Linear, true).iter().any(|s| matches!(
+            s, Prim::Label { color, .. } if *color == d.style.position.target_color
+        )));
+    }
+
+    #[test]
+    fn a_position_too_small_for_three_tags_writes_one_beside_it() {
+        let labels = |d: &Drawing| -> Vec<(String, P, Anchor)> {
+            prims_with(d, &Linear, true)
+                .into_iter()
+                .filter_map(|s| match s {
+                    Prim::Label {
+                        text, at, anchor, ..
+                    } => Some((text, at, anchor)),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Zones a few pixels high: seen on a chart of longer bars, that is what a position is.
+        let low = drawing(
+            Tool::LongPosition,
+            &[(100, 100.0), (100, 98.0), (100, 103.0), (400, 100.0)],
+        );
+        let tags = labels(&low);
+        assert_eq!(tags.len(), 1, "{tags:?}");
+        let (text, at, anchor) = &tags[0];
+        assert!(
+            text.starts_with("Long") && text.contains("TP") && text.contains("SL"),
+            "{text}"
+        );
+        assert!(
+            at.0 > 400.0 && *anchor == Anchor::Left,
+            "beside the right edge: {at:?}"
+        );
+
+        // A box narrower than its words does the same.
+        let narrow = drawing(
+            Tool::LongPosition,
+            &[(100, 100.0), (100, 60.0), (100, 160.0), (120, 100.0)],
+        );
+        assert_eq!(labels(&narrow).len(), 1);
+
+        // Near the right edge of the plot there is no room beside it: it goes to the left.
+        let late = drawing(
+            Tool::LongPosition,
+            &[(900, 100.0), (900, 98.0), (900, 103.0), (990, 100.0)],
+        );
+        let tags = labels(&late);
+        assert!(
+            tags[0].1.0 < 900.0 && tags[0].2 == Anchor::Right,
+            "{tags:?}"
+        );
+
+        // Room enough: the three tags are where they always were.
+        assert_eq!(labels(&long_position()).len(), 3);
+
+        // A tag that is switched off is not in the one tag either.
+        let mut quiet = low;
+        quiet.style.position.show_stop_tag = false;
+        let tags = labels(&quiet);
+        assert!(!tags[0].0.contains("SL"), "{tags:?}");
+    }
+
+    #[test]
+    fn an_unpainted_zone_is_not_picked_up_and_zones_can_let_a_press_through() {
+        let mut d = long_position();
+        // Inside the profit zone, away from every line and edge.
+        let inside = (250.0, 385.0);
+        assert_eq!(hit(&d, &Linear, inside, false), Some(Part::Body));
+
+        d.style.fill = false;
+        assert_eq!(
+            hit(&d, &Linear, inside, false),
+            None,
+            "nothing is painted there"
+        );
+        // The lines are still there to pick it up by.
+        assert_eq!(hit(&d, &Linear, (250.0, 400.0), false), Some(Part::Body));
+        assert_eq!(hit(&d, &Linear, (250.0, 370.0), false), Some(Part::Body));
+
+        d.style.fill = true;
+        d.style.position.grab_zones = false;
+        assert_eq!(
+            hit(&d, &Linear, inside, false),
+            None,
+            "the press goes to the chart"
+        );
+        assert_eq!(hit(&d, &Linear, (250.0, 401.0), false), Some(Part::Body));
+        assert_eq!(
+            hit(&d, &Linear, (400.0, 380.0), false),
+            Some(Part::Body),
+            "the right edge"
+        );
     }
 }

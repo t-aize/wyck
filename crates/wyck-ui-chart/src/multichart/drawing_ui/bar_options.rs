@@ -156,6 +156,32 @@ impl MultiChart {
                         })),
                 )
                 .child(
+                    wyck_ui_kit::button::quiet("draw-zones")
+                        .icon(IconName::PaintBucket)
+                        .tooltip("Color the profit and loss zones")
+                        .toggled(st.style.fill)
+                        .on_click(
+                            cx.listener(|this, _event, _window, cx| this.toggle_drawing_fill(cx)),
+                        ),
+                )
+                .child(
+                    wyck_ui_kit::button::quiet("draw-grab-zones")
+                        .icon(IconName::MousePointer2)
+                        .tooltip(if st.style.position.grab_zones {
+                            "A press in a zone moves the position (click to let it scroll the chart)"
+                        } else {
+                            "A press in a zone scrolls the chart (click to let it move the position)"
+                        })
+                        .toggled(st.style.position.grab_zones)
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.edit_book(cx, |book, symbol| {
+                                book.edit_style(symbol, |s| {
+                                    s.position.grab_zones = !s.position.grab_zones;
+                                })
+                            });
+                        })),
+                )
+                .child(
                     wyck_ui_kit::button::quiet("draw-flip")
                         .icon(IconName::ArrowUpDown)
                         .tooltip(if tool == Tool::LongPosition {
