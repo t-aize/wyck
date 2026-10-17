@@ -33,7 +33,7 @@ use crate::market_data::live::{LiveHub, Wish};
 use crate::market_data::load;
 use crate::market_data::load::Loaded;
 use crate::market_data::now_ms;
-use crate::workspace::Saver;
+use crate::saver::Saver;
 use wyck_platform::runtime;
 
 pub mod eval;
@@ -43,7 +43,7 @@ pub mod sound;
 use self::eval::{Judged, Reading};
 pub use self::model::condition::{Condition, Trigger};
 pub use self::model::source::Source;
-pub use self::model::{Alert, AlertBook};
+pub use self::model::{Alert, AlertBook, DEFAULT_SAVED_ALERTS, MAX_SAVED_ALERTS};
 
 pub(crate) const DOCUMENT: &str = "alerts";
 /// The owner of the alerts' price subscriptions in the live hub.

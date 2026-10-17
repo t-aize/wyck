@@ -13,6 +13,7 @@ pub mod lost;
 pub mod market_data;
 pub mod migrations;
 pub mod prefs;
+pub mod saver;
 pub mod scripts;
 pub mod shortcuts;
 pub mod sign_in;

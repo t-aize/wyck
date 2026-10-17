@@ -202,7 +202,7 @@ mod tests {
             1.1200,
             Condition::Crossing,
             0,
-            wyck_app::workspace::DEFAULT_SAVED_ALERTS,
+            wyck_app::alerts::DEFAULT_SAVED_ALERTS,
         );
         let lines = lines(&book, &alerts, &|_| Some(-12.5), "USD");
 

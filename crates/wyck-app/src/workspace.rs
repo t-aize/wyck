@@ -13,15 +13,15 @@
 //!
 //! [`Workspace`] is the live copy, a gpui entity: views read it, change it through
 //! [`Workspace::edit_preferences`] and [`Workspace::edit_watchlists`], and are told when it
-//! changed. Each change is saved a moment later (see `saver`) and once more on exit.
+//! changed. Each change is saved a moment later (see [`crate::saver`]) and once more on exit.
 
 pub mod layouts;
 mod preferences;
-mod saver;
 
+pub(crate) use self::preferences::watchlists::WATCHLISTS_VERSION;
 pub use self::preferences::watchlists::{NameError, Watchlist, Watchlists};
 pub use self::preferences::*;
-pub use self::saver::Saver;
+use crate::saver::Saver;
 use wyck_storage::DocumentStore;
 
 pub(crate) const PREFERENCES: &str = "preferences";

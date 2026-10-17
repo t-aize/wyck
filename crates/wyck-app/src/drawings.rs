@@ -9,7 +9,7 @@
 use crate::storage::DocumentStore;
 use gpui::Context;
 
-use crate::workspace::Saver;
+use crate::saver::Saver;
 use wyck_drawings::book::Book;
 use wyck_drawings::model::DrawingsDoc;
 

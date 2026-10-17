@@ -26,7 +26,7 @@ use std::rc::Rc;
 use std::time::Duration;
 use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
-use wyck_app::workspace::Saver;
+use wyck_app::saver::Saver;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::{Problem, Severity};
 use wyck_ui_chart::multichart::MultiChart;

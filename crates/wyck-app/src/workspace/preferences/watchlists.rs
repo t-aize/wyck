@@ -1,7 +1,12 @@
 //! The watchlists: named lists of symbols.
 
-use super::{MAX_LIST_NAME, WATCHLISTS_VERSION};
 use serde::{Deserialize, Serialize};
+
+/// The layout of the watchlists document.
+pub(crate) const WATCHLISTS_VERSION: u32 = 1;
+
+/// Maximum length of a watchlist name.
+pub(crate) const MAX_LIST_NAME: usize = 40;
 
 /// What a watchlists document without a version is taken to be.
 fn schema_version() -> u32 {
@@ -212,5 +217,38 @@ mod tests {
         let text = toml::to_string_pretty(&lists).unwrap();
         let back: Watchlists = toml::from_str(&text).unwrap();
         assert_eq!(back, lists);
+    }
+
+    #[test]
+    fn a_hand_edited_watchlist_file_is_cleaned_up() {
+        let text = r#"
+            favorites = ["A", "B", "A"]
+            [[lists]]
+            name = "One"
+            symbols = ["X", "X", "Y"]
+            [[lists]]
+            name = " one "
+            [[lists]]
+            name = ""
+        "#;
+        let lists: Watchlists = toml::from_str(text).unwrap();
+        let lists = lists.normalized();
+        assert_eq!(lists.favorites, vec!["A", "B"]);
+        assert_eq!(lists.lists.len(), 1);
+        assert_eq!(lists.lists[0].symbols, vec!["X", "Y"]);
+    }
+
+    #[test]
+    fn a_0_1_watchlist_fixture_is_preserved_and_normalized() {
+        let text = include_str!("../../fixtures/watchlists-0.1.toml");
+        let lists: Watchlists = toml::from_str(text).unwrap();
+        let lists = lists.normalized();
+
+        assert_eq!(lists.schema_version, 1);
+        assert_eq!(lists.favorites, vec!["EURUSD", "XAUUSD"]);
+        assert_eq!(lists.lists.len(), 2);
+        assert_eq!(lists.lists[0].name, "Majors");
+        assert_eq!(lists.lists[0].symbols, vec!["EURUSD", "GBPUSD"]);
+        assert_eq!(lists.lists[1].symbols, vec!["XAUUSD", "XAGUSD"]);
     }
 }

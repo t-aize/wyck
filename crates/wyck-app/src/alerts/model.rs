@@ -11,9 +11,12 @@ use self::condition::{Condition, Trigger};
 #[cfg(test)]
 use self::source::PnlScope;
 use self::source::{Source, default_pip};
-use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 
 pub(crate) const SCHEMA_VERSION: u32 = 2;
+/// The most alerts the user can ask to keep.
+pub const MAX_SAVED_ALERTS: usize = 2_000;
+/// How many alerts are kept until the user says otherwise.
+pub const DEFAULT_SAVED_ALERTS: usize = 500;
 /// The firings kept for the history.
 pub(crate) const MAX_HISTORY: usize = 200;
 
@@ -339,7 +342,7 @@ impl AlertBook {
                     true
                 }
         });
-        self.alerts.truncate(MAX_ALERTS);
+        self.alerts.truncate(MAX_SAVED_ALERTS);
         for alert in &mut self.alerts {
             if alert.source.is_measure() {
                 // Nothing else to compare a spread or a profit with, and no bars to judge.
@@ -402,7 +405,7 @@ impl AlertBook {
             price,
             condition,
             now_ms,
-            crate::workspace::DEFAULT_SAVED_ALERTS,
+            DEFAULT_SAVED_ALERTS,
         )
     }
 
@@ -425,7 +428,7 @@ impl AlertBook {
 
     /// Adds an alert (its id is given here), unless the limit is reached.
     pub fn insert(&mut self, mut alert: Alert, limit: usize) -> Option<u64> {
-        if self.alerts.len() >= limit.clamp(1, MAX_ALERTS) {
+        if self.alerts.len() >= limit.clamp(1, MAX_SAVED_ALERTS) {
             return None;
         }
         let id = self.next_id.max(1);
