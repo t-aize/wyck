@@ -3,7 +3,6 @@
 
 use serde::Serialize;
 
-use super::history;
 use super::requests::{
     AssetClassListRes, AssetListRes, GetTickDataReq, GetTickDataRes, GetTrendbarsReq,
     GetTrendbarsRes, LiveTrendbarReq, SubscribeSpotsReq, SymbolByIdReq, SymbolByIdRes,
@@ -365,35 +364,5 @@ impl MarketClient {
             )
             .await?;
         Ok((decode_ticks(&response.tick_data), response.has_more))
-    }
-
-    /// Every bar of `period` in `[from_ms, to_ms]`, paged. See `history::fetch_bars`.
-    ///
-    /// # Errors
-    ///
-    /// See `history::fetch_bars`.
-    pub async fn bars(
-        &self,
-        symbol_id: i64,
-        period: Period,
-        from_ms: i64,
-        to_ms: i64,
-    ) -> Result<Vec<Bar>> {
-        history::fetch_bars(self, symbol_id, period, from_ms, to_ms).await
-    }
-
-    /// Every tick of one side in `[from_ms, to_ms]`, paged. See `history::fetch_ticks`.
-    ///
-    /// # Errors
-    ///
-    /// See `history::fetch_ticks`.
-    pub async fn ticks(
-        &self,
-        symbol_id: i64,
-        side: QuoteType,
-        from_ms: i64,
-        to_ms: i64,
-    ) -> Result<Vec<Tick>> {
-        history::fetch_ticks(self, symbol_id, side, from_ms, to_ms).await
     }
 }

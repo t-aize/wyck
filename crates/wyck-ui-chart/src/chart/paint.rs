@@ -16,7 +16,7 @@ use wyck_drawings::look::Face;
 
 use super::Chart;
 use super::path_pieces;
-use wyck_chart::{Align, Cmd, DrawingView, Frame, P};
+use wyck_chart::{Cmd, DrawingView, Frame, P};
 use wyck_core::math::f32_of;
 
 /// Most points in one path: a GPU path may only hold so many vertices (see [`super::path_pieces`]).
@@ -245,7 +245,7 @@ pub(crate) fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 face,
             } => {
                 let line = shape(window, &text, font_size, color, bold, face);
-                let x = aligned(x, f32::from(line.width), align);
+                let x = align.left_of(x, f32::from(line.width));
                 paint_line(&line, point(px(x), px(y)), font_size, window, cx);
             }
             Cmd::FittedText {
@@ -300,7 +300,7 @@ pub(crate) fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
             } => {
                 let line = shape(window, &text, font_size, fg, bold, face);
                 let width = fixed_width.unwrap_or_else(|| f32::from(line.width) + pad * 2.0);
-                let mut x = aligned(x, width, align);
+                let mut x = align.left_of(x, width);
                 if let Some((left, right)) = within {
                     x = x.clamp(left, (right - width).max(left));
                 }
@@ -374,15 +374,6 @@ fn stroke(window: &mut Window, points: &[P], width: f32, color: Hsla, dash: Opti
             Ok(path) => window.paint_path(path, super::palette::gpui_hsla(color)),
             Err(error) => note_refused(&error, count),
         }
-    }
-}
-
-/// The left edge of something `width` wide that sits at `x` with this alignment.
-pub(super) fn aligned(x: f32, width: f32, align: Align) -> f32 {
-    match align {
-        Align::Left => x,
-        Align::Center => x - width / 2.0,
-        Align::Right => x - width,
     }
 }
 

@@ -1,17 +1,18 @@
 //! What a script can call: the functions on series, the ready made indicators, and the calls
 //! that describe an indicator (`indicator`, `input_*`, `plot`, `hline`, `fill`).
 //!
-//! The functions on series are thin: each hands the numbers to the arithmetic in [`wyck_core::math`]
+//! The functions on series are thin: each hands the numbers to the arithmetic in [`wyck_core::ta`]
 //! and wraps the answer. The description of every function, for the editor, is in
 //! [`super::docs`], and a test checks that the two lists agree.
 
+mod declare;
 pub(crate) mod describe;
 pub(crate) mod indicators;
 pub(crate) mod inputs;
 pub(crate) mod plots;
 pub(crate) mod symbols;
 
-use super::run::with_run;
+use super::context::with_run;
 use super::series::{Fallible, Series, is_true, truth};
 use rhai::{Dynamic, Engine, Map};
 use wyck_core::math::{count_i64, i64_to_f64};
@@ -66,7 +67,7 @@ fn map_of(pairs: Vec<(&str, Series)>) -> Map {
 }
 
 /// The bars of the chart the script runs on.
-fn columns() -> Fallible<super::run::decl::Columns> {
+fn columns() -> Fallible<super::decl::Columns> {
     with_run(|run| run.columns.clone())
 }
 

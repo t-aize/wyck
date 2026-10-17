@@ -1,6 +1,6 @@
 //! Restoring and resetting without writing over a running app: the change waits for the next start.
 
-use super::store::BackupKind;
+use super::kind::BackupKind;
 use super::{
     Backup, BackupFile, BackupScript, CRATE_VERSION, PENDING, RESET_MARKER, read_backup_text,
     store_for,

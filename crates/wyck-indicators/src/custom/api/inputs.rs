@@ -1,12 +1,13 @@
 //! The input_* calls of a script.
 
-use super::describe::{Options, check_key, declare_input, title_of};
-use super::indicators::{color_text, parse_color};
+use super::declare::{Options, check_key, declare_input, title_of};
+use crate::custom::color::{color_text, parse_color};
 use wyck_core::math::{count_f64, f64_to_u32, f64_to_usize};
 
-use crate::custom::run::decl::{InputDecl, InputSection, InputType, MAX_INPUTS};
-use crate::custom::run::{Mode, source_index, with_run};
+use crate::custom::context::{Mode, with_run};
+use crate::custom::decl::{InputDecl, InputSection, InputType, MAX_INPUTS};
 use crate::custom::series::{Fallible, Series};
+use crate::spec::source_index;
 use rhai::{Array, Map};
 
 pub(super) fn input_section(options: &Options<'_>) -> Fallible<Option<InputSection>> {

@@ -14,7 +14,7 @@ use wyck_market::Bar;
 
 use super::cmd::{Align, Cmd, font, hsla, rgb_alpha, with_alpha};
 use super::ctx::Ctx;
-use super::{quote_unit, series};
+use super::{candles, quote_unit};
 use crate::order_flow::flow::Flow;
 use crate::order_flow::footprint::{self as model, Analysis, CellMode, HeatScope};
 use wyck_drawings::look::Face;
@@ -55,7 +55,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
     let bar_px = cx.f.view.bar_px;
     let flow: &Flow = match cx.f.flow {
         Some(flow) if bar_px >= DETAIL_MIN_PX && model::supports(cx.f.timeframe) => flow,
-        _ => return series::solid_candles(cx, bars, first, last, out),
+        _ => return candles::solid_candles(cx, bars, first, last, out),
     };
     let settings = &cx.f.settings.footprint;
     let palette = cx.f.palette;

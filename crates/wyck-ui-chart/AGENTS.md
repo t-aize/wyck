@@ -19,11 +19,11 @@ in the last column.
 | Module | What it holds |
 |---|---|
 | `chart` (`chart.rs`, `api.rs`) | The `Chart` entity: its state, what it shows and the calls the rest of the app makes on it (`api`). The key actions (`ChartPanBack`, `ToolTrendLine`...) are declared here, in the module `action`. |
-| `chart::{history, input, follow, glue, paint, overlay}` | Loading the history and live prices; the pointer and the keys; following another chart; the drawings (presses and moves go to the drawing book of `wyck-app`); the canvas that executes a frame; what sits over it (legend, toolbar, menus, status). |
+| `chart::{history, input, follow, glue, paint, overlay, kinds}` | Loading the history and live prices; the pointer and the keys; following another chart; the drawings (presses and moves go to the drawing book of `wyck-app`); the canvas that executes a frame; what sits over it (legend, toolbar, menus, status). |
 | `chart::{flow_sync, custom_runs}` | The order flow of a footprint chart (loaded around the bars on screen); the indicators written as scripts, run off the interface thread. |
 | `chart::{chart_settings_ui, footprint_ui, tpo_ui, volume_ui, construction_ui, settings_rows}` | The settings panel of the chart and the part of each chart type. `chart_settings_ui::open` is public. |
 | `chart::{study_settings, indicator_picker, header_menus}` | The settings of one indicator, the list to add one, the menus of the header. |
-| `chart::{drawing_props, object_tree}` | The settings of one drawing; the list of the drawings of a symbol (and the icon of each tool). |
+| `chart::{drawing_props, object_tree, tool_icon}` | The settings of one drawing; the list of the drawings of a symbol; the icon of each tool (`tool_icon`, which both and the rail of tools use). |
 | `chart::export_ui`, `chart::raster` | The export panel; the picture of a chart (`raster`: the same commands as the screen, painted by `tiny-skia` with Inter rasterized by `ab_glyph`, encoded as PNG). |
 | `chart::{events, lines, palette, corner, path_pieces}` | `ChartEvent` (what a chart tells the layout) and the other event types, public; order, position and alert lines (`ChartLine`); the chart colors and their gpui conversions; the corner buttons; cutting a line down to what a GPU path can hold. |
 | `multichart` (`multichart.rs`) | `MultiChart`: the charts of a layout (`Slot`s), the active one, the links, the rail, the usage limits (`view` draws it). `SymbolRef`, `MultiChartEvent`. What a chart asks of the order ticket is a `chart::events::TicketRequest`. |
@@ -70,8 +70,8 @@ of the screens (`no_inline_colors`, `keymap_guard`) live in `wyck`.
 ## Where to add X
 
 - A chart type: its scene in `wyck-chart`; here its panel (a `*_ui.rs` file, wired in
-  `chart_settings_ui`), its icon in `overlay::kind_icon` and its place in `KIND_SECTIONS`.
-- A drawing tool: in `wyck-drawings`; here its icon in `object_tree`, its hint in
+  `chart_settings_ui`), its icon in `kinds::kind_icon` and its place in `kinds::KIND_SECTIONS`.
+- A drawing tool: in `wyck-drawings`; here its icon in `tool_icon`, its hint in
   `multichart::drawing_ui::tool_hint`, and its fields in `chart::drawing_props`.
 - A link between charts: the rule in `multichart::links`, the stored flag in `wyck-app`'s `LinksPref`,
   the row in the layout menu of `wyck-ui-shell`.

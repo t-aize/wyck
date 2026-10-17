@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 use gpui::{Action, App, DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate, Keystroke};
 
-use crate::dashboard as d;
+use crate::actions as d;
 use crate::sign_in_gate::Dismiss;
 use wyck_app::shortcuts::{Chord, Resolved, ShortcutPrefs, canonical};
 use wyck_ui_chart::chart as c;

@@ -9,11 +9,12 @@
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError, RwLock};
+use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
 
+use super::decl::{Declaration, Limits, Problem};
 use super::run::Script;
-use super::run::decl::{Declaration, Limits, Problem};
+use super::slices::{INPUTS, PLOTS};
 use crate::spec::{InputSpec, Placement, PlotSpec, Spec};
 use wyck_core::intern;
 
@@ -180,43 +181,6 @@ pub(crate) fn short_of(name: &str) -> String {
     }
 }
 
-/// A table of slices of one type, each stored once however often it is asked for, so that a spec
-/// can hold `'static` slices of what a script declared.
-struct Slices<T: 'static>(Mutex<Vec<&'static [T]>>);
-
-/// The most slices one table keeps. Past it, an empty slice is handed out instead of growing.
-const MAX_SLICES: usize = 20_000;
-
-impl<T: Clone + PartialEq + 'static> Slices<T> {
-    const fn new() -> Self {
-        Self(Mutex::new(Vec::new()))
-    }
-
-    /// `items` as a `'static` slice. Equal contents give the same slice.
-    fn get(&self, items: &[T]) -> &'static [T] {
-        let mut kept = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(found) = kept.iter().find(|known| **known == items) {
-            return found;
-        }
-        if kept.len() >= MAX_SLICES {
-            return &[];
-        }
-        let leaked: &'static [T] = Box::leak(items.to_vec().into_boxed_slice());
-        kept.push(leaked);
-        leaked
-    }
-}
-
-static INPUTS: Slices<InputSpec> = Slices::new();
-static PLOTS: Slices<PlotSpec> = Slices::new();
-static CHOICES: Slices<&'static str> = Slices::new();
-
-/// The options of a choice input as a `'static` slice. The same options always give the same slice.
-pub fn choices(options: &[String]) -> &'static [&'static str] {
-    let names: Vec<&'static str> = options.iter().map(|option| intern::name(option)).collect();
-    CHOICES.get(&names)
-}
-
 /// The spec the panels use, from what a script declared.
 pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
     let meta = &declaration.meta;
@@ -315,6 +279,7 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::custom::slices::choices;
 
     #[test]
     fn short_names_are_made_from_the_name() {

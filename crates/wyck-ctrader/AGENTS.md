@@ -23,7 +23,7 @@ Depends on: `wyck-clock`, `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `
 | `session` | `Session`: reconnects with a `Backoff`, renews tokens, restores subscriptions; `TokenStore` and `MemoryTokenStore` say where tokens are kept. |
 | `auth` | OAuth 2: the consent URL, the exchange of the code, the refresh, the local redirect listener (`CallbackListener`). |
 | `event`, `config`, `error` | What the server sends unasked (`Event`); demo or live, rates, timeouts (`ConnectionConfig`); `Error` and `ErrorKind`. |
-| `transport` (private) | The wire format (`wire`, `messages`), the connection task and the rate limiter. |
+| `connection`, `transport` (private) | `connection` is the WebSocket, its task and `Client`'s request machinery; `transport` is the wire under it (`wire`, `messages`, the rate limiter). `event` sits between: it decodes what `transport` carries and `connection` hands out. |
 
 ## Invariants and traps
 

@@ -1,10 +1,10 @@
 //! The calls that put something on the chart.
 
-use super::describe::{Options, check_key, title_of};
+use super::declare::{Options, check_key, title_of};
 use wyck_core::math::{f32_of, f64_to_i64};
 
-use crate::custom::run::decl::{MAX_PLOTS, PlotDecl};
-use crate::custom::run::{FillResult, Mode, PlotResult, with_run};
+use crate::custom::context::{FillResult, Mode, PlotResult, with_run};
+use crate::custom::decl::{MAX_PLOTS, PlotDecl};
 use crate::custom::series::{Fallible, Series, is_true};
 use crate::spec::PlotKind;
 use rhai::Map;

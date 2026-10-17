@@ -12,12 +12,8 @@ use gpui_kit::component::Sizable;
 use gpui_kit::component::switch::Switch;
 
 use crate::focus::Keyboard;
+use crate::ids::child_id;
 use crate::{color_picker, menu, theme, tokens};
-
-/// The id of child `n` of an element.
-pub fn child_id(id: &ElementId, n: usize) -> ElementId {
-    ElementId::NamedChild(std::sync::Arc::new(id.clone()), n.to_string().into())
-}
 
 /// Buttons side by side, one of them chosen, each as wide as its label.
 pub fn segmented(

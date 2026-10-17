@@ -15,8 +15,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use wyck_indicators::custom::decl::Problem;
 use wyck_indicators::custom::library::{Entry, registry};
-use wyck_indicators::custom::run::decl::Problem;
 use wyck_storage::scripts::{ScriptFile, ScriptStore};
 
 // The rules of the folder (the extension, the limits, which names are allowed) are owned by

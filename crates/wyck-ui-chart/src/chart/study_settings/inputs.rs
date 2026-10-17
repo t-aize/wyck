@@ -54,7 +54,7 @@ impl StudyEditor {
                         .iter()
                         .find(|decl| decl.key == input.key)
                 })
-                .is_some_and(wyck_indicators::custom::run::decl::InputDecl::in_style);
+                .is_some_and(wyck_indicators::custom::decl::InputDecl::in_style);
             let in_style = script_style
                 || match config.kind {
                     StudyKind::VolumeProfile => matches!(

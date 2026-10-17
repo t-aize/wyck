@@ -7,7 +7,7 @@
 use gpui::{Context, Entity, Window};
 use wyck_ui_kit::icon::IconName;
 
-use super::overlay::{KIND_SECTIONS, kind_icon};
+use super::kinds::{KIND_SECTIONS, kind_icon};
 use super::study::catalog::{self, Source};
 use super::{Chart, indicator_picker};
 use wyck_app::scripts as indicators;

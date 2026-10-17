@@ -21,7 +21,7 @@ app names them.
 | `identity` | The names a build keeps its state under, so a development build never shares a folder or a credential with the installed app (public). |
 | `documents` | `DocumentStore`: typed TOML documents, one file each, with a `schema_version`. |
 | `migrate` | Upgrading a saved file step by step when its layout changes (public). |
-| `backup` | `Backup` (everything the user made, in one file), `store::BackupStore` (the copies kept in `backups/`), `staged` (export, import, reset: the change waits for the next start) (public). |
+| `backup` | `Backup` (everything the user made, in one file), `store::BackupStore` (the copies kept in `backups/`), `staged` (export, import, reset: the change waits for the next start), `kind` (why a copy was made) (public). |
 | `scripts` | `ScriptStore`: the folder of indicator scripts, which names they may have (public). |
 | `secret`, `tokens` | `SecretStore` with two backends (`KeyringSecretStore`, `EncryptedFileSecretStore`); the OAuth token pair of a profile as one credential. |
 | `crypto`, `sealed` | Argon2id key derivation and ChaCha20-Poly1305 encryption, in one place; text sealed with a passphrase to carry a backup away. |

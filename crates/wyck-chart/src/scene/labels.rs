@@ -1,10 +1,10 @@
 //! The axes, drawn over the bands: the labels and tags of the price axis on the right, the times
 //! and the time zone under the plot.
 
-use super::bands::{PaneScale, Plan};
+use super::bands::Plan;
 use super::cmd::{Align, Cmd, P, font, hsla, line_height};
 use super::ctx::Ctx;
-use super::geometry::{Band, Geometry, zone_w};
+use super::geometry::{Band, Geometry, PaneScale, zone_w};
 use super::{axes, price, studies};
 use wyck_core::math::f32_of;
 use wyck_drawings::look::Face;

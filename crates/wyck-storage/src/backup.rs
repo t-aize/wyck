@@ -46,6 +46,7 @@
 //! # Ok::<(), wyck_storage::ConfigError>(())
 //! ```
 
+mod kind;
 pub mod staged;
 pub mod store;
 

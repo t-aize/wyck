@@ -2,7 +2,7 @@
 
 use super::{DrawingProps, Tab};
 
-use crate::chart::object_tree::tool_icon;
+use crate::chart::tool_icon::tool_icon;
 use gpui::prelude::*;
 use gpui::{Context, Window, div};
 use wyck_ui_kit::icon::IconName;

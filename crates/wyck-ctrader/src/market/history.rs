@@ -26,6 +26,38 @@ use crate::error::{Error, Result};
 use wyck_market::{Bar, Period};
 use wyck_market::{QuoteType, Tick};
 
+impl MarketClient {
+    /// Every bar of `period` in `[from_ms, to_ms]`, paged. See `fetch_bars`.
+    ///
+    /// # Errors
+    ///
+    /// See `fetch_bars`.
+    pub async fn bars(
+        &self,
+        symbol_id: i64,
+        period: Period,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<Bar>> {
+        fetch_bars(self, symbol_id, period, from_ms, to_ms).await
+    }
+
+    /// Every tick of one side in `[from_ms, to_ms]`, paged. See `fetch_ticks`.
+    ///
+    /// # Errors
+    ///
+    /// See `fetch_ticks`.
+    pub async fn ticks(
+        &self,
+        symbol_id: i64,
+        side: QuoteType,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<Tick>> {
+        fetch_ticks(self, symbol_id, side, from_ms, to_ms).await
+    }
+}
+
 /// The longest range of one tick request: one week.
 pub const MAX_TICK_RANGE_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
 

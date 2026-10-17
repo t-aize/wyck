@@ -10,6 +10,9 @@
 
 pub(crate) mod api;
 pub mod assist;
+mod color;
+mod context;
+pub mod decl;
 pub mod docs;
 mod draw_api;
 pub mod lexer;
@@ -17,6 +20,7 @@ pub mod library;
 pub mod other;
 pub mod run;
 pub(crate) mod series;
+mod slices;
 pub mod templates;
 
 #[cfg(test)]
@@ -31,8 +35,8 @@ pub(crate) fn spec_for(id: Option<&str>) -> Spec {
     library::registry::get(id).map_or_else(|| library::missing_spec(id), |entry| entry.spec)
 }
 
+pub use decl::{Limits, Problem, Severity};
 pub use run::Computed;
-pub use run::decl::{Limits, Problem, Severity};
 
 #[cfg(test)]
 use std::sync::Arc;

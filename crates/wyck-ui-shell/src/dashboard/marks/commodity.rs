@@ -2,7 +2,7 @@
 
 use super::Mark;
 use super::metal::metal;
-use crate::dashboard::catalog::Class;
+use crate::dashboard::class::Class;
 use wyck_ui_kit::icon::IconName;
 
 /// Products with common broker aliases. The broker's asset class still takes precedence.

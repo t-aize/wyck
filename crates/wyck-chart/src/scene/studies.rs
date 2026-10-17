@@ -4,10 +4,9 @@
 mod volume_profile;
 
 use super::Placement;
-use super::bands::PaneScale;
 use super::cmd::{Align, Cmd, P, font, rgb_alpha};
 use super::ctx::Ctx;
-use super::geometry::{Band, axis_w};
+use super::geometry::{Band, PaneScale, axis_w};
 use super::price::{self, PriceMap};
 use wyck_core::math::{count_i64, f32_of, f32_to_i32, f64_to_i64, i64_to_f64};
 use wyck_core::ta::Series as _;

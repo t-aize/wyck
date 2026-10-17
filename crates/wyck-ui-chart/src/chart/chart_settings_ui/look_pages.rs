@@ -1,7 +1,7 @@
 //! The pages that set how the chart looks: its type, symbol, status, scales and colors.
 
 use super::{ChartSettingsEditor, ColorKey, edit_chart, size_mode, size_value};
-use crate::chart::{construction_ui, footprint_ui, overlay, tpo_ui, volume_ui};
+use crate::chart::{construction_ui, footprint_ui, kinds, tpo_ui, volume_ui};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
 use wyck_chart::BoxSize;
@@ -16,7 +16,7 @@ use wyck_ui_kit::{controls, form, icon, number, theme, tokens};
 impl ChartSettingsEditor {
     pub(super) fn kind_tiles(&self, current: ChartKind) -> AnyElement {
         let mut column = div().flex().flex_col().gap_3();
-        for (title, kinds) in overlay::KIND_SECTIONS {
+        for (title, kinds) in kinds::KIND_SECTIONS {
             let mut wrap = div().flex().flex_row().flex_wrap().gap_2();
             for kind in kinds.iter().copied() {
                 let chosen = kind == current;
@@ -51,7 +51,7 @@ impl ChartSettingsEditor {
                         .on_click(move |_, _window, cx| {
                             edit_chart(&chart, cx, |s| s.kind = kind);
                         })
-                        .child(icon::tinted(overlay::kind_icon(kind), 15., ink))
+                        .child(icon::tinted(kinds::kind_icon(kind), 15., ink))
                         .child(kind.label()),
                 );
             }
@@ -141,7 +141,7 @@ impl ChartSettingsEditor {
         ));
         (!rows.is_empty()).then(|| {
             form::group(
-                overlay::kind_icon(kind),
+                kinds::kind_icon(kind),
                 format!("{} construction", kind.label()),
                 rows,
             )

@@ -1,5 +1,5 @@
 //! The list of the drawings of a symbol: pick one, show or hide it, lock it, move it up or down
-//! the stack, open its settings or delete it. Also where the icon of each tool is chosen.
+//! the stack, open its settings or delete it.
 
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
@@ -7,95 +7,12 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Disableable;
 
 use super::drawing_props;
+use super::tool_icon::tool_icon;
 use wyck_app::drawings::Drawings;
 use wyck_chart::Zone;
 use wyck_drawings::book::{Book, Order};
 use wyck_drawings::model::Drawing;
-use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::{button, form, form::Head, icon, modal, theme, tokens};
-
-pub(crate) fn tool_icon(tool: Tool) -> IconName {
-    match tool {
-        Tool::TrendLine => IconName::TrendingUp,
-        Tool::Ray => IconName::MoveUpRight,
-        Tool::ExtendedLine => IconName::MoveDiagonal,
-        Tool::HorizontalLine => IconName::Minus,
-        Tool::HorizontalRay => IconName::MoveRight,
-        Tool::VerticalLine => IconName::SeparatorVertical,
-        Tool::CrossLine => IconName::Plus,
-        Tool::Arrow => IconName::ArrowUpRight,
-        Tool::ArrowPath | Tool::DoubleCurve | Tool::Abcd => IconName::Spline,
-        Tool::InfoLine => IconName::Info,
-        Tool::TrendAngle => IconName::Angle,
-        Tool::RegressionTrend => IconName::ChartLine,
-        Tool::FlatTopBottom => IconName::StretchHorizontal,
-        Tool::DisjointChannel => IconName::Layers2,
-        Tool::FibTimeExtension => IconName::Timer,
-        Tool::FibCircles => IconName::CircleDot,
-        Tool::FibSpiral => IconName::RotateCw,
-        Tool::FibArcs => IconName::Orbit,
-        Tool::FibWedge => IconName::TriangleRight,
-        Tool::GannSquareFixed => IconName::Blocks,
-        Tool::CyclicLines => IconName::Repeat,
-        Tool::TimeCycles => IconName::AudioWaveform,
-        Tool::SineLine => IconName::ChartSpline,
-        Tool::RotatedRectangle => IconName::VectorSquare,
-        Tool::Circle => IconName::Circle,
-        Tool::Arc => IconName::Radius,
-        Tool::Curve => IconName::SplinePointer,
-        Tool::Highlighter => IconName::Highlighter,
-        Tool::ArrowMarker => IconName::ArrowUpFromLine,
-        Tool::ArrowMarkUp | Tool::LongPosition => IconName::ArrowBigUp,
-        Tool::ArrowMarkDown | Tool::ShortPosition => IconName::ArrowBigDown,
-        Tool::PriceRange => IconName::MoveVertical,
-        Tool::DateRange => IconName::MoveHorizontal,
-        Tool::DatePriceRange => IconName::Scan,
-        Tool::Forecast => IconName::ChartArea,
-        Tool::BarsPattern => IconName::ChartCandlestick,
-        Tool::GhostFeed => IconName::Ghost,
-        Tool::AnchoredVwap => IconName::Sigma,
-        Tool::FixedRangeVolumeProfile => IconName::ChartBarBig,
-        Tool::AnchoredVolumeProfile => IconName::ChartColumn,
-        Tool::Note => IconName::StickyNote,
-        Tool::PriceNote => IconName::NotebookPen,
-        Tool::Callout => IconName::MessageSquareText,
-        Tool::Comment => IconName::MessageCircle,
-        Tool::Pin => IconName::Pin,
-        Tool::Signpost => IconName::Signpost,
-        Tool::FlagMark => IconName::Flag,
-        Tool::Table => IconName::Table,
-        Tool::Icon => IconName::Star,
-        Tool::ParallelChannel => IconName::Rows2,
-        Tool::Pitchfork => IconName::GitFork,
-        Tool::SchiffPitchfork => IconName::GitBranch,
-        Tool::ModifiedSchiffPitchfork => IconName::GitMerge,
-        Tool::InsidePitchfork => IconName::GitPullRequest,
-        Tool::FibRetracement | Tool::FibExtension => IconName::ChartNoAxesGantt,
-        Tool::FibChannel => IconName::Rows3,
-        Tool::FibTimeZone => IconName::Columns3,
-        Tool::FibFan | Tool::GannFan | Tool::Pitchfan => IconName::Fan,
-        Tool::GannBox => IconName::Grid2x2,
-        Tool::GannSquare => IconName::Grid3x3,
-        Tool::Xabcd => IconName::Waypoints,
-        Tool::Cypher => IconName::Route,
-        Tool::HeadAndShoulders => IconName::Mountain,
-        Tool::TrianglePattern => IconName::ChevronsLeftRight,
-        Tool::ThreeDrives => IconName::Activity,
-        Tool::ElliottImpulse => IconName::TrendingUpDown,
-        Tool::ElliottCorrection => IconName::TrendingDown,
-        Tool::ElliottTriangle => IconName::GitCommitHorizontal,
-        Tool::ElliottDoubleCombo => IconName::Workflow,
-        Tool::ElliottTripleCombo => IconName::Share2,
-        Tool::Triangle => IconName::Triangle,
-        Tool::Rectangle => IconName::Square,
-        Tool::Ellipse => IconName::Ellipse,
-        Tool::Brush => IconName::Brush,
-        Tool::Measure => IconName::Ruler,
-        Tool::Text => IconName::Type,
-        Tool::PriceLabel => IconName::Tag,
-        Tool::Unknown => IconName::Pen,
-    }
-}
 
 /// Opens the list of the drawings of `symbol`.
 pub(crate) fn open(

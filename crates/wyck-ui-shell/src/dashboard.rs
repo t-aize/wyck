@@ -10,6 +10,7 @@
 
 mod catalog;
 mod chart_buttons;
+mod class;
 mod details;
 mod editor_dock;
 mod header;
@@ -45,47 +46,7 @@ use wyck_ui_kit::toast;
 use wyck_ui_trading::panel::AccountPanel;
 use wyck_ui_trading::ticket::OrderTicket;
 
-#[expect(
-    clippy::derive_partial_eq_without_eq,
-    reason = "gpui::actions! derives PartialEq without Eq, in code that is not ours"
-)]
-mod action {
-    gpui::actions!(
-        wyck_dashboard,
-        [
-            OpenPicker,
-            OpenSettings,
-            ClosePicker,
-            PickerUp,
-            PickerDown,
-            PickerPageUp,
-            PickerPageDown,
-            PickerConfirm,
-            ToggleIndicatorEditor,
-            CloseAllPositions,
-            ToggleKillSwitch,
-            TicketBuy,
-            TicketSell,
-            TicketSend,
-            OpenShortcuts,
-            ToggleTicket,
-            ToggleAccountPanel,
-            ToggleFullscreen,
-            NextChart,
-            PreviousChart,
-            NextTimeframe,
-            PreviousTimeframe,
-            ToggleMagnet,
-            ToggleKeepDrawing,
-            ToggleFavoritesBar,
-            CancelAllOrders,
-            ToggleLogScale,
-            TogglePercentScale,
-            ToggleGrid,
-        ]
-    );
-}
-pub(crate) use action::*;
+pub(crate) use crate::actions::*;
 
 /// Who the dashboard is connected as.
 #[derive(Clone)]

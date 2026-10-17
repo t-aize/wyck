@@ -3,7 +3,7 @@
 
 use super::cmd::{Align, Cmd, P, hsla, rgb_alpha, with_alpha};
 use super::ctx::Ctx;
-use super::geometry::{Band, Geometry};
+use super::geometry::{Band, Geometry, PaneScale};
 use super::price::PriceMap;
 use super::{axes, drawings, quote_unit, series, studies};
 use crate::axis::{self, TimeLabel};
@@ -58,18 +58,6 @@ impl Plan {
             grid_vertical: frame.settings.grid && frame.settings.grid_vertical,
         }
     }
-}
-
-/// The scale of one indicator pane, kept for the price axis.
-pub(super) struct PaneScale {
-    /// The index of the indicator in the settings.
-    pub(super) study: usize,
-    /// Which band of the geometry the pane is (the prices are band 0).
-    pub(super) band_index: usize,
-    pub(super) band: Band,
-    pub(super) map: PriceMap,
-    pub(super) format: ValueFormat,
-    pub(super) ticks: Vec<f64>,
 }
 
 /// The prices band: the grid, the indicators drawn on the prices, the drawings, the price lines

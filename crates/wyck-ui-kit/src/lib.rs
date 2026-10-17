@@ -16,6 +16,7 @@ pub mod font_picker;
 pub mod form;
 pub mod hints;
 pub mod icon;
+pub mod ids;
 pub mod input;
 pub mod layout;
 pub mod menu;

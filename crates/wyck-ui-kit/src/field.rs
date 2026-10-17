@@ -23,8 +23,9 @@ use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 
-use crate::controls::{child_id, ink, tooltip};
+use crate::controls::{ink, tooltip};
 use crate::focus::Keyboard;
+use crate::ids::child_id;
 use crate::number::{self, Kind};
 use crate::{icon, theme, tokens};
 

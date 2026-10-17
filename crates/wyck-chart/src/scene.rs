@@ -12,6 +12,7 @@
 
 mod axes;
 mod bands;
+mod candles;
 pub(crate) mod cmd;
 pub(crate) mod color;
 mod ctx;

@@ -20,7 +20,7 @@ All the modules are public: a screen names them (`button::primary`, `tokens::tex
 | `theme` | The colors in force (`fg()`, `bg()`, `accent()`, `chart_*()`...), derived from one palette, `wyck_core::appearance::Colors`. `put_in_force` applies a look chosen by the user (palette, font, scale, animations); `apply` points the component library at it and repaints the windows. |
 | `tokens` | The sizes every screen shares, by topic: `text`, `height`, `space`, `bar`, `field`, `swatch`, `measure`, `menu`. They follow the text scale of `wyck_core`. |
 | `assets` | `Assets`, the `AssetSource` of the app (Lucide icons from gpui-kit, `marks/...`, the logo), `FONT`, `LOGO_PATH`, `has_mark`. |
-| `button`, `controls`, `field`, `number`, `input`, `icon` | Buttons, pickers (segmented choice, switch, swatch, chip), labelled inputs and steppers, text and number fields at the control height, icons. |
+| `button`, `controls`, `field`, `number`, `input`, `icon`, `ids` | Buttons, pickers (segmented choice, switch, swatch, chip), labelled inputs and steppers, text and number fields at the control height, icons. |
 | `form`, `layout`, `confirm` | The frame of a settings panel and of a dialog, groups of labelled rows, page blocks (cards, tiles, banners, badges), the "are you sure" dialog with its tone. |
 | `modal`, `menu` (with `menu::parts`), `toast` | The one modal window; menus on a right click or under a button; corner notices. |
 | `color_picker`, `font_picker`, `text_input` | The color panel; the list of installed fonts; the single-line input with its IME handling (copied from gpui's own example). |

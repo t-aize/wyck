@@ -42,8 +42,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+    use crate::custom::decl::Limits;
     use crate::custom::run::Script;
-    use crate::custom::run::decl::Limits;
     use crate::data::StudyInput;
 
     #[test]

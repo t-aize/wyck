@@ -31,8 +31,9 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 
+use crate::ids::child_id;
 use crate::tokens::{menu as size, text};
-use crate::{controls, icon, theme};
+use crate::{icon, theme};
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -400,7 +401,7 @@ impl Menu {
     fn card(&self, items: &[Item], selected: Option<usize>, placement: Placement) -> AnyElement {
         let close = self.clone();
         let mut card = parts::card()
-            .id(controls::child_id(&self.id, usize::MAX))
+            .id(child_id(&self.id, usize::MAX))
             .role(gpui::Role::Menu)
             .aria_label("Menu")
             .when(matches!(placement, Placement::Cursor), |card| {
@@ -433,7 +434,7 @@ impl Menu {
         };
         let (menu, action) = (self.clone(), entry.on_click.clone());
         parts::row_base()
-            .id(controls::child_id(&self.id, index))
+            .id(child_id(&self.id, index))
             .role(if entry.checked {
                 gpui::Role::MenuItemCheckBox
             } else {

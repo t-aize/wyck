@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use super::run::decl::Limits;
+use super::decl::Limits;
 use super::run::{Computed, Script};
 use crate::data::StudyInput;
 use crate::spec::{InputKind, PlotKind};
@@ -275,7 +275,7 @@ fn inputs_of_every_kind_are_declared_and_read() {
         .declaration
         .inputs
         .iter()
-        .map(super::run::decl::InputDecl::input_kind)
+        .map(super::decl::InputDecl::input_kind)
         .collect();
     assert!(matches!(kinds[0], InputKind::Int));
     assert!(matches!(kinds[1], InputKind::Float));
@@ -437,7 +437,7 @@ fn text_inputs_are_declared_read_and_checked() {
         .declaration
         .inputs
         .iter()
-        .map(super::run::decl::InputDecl::input_kind)
+        .map(super::decl::InputDecl::input_kind)
         .collect();
     assert!(matches!(
         kinds[..],

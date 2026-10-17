@@ -236,3 +236,8 @@ pub(super) const GRAY: u32 = 0x78_7b86;
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
 pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
+
+/// The position of a source input in [`SOURCES`], by name (any case).
+pub(crate) fn source_index(name: &str) -> Option<usize> {
+    SOURCES.iter().position(|s| s.eq_ignore_ascii_case(name))
+}

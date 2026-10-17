@@ -16,6 +16,18 @@ pub enum Align {
     Right,
 }
 
+impl Align {
+    /// The left edge of something `width` wide that sits at `x` with this alignment.
+    #[must_use]
+    pub fn left_of(self, x: f32, width: f32) -> f32 {
+        match self {
+            Self::Left => x,
+            Self::Center => x - width / 2.0,
+            Self::Right => x - width,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Cmd {
     /// A filled rectangle, with an optional border and rounded corners.

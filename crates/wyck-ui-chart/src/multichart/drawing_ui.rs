@@ -9,7 +9,7 @@ pub(super) mod bar_place;
 pub(crate) mod style_bar;
 
 use super::MultiChart;
-use crate::chart::object_tree::tool_icon;
+use crate::chart::tool_icon::tool_icon;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
 use std::rc::Rc;

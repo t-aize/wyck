@@ -19,8 +19,9 @@ Three modules are public, the ones `wyck` calls; the rest is private.
 |---|---|
 | `app_view` | `AppView`: owns the sign-in and the open dashboard; `locked_frame` draws a soft copy of the dashboard behind the sign-in modal. |
 | `sign_in_gate` | The sign-in modal, one card per `Phase` of `wyck_app::sign_in` (restoring, editing, verifying, waiting for the browser, choosing an account, authorizing). |
-| `dashboard` | `Dashboard`: the screen the app lands on, its actions (module `action`), and what it draws (`view`). |
-| `dashboard::{session, catalog, picker, details, lists}` | Following the broker session and the active symbol; the list of symbols an account can trade (no UI); the symbol picker and its details sheet; favorites and watchlists. |
+| `actions` | The actions of the dashboard (`OpenPicker`, `ToggleTicket`...), declared apart so that `keymap`, which binds keys to them, does not depend on the screen that handles them. |
+| `dashboard` | `Dashboard`: the screen the app lands on and what it draws (`view`). |
+| `dashboard::{session, catalog, class, picker, details, lists}` | Following the broker session and the active symbol; the list of symbols an account can trade (no UI) and the `Class` it files them under; the symbol picker and its details sheet; favorites and watchlists. |
 | `dashboard::marks` | The picture of a symbol (`icon_for`): one module per asset class (`forex`, `index`, `metal`, `crypto`, `shares`, `commodity`) says which logo, flag or glyph, and `paint` draws it. |
 | `dashboard::{header, chart_buttons, layout_menu, editor_dock, notice}` | The bar across the top and the account menu; the chart type and indicator buttons; the layout picker; the drawer of the script editor; the toast for what the account has to say. |
 | `dashboard::trade` | The trading side: account, order ticket, account panel, price alerts and the lines they put on the charts. |
@@ -61,7 +62,7 @@ The windows are not unit tested. Run: `cargo test -p wyck-ui-shell`.
 
 ## Where to add X
 
-- A shortcut: its action in the `action` module of the screen that owns it, its row in
+- A shortcut: its action in `actions`, its row in
   `keymap::DEFS` (or `HANDLED` if a screen reads the key itself, then the file in
   `keymap_guard::READS_KEYS`).
 - A settings page: a file in `settings_hub/`, its `Page` and its tab in `settings_hub.rs`.

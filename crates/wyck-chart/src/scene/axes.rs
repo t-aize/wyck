@@ -1,7 +1,7 @@
 //! The axes, the price lines and the tags on them.
 
-use super::bands::PaneScale;
 use super::color::{Hsla, Rgba};
+use super::geometry::PaneScale;
 use super::{Align, Band, Cmd, Ctx, Frame, Geometry, P, axis_w, font, hsla, rgb_alpha, with_alpha};
 use crate::axis;
 use crate::data::Series;

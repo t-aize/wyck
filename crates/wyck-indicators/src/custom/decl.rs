@@ -1,7 +1,7 @@
 //! What a script declares about itself and what it reads: limits, problems, inputs, plots and the columns of bars.
 
-use crate::custom::library::choices;
 use crate::custom::series::Series;
+use crate::custom::slices::choices;
 use crate::data::StudyInput;
 use crate::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
@@ -274,7 +274,12 @@ impl Columns {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::custom::run::*;
+    use crate::custom::run::Script;
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::time::Instant;
+    use wyck_core::math::count_i64;
 
     #[test]
     fn style_inputs_follow_kind_name_and_explicit_section() {

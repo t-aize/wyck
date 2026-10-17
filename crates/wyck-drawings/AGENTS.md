@@ -12,11 +12,12 @@ Depends on: `wyck-core`, `wyck-trading`, `serde`, `serde_json` (`toml` in tests 
 |---|---|
 | `model` | `Drawing` (a tool, its points, its look), `Point` (time in ms + raw price), `DrawingsDoc` (the saved file), templates, and the size limits. Submodules: `tool` (`Tool`, its groups and how many points it takes), `style` (line, fill, text, levels), `capabilities` (which properties a tool has), `defaults` (the look a new drawing starts with). |
 | `look` | The small pieces of a look beyond line and fill: text layout, line ends (`Caps`), level text, measure and volume-profile looks. |
-| `geometry` | `Projection` (the chart seen from here), `Prim` (a shape to draw), `prims_with` (drawing -> shapes), `anchors`, `handles`, hit tests. Submodules: `shapes`, `fib`, `measure`, `hit`. |
+| `prim` | The vocabulary under every tool's shapes: `Projection` (the chart seen from here), `Prim` (a shape to draw), `P`, `Anchor`, `Part` and the helpers the shapes are built from (`seg`, `lead`, `extended`, `fib`). It depends on nothing above it. |
+| `geometry` | The public face of `prim`, plus `prims_with` (drawing -> shapes, by tool), `handles` and the hit tests. Submodules: `shapes`, `measure`, `hit`. |
 | `book` | `Book`: the drawings of every symbol plus the pointer state machine (create, pick, move, reshape, undo). Submodules: `create`, `pick`, `edit`, `actions`, `history`, `templates`. |
 | `position` | `PositionSettings`: the sizing of a long or short position drawing (risk, leverage, lot step, point value). |
 
-Private, reached through `geometry`: `figures` (pitchforks, Gann, patterns, Elliott waves), `extras`
+Private, built on `prim` and reached through `geometry`: `figures` (pitchforks, Gann, patterns, Elliott waves), `extras`
 (information lines, regression, ranges, cycles, curves, notes, tables, bars, VWAP, volume) and `decor`
 (the words and the line ends put on any drawing). Only `ICONS`, `icon_key` and `wave_names` are
 re-exported at the root, for the menus.

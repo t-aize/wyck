@@ -25,7 +25,7 @@ use self::metal::metal;
 pub(crate) use self::paint::render;
 use self::shares::share;
 
-use super::catalog::Class;
+use super::class::Class;
 use wyck_ui_kit::icon::IconName;
 
 /// One round picture.

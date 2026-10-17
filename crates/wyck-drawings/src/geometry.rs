@@ -3,7 +3,7 @@
 //! Everything works through a [`Projection`], which knows how the chart maps time and price to
 //! screen positions. That is the only thing tied to the chart, so this is plain arithmetic and is
 //! tested with a simple linear projection. The shapes themselves and the helpers they are built
-//! from are in [`crate::prim`]; this module picks the shapes of each tool (`shapes`), finds what
+//! from are in `prim`; this module picks the shapes of each tool (`shapes`), finds what
 //! is under the pointer (`hit`) and adds the measures a tool shows (`measure`).
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).

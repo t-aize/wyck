@@ -17,8 +17,6 @@ use wyck_chart::Cmd;
 use wyck_core::math::{f32_to_i32, f32_to_u32};
 use wyck_ui_kit::assets;
 
-use super::paint::aligned;
-
 /// A clip rectangle, in logical pixels.
 #[derive(Debug, Clone, Copy)]
 struct Clip {
@@ -366,7 +364,7 @@ impl Canvas<'_> {
                     ..
                 } => {
                     let width = self.measure(text, *size);
-                    let x = aligned(*x, width, *align);
+                    let x = align.left_of(*x, width);
                     self.text(
                         text,
                         x,
@@ -454,7 +452,7 @@ impl Canvas<'_> {
                 } => {
                     let text_w = self.measure(text, *size);
                     let width = fixed_width.unwrap_or(text_w + pad * 2.0);
-                    let mut left = aligned(*x, width, *align);
+                    let mut left = align.left_of(*x, width);
                     if let Some((l, r)) = within {
                         left = left.clamp(*l, (r - width).max(*l));
                     }

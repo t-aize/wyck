@@ -9,9 +9,9 @@ use super::color::{Hsla, color_hsla, transparent_black};
 use wyck_core::math::{count_f32, f32_of, i64_to_f64};
 use wyck_market::Bar;
 
+use super::candles;
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::ctx::Ctx;
-use super::series;
 use crate::order_flow::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use wyck_drawings::look::Face;
 use wyck_indicators::spec::ValueFormat;
@@ -47,7 +47,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
     let visible = profiles.get(first.min(last)..last).unwrap_or_default();
     let rows: usize = visible.iter().map(|p| p.rows.len()).sum();
     if cx.f.view.bar_px < COMPACT_PX || visible.is_empty() || rows > MAX_ROWS {
-        series::solid_candles(cx, bars, first, last, out);
+        candles::solid_candles(cx, bars, first, last, out);
         return;
     }
     let settings = &cx.f.settings.tpo;

@@ -4,9 +4,9 @@ use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 use serde_json::{Map as JsonMap, Number, Value};
 use wyck_core::math::i64_to_f64;
 
-use super::api::indicators::parse_color;
-use super::run::decl::MAX_SCRIPT_DRAWINGS;
-use super::run::{Mode, with_run};
+use super::color::parse_color;
+use super::context::{Mode, with_run};
+use super::decl::MAX_SCRIPT_DRAWINGS;
 use super::series::Fallible;
 use crate::data::ScriptDrawing;
 use wyck_drawings::model::style::{Level, Style};
@@ -314,8 +314,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+    use crate::custom::decl::Limits;
     use crate::custom::run::Script;
-    use crate::custom::run::decl::Limits;
     use crate::data::StudyInput;
     use wyck_core::math::count_i64;
 

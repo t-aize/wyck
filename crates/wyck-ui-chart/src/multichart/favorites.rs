@@ -13,7 +13,7 @@ use wyck_ui_kit::icon::IconName;
 
 use super::MultiChart;
 use super::drawing_ui::bar_place::Movable;
-use crate::chart::object_tree::tool_icon;
+use crate::chart::tool_icon::tool_icon;
 use wyck_app::workspace::MAX_FAVORITE_TOOLS;
 use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::{

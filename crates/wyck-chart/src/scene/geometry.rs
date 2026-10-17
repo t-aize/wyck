@@ -2,7 +2,9 @@
 //! plot between them cut into horizontal bands, the prices on top and one band per indicator pane
 //! under them, sized by their weights.
 
+use crate::price::PriceMap;
 use wyck_core::math::f32_of;
+use wyck_indicators::spec::ValueFormat;
 
 /// Width of the price axis on the right: it grows with the text it holds.
 pub fn axis_w() -> f32 {
@@ -139,6 +141,18 @@ impl Geometry {
         let wa2 = pair_w * new_a / pair_h;
         Some((f32_of(wa2), f32_of(pair_w - wa2)))
     }
+}
+
+/// The scale of one indicator pane, kept for the price axis.
+pub(crate) struct PaneScale {
+    /// The index of the indicator in the settings.
+    pub(crate) study: usize,
+    /// Which band of the geometry the pane is (the prices are band 0).
+    pub(crate) band_index: usize,
+    pub(crate) band: Band,
+    pub(crate) map: PriceMap,
+    pub(crate) format: ValueFormat,
+    pub(crate) ticks: Vec<f64>,
 }
 
 #[cfg(test)]
