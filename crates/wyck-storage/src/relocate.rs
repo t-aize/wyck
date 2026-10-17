@@ -22,7 +22,7 @@
 //!
 //! A folder that is the folder of another kind or inside it (one kind of data must not be mixed with
 //! another), one that holds the config or the credentials or is inside the credentials folder (a
-//! synced folder holds nothing that signs in), and every folder [`locations::check`] refuses: one
+//! synced folder holds nothing that signs in), and every folder [`crate::locations::check`] refuses: one
 //! that is not Wyck's and is not empty, one made by the other build, one that is not there.
 
 mod applying;

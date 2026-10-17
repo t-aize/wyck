@@ -26,7 +26,7 @@ in the last column.
 | `chart::{drawing_props, object_tree}` | The settings of one drawing; the list of the drawings of a symbol (and the icon of each tool). |
 | `chart::export_ui`, `chart::raster` | The export panel; the picture of a chart (`raster`: the same commands as the screen, painted by `tiny-skia` with Inter rasterized by `ab_glyph`, encoded as PNG). |
 | `chart::{events, lines, palette, corner, path_pieces}` | `ChartEvent` (what a chart tells the layout) and the other event types, public; order, position and alert lines (`ChartLine`); the chart colors and their gpui conversions; the corner buttons; cutting a line down to what a GPU path can hold. |
-| `multichart` (`multichart.rs`) | `MultiChart`: the charts of a layout (`Slot`s), the active one, the links, the rail, the usage limits. `SymbolRef`, `MultiChartEvent`. |
+| `multichart` (`multichart.rs`) | `MultiChart`: the charts of a layout (`Slot`s), the active one, the links, the rail, the usage limits (`view` draws it). `SymbolRef`, `MultiChartEvent`. What a chart asks of the order ticket is a `chart::events::TicketRequest`. |
 | `multichart::{charts, layout, links, split}` | Adding charts and giving them symbol, timeframe, hours and data; choosing the layout and linking; the rules of the links (plain data, tested without a window); the tree of splits whose lines the user drags. |
 | `multichart::{drawing_ui, drawing_cmds, favorites, clipboard, events, icon}` | The rail of tools, the style bar over a selected drawing and the pill of favorites; what the tools do for the active chart; copy and paste of indicators; pictures of the charts; the small drawing of a layout (`icon::layout_icon` is public). |
 

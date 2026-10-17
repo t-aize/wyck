@@ -2,7 +2,7 @@
 //!
 //! A change of layout or a dragged drawing can change something a dozen times a second, and the
 //! disk should not be written each time. [`Saver::schedule`] keeps only the latest value and
-//! writes it after a short quiet time; if the app is closed before that, [`Saver::flush`] (also
+//! writes it after a short quiet time; if the app is closed before that, `Saver::flush` (also
 //! run when the saver is dropped) writes it at once, so a change is never lost to the delay.
 
 use std::sync::atomic::{AtomicU64, Ordering};

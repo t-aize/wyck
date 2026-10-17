@@ -1,4 +1,8 @@
 //! The tools a drawing can be made with, their groups and what each one needs.
+//!
+//! This file is over 600 lines on purpose: `Tool` has one `match` per property (label, group,
+//! anchors, section), and the compiler checks each one lists every tool. Adding a tool means
+//! touching each table, so they stay side by side.
 
 use serde::{Deserialize, Serialize};
 

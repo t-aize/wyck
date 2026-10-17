@@ -6,7 +6,9 @@ use gpui::{App, Context, Entity, Window};
 use wyck_chart::Zone;
 use wyck_market::PRICE_SCALE;
 
-use super::events::{ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan};
+use super::events::{
+    ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan, TicketRequest,
+};
 use super::study::kind::StudyKind;
 use super::{Chart, drawing_props, object_tree};
 use wyck_app::drawings::Drawings;
@@ -478,7 +480,7 @@ impl Chart {
         let PlanState::Ready(plan) = self.position_plan(id, &symbol, cx) else {
             return None;
         };
-        Some(ChartAction::Ticket {
+        Some(ChartAction::Ticket(TicketRequest {
             buy: plan.buy,
             entry: Some(plan.entry),
             stop_loss: Some(plan.stop_loss),
@@ -488,7 +490,7 @@ impl Chart {
                 atr: plan.atr,
                 rr: plan.rr,
             }),
-        })
+        }))
     }
 
     /// Opens the order ticket filled from a position drawing.

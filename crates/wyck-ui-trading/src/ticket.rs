@@ -19,11 +19,12 @@
 //! While a pending price or a protection is set, it shows on the chart as a line that can be
 //! dragged; the ticket follows the line (see [`OrderTicket::lines`]).
 //!
-//! An order taken from a long or short position drawing (see [`PositionLink`]) follows that drawing
-//! until it is sent. When the drawing sets its stop loss as a multiple of the ATR and its take
-//! profit as a multiple of the risk, the ticket is set the same way, so the stop moves with the ATR
-//! and with the entry while nothing is sent. The levels are then read-only in the ticket: they are
-//! changed on the drawing, or with "Unlink" to take them over.
+//! An order taken from a long or short position drawing (see
+//! [`wyck_ui_chart::chart::events::PositionLink`]) follows that drawing until it is sent. When
+//! the drawing sets its stop loss as a multiple of the ATR and its take profit as a multiple of
+//! the risk, the ticket is set the same way, so the stop moves with the ATR and with the entry
+//! while nothing is sent. The levels are then read-only in the ticket: they are changed on the
+//! drawing, or with "Unlink" to take them over.
 //!
 //! An order is sent after a confirmation, unless one-click trading is on; then the send button
 //! sends at once. The buy and sell buttons only pick the side.
@@ -56,7 +57,7 @@ use wyck_trading::plan::ExitPlan;
 use wyck_trading::ticket;
 use wyck_trading::ticket::{Offset, Pending, SizeMode, TicketProblem};
 use wyck_ui_chart::chart::Chart;
-use wyck_ui_chart::chart::events::{PositionLink, PositionPlan};
+use wyck_ui_chart::chart::events::{PositionPlan, TicketRequest};
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::input::InputState;
 use wyck_ui_kit::number;
@@ -425,20 +426,14 @@ impl OrderTicket {
 
     /// Fills the ticket from the chart: a side, a price (a pending order, limit or stop by where
     /// it is), and protection. From a position drawing (`link`) it also follows the drawing.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the chart hands over a side, up to three prices and a link in one call"
-    )]
-    pub fn prefill(
-        &mut self,
-        buy: bool,
-        entry: Option<f64>,
-        stop_loss: Option<f64>,
-        take_profit: Option<f64>,
-        link: Option<PositionLink>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub fn prefill(&mut self, request: TicketRequest, window: &mut Window, cx: &mut Context<Self>) {
+        let TicketRequest {
+            buy,
+            entry,
+            stop_loss,
+            take_profit,
+            link,
+        } = request;
         if let (Some(link), Some(entry), Some(stop_loss), Some(take_profit)) =
             (link, entry, stop_loss, take_profit)
         {

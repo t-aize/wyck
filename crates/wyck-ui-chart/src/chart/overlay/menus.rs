@@ -1,6 +1,6 @@
 //! The right-click menu of the chart, and the menu of the toolbar.
 
-use crate::chart::events::{ChartAction, ChartEvent};
+use crate::chart::events::{ChartAction, ChartEvent, TicketRequest};
 use crate::chart::lines::to_real;
 use crate::chart::{Chart, DrawingCommand, Menu, chart_settings_ui, export_ui, indicator_picker};
 use gpui::prelude::*;
@@ -166,12 +166,14 @@ impl Chart {
                     chart.update(cx, |_, cx| cx.emit(ChartEvent::Action(action.clone())));
                 }
             };
-            let ticket = |buy: bool, entry: Option<f64>| ChartAction::Ticket {
-                buy,
-                entry,
-                stop_loss: None,
-                take_profit: None,
-                link: None,
+            let ticket = |buy: bool, entry: Option<f64>| {
+                ChartAction::Ticket(TicketRequest {
+                    buy,
+                    entry,
+                    stop_loss: None,
+                    take_profit: None,
+                    link: None,
+                })
             };
             groups.push(popup::Section::new(
                 format!("Trade at {text}"),

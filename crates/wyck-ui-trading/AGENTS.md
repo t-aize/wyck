@@ -16,7 +16,7 @@ Used by: `wyck-ui-shell`.
 | Module | What it holds |
 |---|---|
 | `lines` (`lib.rs`) | `lines(book, alerts, profit, currency)`: the `ChartLine`s of every symbol (positions with their profit, protections, working orders, active alerts). The shell hands them to the multichart. |
-| `ticket` (`ticket.rs`) | `OrderTicket`, `TicketEvent`; the fields, the plan they add up to (`Plan`), `prefill` (what the chart asks of the ticket) and `same_shape`. |
+| `ticket` (`ticket.rs`) | `OrderTicket`, `TicketEvent`; the fields, the plan they add up to (`Plan`), `prefill` (fills it from a `TicketRequest` of the chart) and `same_shape`. |
 | `ticket::{build, edit, planning, helpers}` | Building the fields and the subscriptions; what a click changes; the plan, the lines the ticket puts on the chart and the margin asked; the small arithmetic and formats. |
 | `ticket::{send, problem}` | Turning the plan into orders, the safety check and the confirmation; the sentence for each `TicketProblem`. |
 | `ticket::{link, templates}` | Following a position drawing of the chart (`PositionLink`, `PositionPlan`); the setups saved under a name and the time stop. |

@@ -3,6 +3,9 @@
 //!
 //! A test checks that this list and what the engine registers are the same list, so a function
 //! cannot be added without being described, nor described without existing.
+//!
+//! This file is over 600 lines on purpose: it is a table of text, one `Doc` per function, and the
+//! test above is what keeps it honest. Nothing in it is logic that a split would make clearer.
 
 /// Where a function is listed in the reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

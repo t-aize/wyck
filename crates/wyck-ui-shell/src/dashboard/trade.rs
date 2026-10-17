@@ -14,7 +14,7 @@ use gpui::prelude::*;
 use gpui::{Context, Window};
 use wyck_chart::LineId;
 use wyck_trading::contract;
-use wyck_ui_chart::chart::events::{ChartAction, PositionLink};
+use wyck_ui_chart::chart::events::{ChartAction, TicketRequest};
 use wyck_ui_chart::multichart::SymbolRef;
 use wyck_ui_kit::{
     confirm::{Tone, confirm_as},
@@ -29,11 +29,7 @@ pub(super) enum Pending {
     /// Open the ticket, filled from the chart.
     Ticket {
         symbol: SymbolRef,
-        buy: bool,
-        entry: Option<f64>,
-        stop_loss: Option<f64>,
-        take_profit: Option<f64>,
-        link: Option<PositionLink>,
+        request: TicketRequest,
     },
     /// A line of the ticket was dragged.
     TicketLine(u8, f64),
@@ -117,19 +113,12 @@ impl Dashboard {
 
     fn run_pending(&mut self, pending: Pending, window: &mut Window, cx: &mut Context<Self>) {
         match pending {
-            Pending::Ticket {
-                symbol,
-                buy,
-                entry,
-                stop_loss,
-                take_profit,
-                link,
-            } => {
+            Pending::Ticket { symbol, request } => {
                 self.set_ticket_open(true, cx);
                 if let Some(ticket) = &self.ticket {
                     ticket.update(cx, |t, cx| {
                         t.set_symbol(Some(symbol), window, cx);
-                        t.prefill(buy, entry, stop_loss, take_profit, link, window, cx);
+                        t.prefill(request, window, cx);
                     });
                 }
             }
@@ -372,20 +361,10 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) {
         match action {
-            ChartAction::Ticket {
-                buy,
-                entry,
-                stop_loss,
-                take_profit,
-                link,
-            } => {
+            ChartAction::Ticket(request) => {
                 self.pending.push(Pending::Ticket {
                     symbol: symbol.clone(),
-                    buy: *buy,
-                    entry: *entry,
-                    stop_loss: *stop_loss,
-                    take_profit: *take_profit,
-                    link: link.clone(),
+                    request: request.clone(),
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),

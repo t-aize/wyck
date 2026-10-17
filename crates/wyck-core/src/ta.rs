@@ -9,6 +9,10 @@
 //!
 //! The definitions follow the usual references (Wilder for RSI and ATR, Appel for MACD,
 //! Bollinger for the bands), and the tests check them against values worked out by hand.
+//!
+//! This file is over 600 lines on purpose: it is a catalogue, one function per formula, and the
+//! functions do not lean on each other beyond the two helpers at the top (`smoothed`,
+//! `window_fold`). Cutting it by family would put a formula far from the reference it follows.
 
 use crate::math::count_f64;
 

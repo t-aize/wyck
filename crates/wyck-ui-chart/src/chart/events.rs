@@ -60,19 +60,23 @@ pub enum EditorRequest {
     Edit(String),
 }
 
+/// What the chart asks the order ticket to be filled with.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TicketRequest {
+    pub buy: bool,
+    /// A limit or stop price; `None` for a market order.
+    pub entry: Option<f64>,
+    pub stop_loss: Option<f64>,
+    pub take_profit: Option<f64>,
+    /// The position drawing the values come from, when the ticket is to follow it.
+    pub link: Option<PositionLink>,
+}
+
 /// Something asked from the chart's context menu or a drawing, at a price in real units.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChartAction {
     /// Open the order ticket with these values.
-    Ticket {
-        buy: bool,
-        /// A limit or stop price; `None` for a market order.
-        entry: Option<f64>,
-        stop_loss: Option<f64>,
-        take_profit: Option<f64>,
-        /// The position drawing the values come from, when the ticket is to follow it.
-        link: Option<PositionLink>,
-    },
+    Ticket(TicketRequest),
     AddAlert(f64),
     /// Add an alert on an indicator or a drawing of the chart.
     AddAlertOn(AlertSeed),
