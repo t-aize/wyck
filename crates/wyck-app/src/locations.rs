@@ -288,6 +288,15 @@ pub struct Row {
     pub unavailable: Option<Problem>,
 }
 
+/// A cloud folder found on this computer, and whether the data is already in it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudChoice {
+    pub folder: CloudFolder,
+    /// Every kind the cloud preset covers is kept in this folder now, so using it again would
+    /// change nothing.
+    pub in_use: bool,
+}
+
 /// What the Folders page shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Overview {
@@ -295,7 +304,7 @@ pub struct Overview {
     pub rows: Vec<Row>,
     pub pointer_error: Option<String>,
     /// The cloud folders found on this computer.
-    pub cloud: Vec<CloudFolder>,
+    pub cloud: Vec<CloudChoice>,
     /// The copies a sync service made of the user's documents.
     pub conflicts: Vec<PathBuf>,
     /// The old folders earlier moves left behind.
@@ -311,7 +320,31 @@ pub fn overview() -> Option<Overview> {
     Some(overview_of(&paths, locations::cloud_folders()))
 }
 
+/// Whether the folder of every kind the cloud preset covers is the one `root` would give it.
+fn uses_cloud(paths: &AppPaths, root: &Path) -> bool {
+    let same = |a: &Path, b: &Path| {
+        let words = |path: &Path| -> Vec<String> {
+            path.components()
+                .map(|part| part.as_os_str().to_string_lossy().to_lowercase())
+                .collect()
+        };
+        words(a) == words(b)
+    };
+    let layout = locations::cloud_layout(root, paths.mode());
+    !layout.is_empty()
+        && layout
+            .iter()
+            .all(|(kind, dir)| paths.is_custom(*kind) && same(&paths.dir(*kind), dir))
+}
+
 fn overview_of(paths: &AppPaths, cloud: Vec<CloudFolder>) -> Overview {
+    let cloud = cloud
+        .into_iter()
+        .map(|folder| CloudChoice {
+            in_use: uses_cloud(paths, &folder.path),
+            folder,
+        })
+        .collect();
     let rows = Kind::ALL
         .into_iter()
         .map(|kind| Row {
@@ -630,6 +663,62 @@ mod tests {
                 .iter()
                 .all(|s| s.to.starts_with(cloud.join("Wyck (dev)"))),
             "a development build has a folder of its own"
+        );
+    }
+
+    #[test]
+    fn the_overview_says_which_cloud_folder_the_data_is_already_in() {
+        let (temp, base, cloud) = temp();
+        let other = temp.path().join("other cloud");
+        std::fs::create_dir_all(&other).unwrap();
+        let folders = |dirs: &[&Path]| -> Vec<CloudFolder> {
+            dirs.iter()
+                .map(|path| CloudFolder {
+                    name: "cloud".to_owned(),
+                    path: path.to_path_buf(),
+                })
+                .collect()
+        };
+        let in_use = |paths: &AppPaths| -> Vec<bool> {
+            overview_of(paths, folders(&[&cloud, &other]))
+                .cloud
+                .iter()
+                .map(|choice| choice.in_use)
+                .collect()
+        };
+
+        let current = paths(&base);
+        assert_eq!(in_use(&current), [false, false], "nothing is moved yet");
+
+        stage_cloud_in(&current, &cloud).unwrap();
+        assert_eq!(
+            in_use(&current),
+            [false, false],
+            "a move that waits is not done"
+        );
+        relocate::apply_pending(&current, "t");
+        let after = reload(&base);
+        assert_eq!(in_use(&after), [true, false]);
+
+        let development = AppPaths::at_for(BuildMode::Development, &base)
+            .with_locations(Locations::load(&base).unwrap());
+        assert_eq!(
+            overview_of(&development, folders(&[&cloud]))
+                .cloud
+                .iter()
+                .map(|choice| choice.in_use)
+                .collect::<Vec<_>>(),
+            [false],
+            "the folder of the installed app is not the one of a development build"
+        );
+
+        let mut choices = Locations::load(&base).unwrap();
+        choices.set(Kind::Backups, None);
+        choices.save(&base).unwrap();
+        assert_eq!(
+            in_use(&reload(&base)),
+            [false, false],
+            "one kind back in its standard folder: using the cloud folder again finishes the job"
         );
     }
 

@@ -77,20 +77,45 @@ impl SettingsHub {
             "Keep your settings, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
             wyck_app::storage::locations::cloud_folder_name(overview.mode)
         )))];
+        for choice in overview.cloud.iter().filter(|choice| choice.in_use) {
+            cloud_rows.push(form::block(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .child(icon::small(IconName::CircleCheck, theme::emerald()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_size(px(tokens::text::body()))
+                            .text_color(theme::fg())
+                            .child(format!(
+                                "Your data is already kept in {}. Nothing to do here.",
+                                choice.folder.name
+                            )),
+                    ),
+            ));
+        }
         let mut buttons = div().flex().flex_row().flex_wrap().gap_2();
-        for (index, folder) in overview.cloud.iter().enumerate() {
-            let (this, path) = (cx.entity(), folder.path.clone());
-            buttons = buttons.child(
+        for (index, choice) in overview.cloud.iter().enumerate() {
+            let (this, path) = (cx.entity(), choice.folder.path.clone());
+            buttons = buttons.child(if choice.in_use {
+                wyck_ui_kit::button::quiet(("folders-cloud", index))
+                    .icon(IconName::CircleCheck)
+                    .label(format!("Using {}", choice.folder.name))
+                    .disabled(true)
+            } else {
                 wyck_ui_kit::button::accent(("folders-cloud", index))
                     .icon(IconName::RefreshCw)
-                    .label(format!("Use {}", folder.name))
+                    .label(format!("Use {}", choice.folder.name))
                     .on_click(move |_, _window, cx| {
                         let path = path.clone();
                         this.update(cx, |hub, cx| {
                             hub.stage_result(locations::stage_cloud(&path), cx);
                         });
-                    }),
-            );
+                    })
+            });
         }
         let this = cx.entity();
         buttons = buttons.child(

@@ -323,14 +323,14 @@ pub const FUNCTIONS: &[Doc] = &[
         "clamp",
         "clamp(series, low, high) -> series",
         "Each value kept between two limits.",
-        "clamp(rsi(close, 14), 20, 80)",
+        "clamp(rsi(close, 14), 20.0, 80.0)",
     ),
     doc(
         Series,
         "nz",
         "nz(series, fallback?) -> series",
         "Replaces the bars that have no value (the first ones of an average) with a number, 0 unless given.",
-        "nz(sma(close, 20), close)",
+        "nz(sma(close, 20), 0.0)",
     ),
     doc(
         Series,
