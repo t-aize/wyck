@@ -3,8 +3,6 @@
 
 [files]
 extend-exclude = [
-  # The working plan is written in French.
-  "docs/PLAN.md",
   # Images, fonts and the logos of other companies are not text.
   "crates/*/assets/**",
   "Cargo.lock",
