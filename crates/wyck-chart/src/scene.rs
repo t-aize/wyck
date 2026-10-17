@@ -11,12 +11,14 @@
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
 mod axes;
+mod bands;
 pub(crate) mod cmd;
 pub(crate) mod color;
 mod ctx;
 mod drawings;
 mod footprint;
 pub(crate) mod geometry;
+mod labels;
 pub(crate) mod palette;
 pub(crate) mod price;
 pub(crate) mod scale;
@@ -24,32 +26,26 @@ mod series;
 mod studies;
 mod tpo;
 
-pub(crate) use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
+use self::bands::Plan;
+pub(crate) use self::cmd::{Align, Cmd, P, font, hsla, rgb_alpha, with_alpha};
 use self::ctx::Ctx;
-pub(crate) use self::geometry::{Band, Geometry, axis_w, zone_w};
+pub(crate) use self::geometry::{Band, Geometry, axis_w};
 pub(crate) use self::price::PriceMap;
 use self::scale::{geometry, main_map};
-use super::axis;
 use super::data::Series;
 use super::display::{Display, effective_kind};
-use super::flow::Flow;
 use super::options::CrosshairStyle;
+use super::order_flow::flow::Flow;
 use super::settings::{ChartKind, ChartSettings};
 use super::view::View;
-use wyck_core::math::{count_f64, f32_of};
-use wyck_drawings::look::Face;
+use wyck_core::math::f32_of;
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::style::Dash;
-use wyck_indicators::spec::{Placement, ValueFormat};
+use wyck_indicators::spec::Placement;
 use wyck_market::Timeframe;
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
-
-/// The size of the text of the watermark.
-fn watermark_size() -> f32 {
-    wyck_core::text_scale::scaled(46.0)
-}
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
 pub(crate) const TPO_MARKS: u32 = 0x7f_93b2;
@@ -166,17 +162,11 @@ fn pointer_of(frame: &Frame<'_>, geometry: &Geometry, map: &PriceMap) -> Option<
     (main.contains(y) || !price.is_finite()).then_some(((f32_of(x), f32_of(y)), 0))
 }
 
-/// Builds every command for one frame.
+/// Builds every command for one frame: the prices band, one band for each indicator pane, the
+/// crosshair, then the axes over them.
 pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let series = frame.series();
-    let len = series.len();
     let geometry = geometry(frame.settings, frame.w, frame.h);
-    let plot_w = geometry.plot_w();
-    let plot_h = geometry.plot_h();
-    let mut cmds: Vec<Cmd> = Vec::new();
-    let p = frame.palette;
-    let (ox, oy) = frame.origin;
-
     let Some(map) = main_map(
         frame.raw,
         frame.display,
@@ -185,343 +175,31 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &geometry,
         frame.digits,
     ) else {
-        cmds.push(axes::axes_background(frame, &geometry));
-        return cmds;
+        return vec![axes::axes_background(frame, &geometry)];
     };
     let pointer = if frame.settings.crosshair == CrosshairStyle::Off {
         None
     } else {
         pointer_of(frame, &geometry, &map)
     };
-    let main = geometry.main();
+    let (ox, oy) = frame.origin;
     let cx = Ctx {
         f: frame,
         series,
         map,
-        len,
-        plot_w,
-        band: main,
+        len: series.len(),
+        plot_w: geometry.plot_w(),
+        band: geometry.main(),
         ox,
         oy,
     };
-    let (first, last) = frame.view.visible(len, plot_w);
-    let kind = frame.kind();
-    let time_labels = if frame.settings.kind.keeps_time() || !frame.display.is_derived() {
-        axis::time_labels(
-            first,
-            last,
-            |i| series.time_at(i),
-            |i| frame.view.x_of(count_f64(i), len, plot_w),
-            plot_w,
-            96.0,
-            frame.settings.zone,
-        )
-    } else {
-        // Bricks and columns are not periods: label them by date, further apart.
-        axis::time_labels(
-            first,
-            last,
-            |i| series.time_at(i),
-            |i| frame.view.x_of(count_f64(i), len, plot_w),
-            plot_w,
-            120.0,
-            frame.settings.zone,
-        )
-    };
-    let unit = quote_unit(frame.digits);
-    let main_ticks = map.ticks(axes::axis_tick_target(main.h), unit);
+    let plan = Plan::new(&cx);
 
-    let mut plot: Vec<Cmd> = Vec::new();
-    if let Some(text) = &frame.watermark {
-        plot.push(Cmd::Text {
-            text: text.clone(),
-            x: ox + f32_of(plot_w) / 2.0,
-            y: oy + f32_of(main.top + main.h / 2.0) - watermark_size() * 0.65,
-            size: watermark_size(),
-            color: with_alpha(p.text_strong, 0.07),
-            align: Align::Center,
-            bold: true,
-            face: Face::default(),
-        });
-    }
-    let (grid_h, grid_v) = (
-        frame.settings.grid && frame.settings.grid_horizontal,
-        frame.settings.grid && frame.settings.grid_vertical,
-    );
-    if grid_h {
-        for value in &main_ticks {
-            plot.push(cx.hline(cx.y(*value), ox, ox + f32_of(plot_w), hsla(p.grid)));
-        }
-    }
-    if grid_v {
-        for label in &time_labels {
-            plot.push(cx.vline(
-                cx.x(label.index),
-                oy + f32_of(main.top),
-                oy + f32_of(main.bottom()),
-                hsla(p.grid),
-            ));
-        }
-    }
-    if frame.settings.price_lines.day_breaks {
-        for index in axes::day_breaks(frame, first, last) {
-            plot.push(cx.vline(
-                cx.x(index),
-                oy,
-                oy + f32_of(plot_h),
-                with_alpha(p.text, 0.28),
-            ));
-        }
-    }
-    studies::overlays_under(&cx, first, last, &mut plot);
-    studies::overlays(&cx, first, &mut plot);
-    drawings::draw_script_drawings(&cx, &mut plot);
-    for mark in frame.marks {
-        let y = cx.y(mark.price);
-        let x0 = ox + mark.from_x.unwrap_or(0.0).max(0.0);
-        plot.push(Cmd::Stroke {
-            points: vec![
-                (x0, cx.snap(y) + 0.5),
-                (ox + f32_of(plot_w), cx.snap(y) + 0.5),
-            ],
-            width: mark.width,
-            color: rgb_alpha(mark.color, 0.9),
-            dash: axes::dash_pattern(mark.dash, mark.width),
-        });
-    }
-    if let Some(view) = &frame.drawings {
-        drawings::draw_drawings(&cx, view, &mut plot);
-    }
-    axes::draw_price_lines(&cx, &mut plot);
-    // Price marks remain readable even when a scripted or manual drawing fills their area.
-    series::draw(&cx, kind, first, last, &mut plot);
-    if let Some(((_, hy), 0)) = pointer {
-        plot.push(crosshair_line(&cx, hy));
-    }
-    cmds.push(Cmd::Clip {
-        x: ox,
-        y: oy + f32_of(main.top),
-        w: f32_of(plot_w),
-        h: f32_of(main.h),
-        inner: plot,
-    });
-
-    let panes = frame.settings.panes();
-    let mut pane_maps: Vec<(Band, PriceMap, ValueFormat, Vec<f64>)> = Vec::new();
-    for (i, pane) in panes.iter().enumerate() {
-        let (Some(&band), Some(config)) = (
-            geometry.bands.get(i + 1),
-            frame.settings.studies.get(pane.study),
-        ) else {
-            continue;
-        };
-        let Some(Some(output)) = frame.display.studies.get(pane.study) else {
-            continue;
-        };
-        let spec = config.spec();
-        let pmap = studies::pane_map(config, output, spec.range, band, first, last);
-        let format = config.value_format();
-        let min_step = match format {
-            ValueFormat::Price => unit,
-            ValueFormat::Plain(decimals) | ValueFormat::Percent(decimals) => {
-                10f64.powi(-i32::try_from(decimals).unwrap_or(i32::MAX))
-            }
-            ValueFormat::Count => 1.0,
-        };
-        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axes::axis_tick_target(band.h), min_step);
-        let mut inner = Vec::new();
-        if grid_h {
-            for value in &ticks {
-                inner.push(cx.hline(
-                    cx.y_on(&pmap, *value),
-                    ox,
-                    ox + f32_of(plot_w),
-                    hsla(p.grid),
-                ));
-            }
-        }
-        if grid_v {
-            for label in &time_labels {
-                inner.push(cx.vline(
-                    cx.x(label.index),
-                    oy + f32_of(band.top),
-                    oy + f32_of(band.bottom()),
-                    hsla(p.grid),
-                ));
-            }
-        }
-        studies::pane(&cx, config, output, &pmap, first, last, &mut inner);
-        if let Some(((_, hy), b)) = pointer
-            && b == i + 1
-        {
-            inner.push(crosshair_line(&cx, hy));
-        }
-        cmds.push(Cmd::Clip {
-            x: ox,
-            y: oy + f32_of(band.top),
-            w: f32_of(plot_w),
-            h: f32_of(band.h),
-            inner,
-        });
-        pane_maps.push((band, pmap, format, ticks));
-    }
-
-    // The crosshair's vertical line crosses every band.
-    if let Some(((hx, _), _)) = pointer {
-        let x = if len > 0 {
-            let index = frame
-                .view
-                .index_at(f64::from(hx), len, plot_w)
-                .round()
-                .clamp(0.0, count_f64(len - 1));
-            cx.xf(index)
-        } else {
-            ox + hx
-        };
-        cmds.push(Cmd::Clip {
-            x: ox,
-            y: oy,
-            w: f32_of(plot_w),
-            h: f32_of(plot_h),
-            inner: vec![Cmd::Stroke {
-                points: vec![
-                    (cx.snap(x) + 0.5, oy),
-                    (cx.snap(x) + 0.5, oy + f32_of(plot_h)),
-                ],
-                width: 1.0,
-                color: hsla(p.crosshair),
-                dash: frame.settings.crosshair.dash(),
-            }],
-        });
-    }
-
-    cmds.push(axes::axes_background(frame, &geometry));
-    for band in geometry.bands.iter().skip(1) {
-        cmds.push(cx.hline(
-            oy + f32_of(band.top),
-            ox,
-            ox + f32_of(frame.w),
-            hsla(p.border),
-        ));
-    }
-    let axis_x = ox + f32_of(plot_w) + 8.0;
-    let text = |text: String, y: f32| Cmd::Text {
-        text,
-        x: axis_x,
-        y: y - line_height() / 2.0,
-        size: font(),
-        color: hsla(p.text),
-        align: Align::Left,
-        bold: false,
-        face: Face::default(),
-    };
-    let in_band = |band: &Band, y: f32| {
-        y >= oy + f32_of(band.top) + 6.0 && y <= oy + f32_of(band.bottom()) - 6.0
-    };
-    // The tags of the price axes are made first, spread so none hides another, and the scales'
-    // labels then keep clear of them. The pointer's tags go over everything and move nothing.
-    let mut tags = Vec::new();
-    studies::value_tags(&cx, &pane_maps_for_tags(&panes, &pane_maps), &mut tags);
-    let mut pointer_tags = Vec::new();
-    axes::draw_axis_tags(
-        &cx,
-        pointer,
-        &geometry,
-        &pane_maps,
-        &mut tags,
-        &mut pointer_tags,
-    );
-    axes::spread_tags(&mut tags, &geometry, oy);
-    let taken: Vec<(f32, f32)> = tags
-        .iter()
-        .chain(&pointer_tags)
-        .filter_map(|cmd| match cmd {
-            Cmd::Tag {
-                y,
-                height,
-                fixed_width: Some(_),
-                ..
-            } => Some((*y, y + height)),
-            _ => None,
-        })
-        .collect();
-    let free = |y: f32| {
-        taken
-            .iter()
-            .all(|(top, bottom)| y + 6.0 < *top || y - 6.0 > *bottom)
-    };
-    for value in &main_ticks {
-        let y = cx.y(*value);
-        if in_band(&main, y) && free(y) {
-            cmds.push(text(map.label(*value, ValueFormat::Price, frame.digits), y));
-        }
-    }
-    for (band, pmap, format, ticks) in &pane_maps {
-        for value in ticks {
-            let y = cx.y_on(pmap, *value);
-            if in_band(band, y) && free(y) {
-                cmds.push(text(price::format_value(*value, *format, frame.digits), y));
-            }
-        }
-    }
-    // The labels stop short of the time zone, which sits at the right end of the axis.
-    let zone_left = ox + f32_of(plot_w) - zone_w();
-    for label in &time_labels {
-        if cx.x(label.index) > zone_left - 16.0 {
-            continue;
-        }
-        cmds.push(Cmd::Text {
-            text: label.text.clone(),
-            x: cx.x(label.index),
-            y: oy + f32_of(plot_h) + 8.0,
-            size: font(),
-            color: if label.major {
-                hsla(p.text_strong)
-            } else {
-                hsla(p.text)
-            },
-            align: Align::Center,
-            bold: label.major,
-            face: Face::default(),
-        });
-    }
-    // The zone the times are in, at the right end of the time axis. The scale buttons are in the
-    // corner under the price axis (drawn over the chart, not here).
-    let corner_time = frame.raw.last_time().unwrap_or(frame.now_ms);
-    cmds.push(Cmd::Text {
-        text: frame.settings.zone.label(corner_time),
-        x: ox + f32_of(plot_w) - 8.0,
-        y: oy + f32_of(plot_h) + 8.0,
-        size: font(),
-        color: hsla(p.text),
-        align: Align::Right,
-        bold: false,
-        face: Face::default(),
-    });
-    cmds.extend(tags);
-    cmds.extend(pointer_tags);
+    let mut cmds = vec![bands::prices(&cx, &plan, &geometry, pointer)];
+    let panes = bands::panes(&cx, &plan, &geometry, pointer, &mut cmds);
+    cmds.extend(bands::crosshair_column(&cx, &geometry, pointer));
+    labels::draw(&cx, &plan, &geometry, &panes, pointer, &mut cmds);
     cmds
-}
-
-fn pane_maps_for_tags(
-    panes: &[super::settings::PaneRef],
-    maps: &[(Band, PriceMap, ValueFormat, Vec<f64>)],
-) -> Vec<(usize, PriceMap, Band, ValueFormat)> {
-    panes
-        .iter()
-        .zip(maps)
-        .map(|(pane, (band, map, format, _))| (pane.study, *map, *band, *format))
-        .collect()
-}
-
-fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
-    let y = cx.snap(cx.oy + hy) + 0.5;
-    Cmd::Stroke {
-        points: vec![(cx.ox, y), (cx.ox + f32_of(cx.plot_w), y)],
-        width: 1.0,
-        color: hsla(cx.f.palette.crosshair),
-        dash: cx.f.settings.crosshair.dash(),
-    }
 }
 
 #[cfg(test)]
@@ -532,8 +210,8 @@ mod tests {
 
     use super::palette::*;
     use super::*;
-    use crate::flow::Flow;
     use crate::options::{ChartColors, CrosshairStyle, ScaleMargin};
+    use crate::order_flow::flow::Flow;
     use crate::settings::ScaleMode;
     use crate::view::PriceScale;
     use crate::zone::Zone;
@@ -541,6 +219,7 @@ mod tests {
     use wyck_indicators::compute::{ScriptDrawing, StudyOutput};
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
+    use wyck_indicators::spec::ValueFormat;
     use wyck_market::{Bar, Period, Quote, Tick};
 
     fn bars(n: usize) -> Vec<Bar> {
@@ -1051,8 +730,8 @@ mod tests {
         let mut settings = kind(ChartKind::VolumeCandles);
         settings.volume_candles.min_width = 0.2;
         settings.volume_candles.max_width = 1.0;
-        settings.volume_candles.reference = crate::volume::WidthReference::Max;
-        settings.volume_candles.scale = crate::volume::WidthScale::Linear;
+        settings.volume_candles.reference = crate::order_flow::volume::WidthReference::Max;
+        settings.volume_candles.scale = crate::order_flow::volume::WidthScale::Linear;
         let f = Fixture::new(Series::Bars(data), settings, View::new(20.0));
         let widths = rect_widths(&build(&f.frame()));
         let (mut thin, mut wide) = (f32::MAX, 0.0_f32);
@@ -1080,7 +759,7 @@ mod tests {
     #[test]
     fn volume_bars_draw_and_make_a_different_number_of_bars_than_the_source() {
         let mut settings = kind(ChartKind::VolumeBars);
-        settings.volume_bars.size = crate::volume::VolumeSize::Fixed { volume: 20 };
+        settings.volume_bars.size = crate::order_flow::volume::VolumeSize::Fixed { volume: 20 };
         let f = Fixture::new(Series::Bars(bars(200)), settings, View::new(8.0));
         assert!(f.display.is_derived());
         assert_eq!(f.display.volume_size, 20);
@@ -1190,7 +869,7 @@ mod tests {
     #[test]
     fn the_cells_can_show_the_delta_or_the_volume() {
         let mut f = footprint_fixture(60, 110.0);
-        f.settings.footprint.mode = crate::footprint::CellMode::Delta;
+        f.settings.footprint.mode = crate::order_flow::footprint::CellMode::Delta;
         let labels = texts(&build(&f.frame()));
         assert!(
             labels
@@ -1312,7 +991,10 @@ mod tests {
 
     #[test]
     fn profiles_are_written_in_letters_with_their_levels() {
-        let f = tpo_fixture(|s| s.tpo.display = crate::tpo::TpoDisplay::Letters, 200.0);
+        let f = tpo_fixture(
+            |s| s.tpo.display = crate::order_flow::tpo::TpoDisplay::Letters,
+            200.0,
+        );
         let text = texts(&build(&f.frame()));
         assert!(text.iter().any(|t| t == "A"), "{text:?}");
         assert!(text.iter().any(|t| t == "B"), "{text:?}");
@@ -1325,7 +1007,7 @@ mod tests {
     fn blocks_have_no_letters_and_the_levels_can_be_turned_off() {
         let f = tpo_fixture(
             |s| {
-                s.tpo.display = crate::tpo::TpoDisplay::Blocks;
+                s.tpo.display = crate::order_flow::tpo::TpoDisplay::Blocks;
                 s.tpo.poc = false;
                 s.tpo.value_area = false;
             },
@@ -1389,7 +1071,7 @@ mod tests {
 
     #[test]
     fn every_color_mode_draws() {
-        use crate::tpo::TpoColor;
+        use crate::order_flow::tpo::TpoColor;
         for mode in TpoColor::ALL {
             let f = tpo_fixture(|s| s.tpo.color = mode, 200.0);
             assert!(count(&build(&f.frame())) > 100, "{mode:?}");

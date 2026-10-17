@@ -22,7 +22,8 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 | `sign_in` | `SignIn`, an entity with no view: finds a saved session or walks through cTrader's consent page and the choice of an account (`consent`), keeps the pure `SignInState` (`state`), the decisions that need no window (`rules`), opens the config (`config`). |
 | `alerts` | `Alerts`, the entity that judges, saves and fires alerts. `model` is the data (`Alert`, `Source`, `Condition`, `Trigger`), `eval` the plain functions that decide, `sound` the sound and the desktop notification (on a thread of its own). |
 | `market_data` | `live::LiveHub` (what to subscribe to: the union of every owner's wish) and `load` (history in chunks within the server's limits); `now_ms`. |
-| `workspace` | `Workspace`, the live copy of the saved arrangement: `Preferences` (global) and `Watchlists` (per account), `layouts`, and `Saver` (a write a moment after the last change, and on exit). |
+| `workspace` | `Workspace`, the live copy of the saved arrangement: `Preferences` (global, one module per domain: `charts`, `timeframes`, `tools`, `limits`) and `Watchlists` (per account), and `layouts`. |
+| `saver` | `Saver`, the write of a document a moment after the last change, and on exit; every saved document of the crate (and the script drafts) uses it. |
 | `prefs` | What a feature keeps in the workspace document: `ticket`, `panel`, `indicators`. |
 | `appearance`, `chart_export`, `drawings` | The look (own document), the export panel's options and presets (own document), the live drawings every chart shares. |
 | `scripts` | The indicator folder: `Service` keeps the list current and publishes it to the indicator registry; `folder::Library` reads it and does what a user does to files. |
@@ -59,8 +60,8 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
   when the saver is dropped.
 - **Updates are signed.** `updates` checks the `latest.json` of the latest GitHub release against
   the public key compiled in (`assets/update.pubkey`); development builds do not update.
-- **Planned (docs/PLAN.md, Phase 5):** `workspace/preferences.rs` (955 lines) is split by domain and
-  the cycle `alerts <-> drawings <-> workspace` is broken.
+- **The modules form no cycle** (`alerts -> drawings -> saver`, `workspace -> alerts, prefs`): the
+  alert limits live in `alerts`, the delayed write in `saver`. Keep the arrows that way.
 
 ## Global state
 
@@ -84,7 +85,7 @@ constructors exist only for tests (`#[cfg(test)]`). Run: `cargo test -p wyck-app
 - A saved document: its type with a `schema_version`, a name constant, a `Plan` in `migrations`
   with a fixture of the old layout, and its name in `locations::KNOWN_DOCUMENTS`.
 - A setting: a field with a default in `workspace::Preferences` or in `prefs`, repaired in
-  `normalized`; a migration step only if an existing file changes shape.
+  `normalized` (its rules in the module of its domain under `workspace/preferences/`); a migration step only if an existing file changes shape.
 - An alert source or condition: `alerts::model::{source, condition}`, its rule in `alerts::eval`.
 - A sentence for an order outcome or a refusal: `account::notice`.
 - An alert sound: a file in `assets/sounds`, `alerts::sound`, and `scripts/make_sounds.py`.

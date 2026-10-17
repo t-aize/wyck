@@ -7,14 +7,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::footprint::FootprintSettings;
 use super::options::{
     ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines,
 };
+use super::order_flow::footprint::FootprintSettings;
+use super::order_flow::tpo::TpoSettings;
+use super::order_flow::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
-use super::tpo::TpoSettings;
 use super::transform::settings::TransformSettings;
-use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
 use wyck_indicators::config::StudyConfig;
 

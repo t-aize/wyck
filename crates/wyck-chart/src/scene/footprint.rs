@@ -15,8 +15,8 @@ use wyck_market::Bar;
 use super::cmd::{Align, Cmd, font, hsla, rgb_alpha, with_alpha};
 use super::ctx::Ctx;
 use super::{quote_unit, series};
-use crate::flow::Flow;
-use crate::footprint::{self as model, Analysis, CellMode, HeatScope};
+use crate::order_flow::flow::Flow;
+use crate::order_flow::footprint::{self as model, Analysis, CellMode, HeatScope};
 use wyck_drawings::look::Face;
 
 /// Bars narrower than this are drawn as plain candles.

@@ -4,6 +4,7 @@
 mod volume_profile;
 
 use super::Placement;
+use super::bands::PaneScale;
 use super::cmd::{Align, Cmd, P, font, rgb_alpha};
 use super::ctx::Ctx;
 use super::geometry::{Band, axis_w};
@@ -15,7 +16,7 @@ use wyck_drawings::model::style::Dash;
 use wyck_indicators::compute::{DOWN_COLOR, FillOut, PlotOut, StudyOutput, UP_COLOR};
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::kind::StudyKind;
-use wyck_indicators::spec::{PlotKind, ValueFormat};
+use wyck_indicators::spec::PlotKind;
 use wyck_indicators::style::FillStyle;
 
 /// The part of the data a plot draws on screen: data indices `from..to`.
@@ -411,11 +412,7 @@ pub(super) fn pane(
 }
 
 /// The last value of each visible plot, as a colored tag on the axis of its band.
-pub(super) fn value_tags(
-    cx: &Ctx<'_>,
-    panes: &[(usize, PriceMap, Band, ValueFormat)],
-    out: &mut Vec<Cmd>,
-) {
+pub(super) fn value_tags(cx: &Ctx<'_>, panes: &[PaneScale], out: &mut Vec<Cmd>) {
     let axis_x = cx.ox + f32_of(cx.plot_w) + 1.0;
     let mut tag = |text: String, y: f32, band: &Band, color: u32| {
         let top = cx.oy + f32_of(band.top) + 9.0;
@@ -462,14 +459,14 @@ pub(super) fn value_tags(
             }
         }
     }
-    for (study, map, band, format) in panes {
-        let Some(config) = cx.f.settings.studies.get(*study) else {
+    for pane in panes {
+        let Some(config) = cx.f.settings.studies.get(pane.study) else {
             continue;
         };
         if !config.axis_labels {
             continue;
         }
-        let Some(Some(output)) = cx.f.display.studies.get(*study) else {
+        let Some(Some(output)) = cx.f.display.studies.get(pane.study) else {
             continue;
         };
         for plot in &output.plots {
@@ -498,9 +495,9 @@ pub(super) fn value_tags(
                     _ => style.color,
                 };
                 tag(
-                    price::format_value(v, *format, cx.f.digits),
-                    cx.y_on(map, v),
-                    band,
+                    price::format_value(v, pane.format, cx.f.digits),
+                    cx.y_on(&pane.map, v),
+                    &pane.band,
                     color,
                 );
             }

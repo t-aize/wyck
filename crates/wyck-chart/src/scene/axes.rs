@@ -1,9 +1,8 @@
 //! The axes, the price lines and the tags on them.
 
+use super::bands::PaneScale;
 use super::color::{Hsla, Rgba};
-use super::{
-    Align, Band, Cmd, Ctx, Frame, Geometry, P, PriceMap, axis_w, font, hsla, rgb_alpha, with_alpha,
-};
+use super::{Align, Band, Cmd, Ctx, Frame, Geometry, P, axis_w, font, hsla, rgb_alpha, with_alpha};
 use crate::axis;
 use crate::data::Series;
 use wyck_core::math::{count_f64, f32_of, f64_to_usize, i64_to_f64};
@@ -152,15 +151,13 @@ pub(crate) fn countdown(ms: i64) -> String {
     }
 }
 
-/// The tags on the axes: the newest price with the time left in its bar, the marks, and the
-/// crosshair's value and time.
 /// Draws the tags on the price axis (the order and position lines, the last price and the time
 /// left in its bar) into `out`, and the pointer's price and time into `pointer_out`.
 pub(super) fn draw_axis_tags(
     cx: &Ctx<'_>,
     pointer: Option<(P, usize)>,
     geometry: &Geometry,
-    panes: &[(Band, PriceMap, ValueFormat, Vec<f64>)],
+    panes: &[PaneScale],
     out: &mut Vec<Cmd>,
     pointer_out: &mut Vec<Cmd>,
 ) {
@@ -257,9 +254,12 @@ pub(super) fn draw_axis_tags(
                 .label(cx.map.price(f64::from(hy)), ValueFormat::Price, cx.f.digits),
         )
     } else {
-        panes.get(band_index - 1).map(|(_, map, format, _)| {
-            super::price::format_value(map.price(f64::from(hy)), *format, cx.f.digits)
-        })
+        panes
+            .iter()
+            .find(|pane| pane.band_index == band_index)
+            .map(|pane| {
+                super::price::format_value(pane.map.price(f64::from(hy)), pane.format, cx.f.digits)
+            })
     };
     if let Some(text) = text {
         pointer_out.push(tag(text, y, hsla(p.tag), hsla(p.text_strong)));

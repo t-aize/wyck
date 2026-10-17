@@ -221,8 +221,8 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
     for (n, (i, bar)) in (first..last).zip(bars.iter().skip(first)).enumerate() {
         let x = cx.x(i);
         let up = match settings.color_by {
-            crate::volume::ColorBy::Body => bar.close >= bar.open,
-            crate::volume::ColorBy::PreviousClose => {
+            crate::order_flow::volume::ColorBy::Body => bar.close >= bar.open,
+            crate::order_flow::volume::ColorBy::PreviousClose => {
                 bar.close
                     >= i.checked_sub(1)
                         .and_then(|p| bars.get(p))

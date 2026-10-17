@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use wyck_core::math::{count_i64, f64_to_i64, i64_to_f64};
 use wyck_market::Bar;
 
-use super::zone::Zone;
+use crate::zone::Zone;
 
 /// Most profiles produced, like the bar limit of the chart.
 const MAX_PROFILES: usize = 120_000;

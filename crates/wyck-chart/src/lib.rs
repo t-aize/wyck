@@ -9,18 +9,15 @@ mod axis;
 mod data;
 mod display;
 mod export;
-mod flow;
-mod footprint;
 mod lines;
 mod look;
 mod options;
+mod order_flow;
 mod projection;
 mod scene;
 mod settings;
-mod tpo;
 mod transform;
 mod view;
-mod volume;
 mod zone;
 
 pub use axis::full_time;
@@ -41,13 +38,19 @@ pub use export::presets::{Preset, builtin_presets};
 pub use export::render::{clashes, file_name, render};
 pub use export::source::{Cell, Source, Table, TableColumn};
 pub use export::table::{date_is_valid, table};
-pub use flow::{BarFlow, Flow, Held, Level, Step, bar_open, next_step};
-pub use footprint::{
-    CellMode, DEFAULT_BAR_PX, FootprintSettings, HeatScope, compact, signed, supports,
-};
 pub use lines::LineId;
 pub use look::{ChartContent, ChartLook};
 pub use options::{ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines};
+pub use order_flow::flow::{BarFlow, Flow, Held, Level, Step, bar_open, next_step};
+pub use order_flow::footprint::{
+    CellMode, DEFAULT_BAR_PX, FootprintSettings, HeatScope, compact, signed, supports,
+};
+pub use order_flow::tpo::{
+    Profile, SessionKind, SinglePrint, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock,
+};
+pub use order_flow::volume::{
+    ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
+};
 pub use projection::ChartProjection;
 pub use scene::cmd::{
     Align, Cmd, P, fitted_origin, fitted_size, font, hsla, line_height, rgb_alpha, with_alpha,
@@ -61,13 +64,7 @@ pub use scene::{DrawingView, Frame, PriceMark, build, quote_unit};
 pub use settings::{
     ChartKind, ChartSettings, DEFAULT_STUDIES_LIMIT, MAX_STUDIES, PaneRef, ScaleMode,
 };
-pub use tpo::{
-    Profile, SessionKind, SinglePrint, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock,
-};
 pub use transform::settings::{BoxSize, TransformSettings};
 pub use transform::{KagiLine, PnfColumn, PricePath};
 pub use view::{PriceScale, View};
-pub use volume::{
-    ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
-};
 pub use zone::{TIME_PATTERN, Zone};

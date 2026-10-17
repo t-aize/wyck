@@ -5,13 +5,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::footprint::FootprintSettings;
 use super::options::{
     ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines,
 };
-use super::tpo::TpoSettings;
+use super::order_flow::footprint::FootprintSettings;
+use super::order_flow::tpo::TpoSettings;
+use super::order_flow::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::transform::settings::TransformSettings;
-use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::kind::StudyKind;
@@ -447,7 +447,7 @@ mod tests {
             kind: ChartKind::Footprint,
             ..ChartSettings::default()
         };
-        settings.footprint.mode = crate::footprint::CellMode::Delta;
+        settings.footprint.mode = crate::order_flow::footprint::CellMode::Delta;
         settings.footprint.imbalance_percent = 450;
         let text = toml::to_string_pretty(&settings).unwrap();
         let back: ChartSettings = toml::from_str(&text).unwrap();

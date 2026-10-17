@@ -12,7 +12,7 @@ use wyck_market::Bar;
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::ctx::Ctx;
 use super::series;
-use crate::tpo::{Profile, TpoColor, TpoDisplay, letter};
+use crate::order_flow::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use wyck_drawings::look::Face;
 use wyck_indicators::spec::ValueFormat;
 

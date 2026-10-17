@@ -1,7 +1,7 @@
 //! The footprint chart type: its settings, and the analysis of one bar's flow (the rows it is cut
 //! into, the point of control, the value area, the imbalances and the stacks of them).
 //!
-//! The drawing lives in [`super::scene`]; what is here is plain arithmetic on [`super::flow`]
+//! The drawing lives in [`crate::scene`]; what is here is plain arithmetic on [`super::flow`]
 //! data, so it is unit tested without a window.
 //!
 //! What the chart offers is what the order flow platforms (ATAS, Sierra Chart, Quantower,

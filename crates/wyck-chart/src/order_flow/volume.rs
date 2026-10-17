@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use wyck_core::math::{count_f64, f32_of, f64_to_i64, f64_to_usize, i64_to_f64};
 use wyck_market::Bar;
 
-use super::transform::PricePath;
+use crate::transform::PricePath;
 
 /// Most bars a construction produces, like the bar limit of the chart.
 const MAX_OUT: usize = 120_000;
