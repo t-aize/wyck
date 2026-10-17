@@ -17,7 +17,7 @@ app names them.
 |---|---|
 | (root) | `WyckConfig` (open it, add profiles, read secrets, `documents()`, `backups()`, `diagnose()`), `AppConfig`, `ProfileConfig`, `ProfileId`, `AppPaths`, `DocumentStore`, `SecretStore` and `SecretKey`, `ConfigError` and `Result`, `atomic_write`. |
 | `paths` | `AppPaths`: the standard folders of the system, or the ones the environment or the user chose. |
-| `locations`, `relocate` | Where each kind of data lives and the file that says so (public); moving a kind to another folder, staged and made at the next start (public). |
+| `locations`, `relocate` | Where each kind of data lives and the file that says so (public): `kind` (the five kinds), `pointer` (`locations.toml`), `folder` (can a folder be used, its marker), `cloud` (cloud folders, sync conflict copies). Moving a kind to another folder, staged and made at the next start (public): `planning` (what a move would do), `staging` (the file that waits), `applying` (the start-up move), `copying` (copy and read back), `left_behind` (old folders kept aside). |
 | `identity` | The names a build keeps its state under, so a development build never shares a folder or a credential with the installed app (public). |
 | `documents` | `DocumentStore`: typed TOML documents, one file each, with a `schema_version`. |
 | `migrate` | Upgrading a saved file step by step when its layout changes (public). |
