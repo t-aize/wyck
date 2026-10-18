@@ -129,9 +129,11 @@ impl Dashboard {
                 ReplayStep::Ticks(10),
                 ReplayStep::Ticks(100),
             ];
-            ReplayStep::PRESETS
+            // Ticks come first: the steps go from the smallest to the largest.
+            tick_steps
                 .iter()
-                .chain(tick_steps.iter().filter(|_| ticks))
+                .filter(|_| ticks)
+                .chain(ReplayStep::PRESETS.iter())
                 .map(|choice| {
                     let choice = *choice;
                     let replay = replay.clone();
