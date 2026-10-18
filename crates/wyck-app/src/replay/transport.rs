@@ -1,11 +1,12 @@
 //! The transport of a replay: play, pause, steps, jumps, speed, and what it does on every frame.
 
 use gpui::Context;
-use wyck_chart::{ReplayBounds, ReplayClock, ReplayNoGaps, ReplayStep};
+use wyck_chart::{ClockStep, ReplayBounds, ReplayClock, ReplayNoGaps, ReplayStep, ReplayTimeline};
 
 use super::plan;
 use super::store::{DataTimes, Store};
-use super::{Demand, FRAME, Phase, Replay, ReplayEvent};
+use super::ticks::TickTimes;
+use super::{Demand, FRAME, Phase, Replay, ReplayEvent, TickMode};
 use crate::market_data::now_ms;
 
 impl Replay {
@@ -38,6 +39,8 @@ impl Replay {
         }
         self.ticker += 1;
         self.buffering = false;
+        // A chart that skipped frames while it played catches up with where playing stopped.
+        cx.emit(ReplayEvent::Cursor);
         cx.notify();
     }
 
@@ -65,18 +68,13 @@ impl Replay {
             return;
         };
         let bounds = self.bounds(&clock, now_ms());
-        let moved = if self.skip_gaps {
-            let data = self.data_times();
-            if forward {
-                clock.step_forward(bounds, &data)
-            } else {
-                clock.step_back(bounds, &data)
-            }
-        } else if forward {
-            clock.step_forward(bounds, &ReplayNoGaps)
+        let timeline = self.timeline(clock.step());
+        let moved = if forward {
+            clock.step_forward(bounds, &*timeline)
         } else {
-            clock.step_back(bounds, &ReplayNoGaps)
+            clock.step_back(bounds, &*timeline)
         };
+        drop(timeline);
         self.clock = Some(clock);
         self.ticker += 1;
         self.buffering = false;
@@ -130,6 +128,22 @@ impl Replay {
         cx.notify();
     }
 
+    /// Lets the replay build the candle in progress from real ticks (`Auto`, where the broker has
+    /// them) or from minute bars only.
+    pub fn set_tick_mode(&mut self, mode: TickMode, cx: &mut Context<Self>) {
+        if self.tick_mode == mode {
+            return;
+        }
+        self.tick_mode = mode;
+        self.tick_stores.clear();
+        self.tick_support.clear();
+        self.tick_inflight.clear();
+        self.refresh_step();
+        self.pump(cx);
+        cx.emit(ReplayEvent::DataChanged);
+        cx.notify();
+    }
+
     pub fn set_skip_gaps(&mut self, skip: bool, cx: &mut Context<Self>) {
         self.skip_gaps = skip;
         cx.notify();
@@ -173,12 +187,9 @@ impl Replay {
         };
         let now = now_ms();
         let bounds = self.bounds(&clock, now);
-        let advance = if self.skip_gaps {
-            let data = self.data_times();
-            clock.advance(now, bounds, &data)
-        } else {
-            clock.advance(now, bounds, &ReplayNoGaps)
-        };
+        let timeline = self.timeline(clock.step());
+        let advance = clock.advance(now, bounds, &*timeline);
+        drop(timeline);
         let caught_up = advance.hit_cap && bounds.cap_ms >= plan::live_edge_ms(now);
         if caught_up {
             clock.pause();
@@ -207,10 +218,16 @@ impl Replay {
             .max()
             .unwrap_or(cursor)
             .min(cursor);
+        let tick_cap = self
+            .tick_stores
+            .iter()
+            .filter(|(symbol, _)| self.symbol_uses_ticks(**symbol))
+            .map(|(_, store)| store.coverage().to_ms + 1);
         let cap = self
             .stores
             .values()
             .map(|store| store.covered_to_ms() + 1)
+            .chain(tick_cap)
             .min()
             .unwrap_or(cursor)
             .min(plan::live_edge_ms(now_ms));
@@ -220,11 +237,25 @@ impl Replay {
         }
     }
 
-    fn data_times(&self) -> DataTimes<'_> {
-        DataTimes(self.stores.values().map(Store::bars).collect())
+    /// When there is data, for the clock to jump over the hours with none (when asked to) and for a
+    /// step in ticks, which always needs the times of the ticks.
+    fn timeline(&self, step: ClockStep) -> Box<dyn ReplayTimeline + '_> {
+        if matches!(step, ClockStep::Ticks(_)) {
+            Box::new(TickTimes(
+                self.tick_stores
+                    .iter()
+                    .filter(|(symbol, _)| self.symbol_uses_ticks(**symbol))
+                    .map(|(_, store)| store.ticks())
+                    .collect(),
+            ))
+        } else if self.skip_gaps {
+            Box::new(DataTimes(self.stores.values().map(Store::bars).collect()))
+        } else {
+            Box::new(ReplayNoGaps)
+        }
     }
 
-    fn refresh_step(&mut self) {
+    pub(super) fn refresh_step(&mut self) {
         let step = self.clock_step();
         if let Some(clock) = &mut self.clock {
             clock.set_step(step);

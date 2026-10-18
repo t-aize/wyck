@@ -7,6 +7,8 @@
 mod loading;
 mod plan;
 mod store;
+mod tick_loading;
+mod ticks;
 mod transport;
 
 use std::collections::{HashMap, HashSet};
@@ -23,7 +25,9 @@ use crate::lost::lost;
 use crate::market_data::load;
 use crate::market_data::now_ms;
 use crate::market_data::replay_load::{self, Chunk};
+use crate::market_data::replay_ticks::TickChunk;
 pub use store::Store;
+pub use ticks::{TickStore, TickSupport};
 
 type Key = (i64, Period);
 
@@ -36,16 +40,47 @@ const MAX_LEAD_MS: i64 = 31 * DAY_MS;
 /// Requests a replay keeps in flight: the history limit is shared with the charts.
 const MAX_IN_FLIGHT: usize = 2;
 
+/// What a chart is made of, so what the replay must hold for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DemandKind {
+    /// Server bars of a period (alone or grouped).
+    Bars(Period),
+    /// Bars of this many seconds, made of ticks.
+    Seconds(u32),
+    /// Tick by tick.
+    Ticks,
+}
+
 /// What a chart needs the replay to hold for it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Demand {
     pub symbol_id: i64,
-    /// The server period the chart's bars are made of.
-    pub period: Period,
-    /// The length of one bar of the chart, to pick the automatic step.
-    pub bar_ms: i64,
+    pub kind: DemandKind,
+    /// The length of one bar of the chart, to pick the automatic step (none for a tick chart).
+    pub bar_ms: Option<i64>,
     /// How many bars before the cursor the chart wants to see.
     pub back_bars: usize,
+}
+
+impl Demand {
+    /// The server period of the bars the chart is made of, if it has any.
+    #[must_use]
+    pub fn period(&self) -> Option<Period> {
+        match self.kind {
+            DemandKind::Bars(period) => Some(period),
+            DemandKind::Seconds(_) | DemandKind::Ticks => None,
+        }
+    }
+}
+
+/// What the replay builds the candle in progress from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TickMode {
+    /// Real ticks where the broker has them, minute bars where it has not.
+    #[default]
+    Auto,
+    /// Minute bars always, along a synthetic path inside the minute.
+    Minutes,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +125,11 @@ enum Done {
     Forward(Chunk),
 }
 
+enum TickDone {
+    Before(TickChunk),
+    Forward(TickChunk),
+}
+
 pub struct Replay {
     session: Session,
     phase: Phase,
@@ -105,6 +145,11 @@ pub struct Replay {
     inflight: HashSet<Key>,
     blocked: HashMap<Key, i64>,
     pending: Option<Start>,
+    tick_mode: TickMode,
+    tick_stores: HashMap<i64, TickStore>,
+    tick_support: HashMap<i64, TickSupport>,
+    tick_inflight: HashSet<i64>,
+    tick_blocked: HashMap<i64, i64>,
     /// Bumped when the replay starts over, so a late answer is recognized and dropped.
     epoch: u64,
     /// Bumped when playing stops or restarts, so the timer of an old play ends.
@@ -130,6 +175,11 @@ impl Replay {
             inflight: HashSet::new(),
             blocked: HashMap::new(),
             pending: None,
+            tick_mode: TickMode::Auto,
+            tick_stores: HashMap::new(),
+            tick_support: HashMap::new(),
+            tick_inflight: HashSet::new(),
+            tick_blocked: HashMap::new(),
             epoch: 0,
             ticker: 0,
         }
@@ -192,35 +242,87 @@ impl Replay {
         self.step.millis().unwrap_or_else(|| match self.step {
             ReplayStep::Ticks(_) => 1_000,
             _ => replay_auto_step(
-                self.demand.iter().map(|demand| demand.bar_ms),
+                self.demand.iter().filter_map(|demand| demand.bar_ms),
                 self.auto_floor_ms(),
             ),
         })
     }
 
-    /// How the clock takes a step.
+    /// How the clock takes a step. A step in ticks needs real ticks; without them it is the time
+    /// step Auto would take.
     #[must_use]
     pub fn clock_step(&self) -> ClockStep {
+        let ticks = self.ticks_available();
         match self.step {
-            ReplayStep::Ticks(count) => ClockStep::Ticks(count),
+            ReplayStep::Ticks(count) if ticks => ClockStep::Ticks(count),
+            ReplayStep::Auto if ticks && self.has_tick_chart() => ClockStep::Ticks(1),
             _ => ClockStep::time(self.step_ms()),
         }
     }
 
-    /// The shortest step Auto may take: a minute while minute bars are the finest data.
-    #[expect(
-        clippy::unused_self,
-        reason = "it will depend on whether ticks are held"
-    )]
+    /// The shortest step Auto may take: a minute while minute bars are the finest data, a second
+    /// when there are ticks.
     fn auto_floor_ms(&self) -> i64 {
-        60_000
+        if self.ticks_available() {
+            1_000
+        } else {
+            60_000
+        }
     }
 
-    /// Whether real ticks are held, so a step in ticks means something.
+    fn has_tick_chart(&self) -> bool {
+        self.demand
+            .iter()
+            .any(|demand| demand.kind == DemandKind::Ticks)
+    }
+
+    // ---- The ticks.
+
     #[must_use]
-    #[expect(clippy::unused_self, reason = "it will depend on the ticks held")]
+    pub fn tick_mode(&self) -> TickMode {
+        self.tick_mode
+    }
+
+    /// Whether the candle in progress of this symbol is made of real ticks: the user lets the
+    /// replay use them, and the broker has them where the replay is.
+    #[must_use]
+    pub fn symbol_uses_ticks(&self, symbol_id: i64) -> bool {
+        self.tick_mode == TickMode::Auto
+            && self.tick_support.get(&symbol_id) == Some(&TickSupport::Available)
+    }
+
+    /// Whether the broker has ticks for this symbol where the replay is (see [`TickSupport`]).
+    #[must_use]
+    pub fn tick_support(&self, symbol_id: i64) -> TickSupport {
+        self.tick_support
+            .get(&symbol_id)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    /// Whether real ticks are held for some chart, so a step in ticks means something.
+    #[must_use]
     pub fn ticks_available(&self) -> bool {
-        false
+        self.tick_stores
+            .iter()
+            .any(|(symbol, store)| self.symbol_uses_ticks(*symbol) && !store.ticks().is_empty())
+    }
+
+    /// The ticks of a symbol, when it uses them (see [`Self::symbol_uses_ticks`]).
+    #[must_use]
+    pub fn tick_store(&self, symbol_id: i64) -> Option<&TickStore> {
+        self.tick_stores
+            .get(&symbol_id)
+            .filter(|_| self.symbol_uses_ticks(symbol_id))
+    }
+
+    /// The ticks of a symbol, when they reach from the minute the cursor is in up to the cursor,
+    /// which is what the candle in progress needs to be made of them.
+    #[must_use]
+    pub fn ticks_for(&self, symbol_id: i64) -> Option<&TickStore> {
+        let cursor = self.cursor_ms()?;
+        self.tick_store(symbol_id)
+            .filter(|store| store.covers(cursor))
     }
 
     #[must_use]
@@ -322,6 +424,10 @@ impl Replay {
         self.stores.clear();
         self.inflight.clear();
         self.blocked.clear();
+        self.tick_stores.clear();
+        self.tick_support.clear();
+        self.tick_inflight.clear();
+        self.tick_blocked.clear();
         self.pending = None;
         self.buffering = false;
     }
@@ -330,7 +436,7 @@ impl Replay {
         let mut keys: Vec<Key> = self
             .demand
             .iter()
-            .map(|demand| (demand.symbol_id, demand.period))
+            .map(|demand| (demand.symbol_id, demand.period().unwrap_or(Period::M1)))
             .collect();
         keys.sort();
         keys.dedup();

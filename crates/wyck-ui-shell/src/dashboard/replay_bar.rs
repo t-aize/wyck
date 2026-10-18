@@ -3,7 +3,7 @@
 
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, SharedString, Window, div, px};
-use wyck_app::replay::{Phase, Replay};
+use wyck_app::replay::{Phase, Replay, TickMode};
 use wyck_chart::{REPLAY_RATES, ReplayStep, TIME_PATTERN};
 use wyck_ui_kit::input::{InputEvent, InputState};
 use wyck_ui_kit::menu::{Entry, Menu, Placement};
@@ -75,7 +75,19 @@ impl Dashboard {
             self.replay_step_field = Some(state);
         }
         let replay = self.replay.clone();
-        let (active, playing, buffering, rate, step, step_ms, cursor, skip_gaps, future) = {
+        let (
+            active,
+            playing,
+            buffering,
+            rate,
+            step,
+            step_ms,
+            cursor,
+            skip_gaps,
+            future,
+            ticks,
+            mode,
+        ) = {
             let held = replay.read(cx);
             (
                 held.phase() == Phase::Active,
@@ -87,6 +99,8 @@ impl Dashboard {
                 held.cursor_ms(),
                 held.skips_gaps(),
                 held.shows_future_drawings(),
+                held.ticks_available(),
+                held.tick_mode(),
             )
         };
         let zone = self.multi.read(cx).active_chart().read(cx).settings().zone;
@@ -110,8 +124,14 @@ impl Dashboard {
             Vec::new()
         };
         let step_items = if step_menu.is_open(cx) {
+            let tick_steps = [
+                ReplayStep::Ticks(1),
+                ReplayStep::Ticks(10),
+                ReplayStep::Ticks(100),
+            ];
             ReplayStep::PRESETS
                 .iter()
+                .chain(tick_steps.iter().filter(|_| ticks))
                 .map(|choice| {
                     let choice = *choice;
                     let replay = replay.clone();
@@ -269,6 +289,21 @@ impl Dashboard {
                 "Skip closed hours",
                 skip_gaps,
                 Replay::set_skip_gaps,
+            ))
+            .child(switch(
+                "replay-ticks",
+                "Real ticks",
+                mode == TickMode::Auto,
+                |replay, on, cx| {
+                    replay.set_tick_mode(
+                        if on {
+                            TickMode::Auto
+                        } else {
+                            TickMode::Minutes
+                        },
+                        cx,
+                    );
+                },
             ))
             .child(switch(
                 "replay-future",

@@ -10,13 +10,15 @@ mod forming;
 mod path;
 mod start;
 mod step;
+mod tick_feed;
 
 pub use clock::{
     ClockStep, REPLAY_RATES, ReplayAdvance, ReplayBounds, ReplayClock, ReplayNoGaps,
     ReplayTimeline, replay_auto_step,
 };
-pub use feed::{ReplayChange, ReplayFeed, ReplayInput};
-pub use forming::replay_fold_minutes;
+pub use feed::{ReplayChange, ReplayFeed, ReplayInput, ReplaySource};
+pub use forming::{replay_fold_hybrid, replay_fold_minutes, replay_fold_ticks};
 pub use path::replay_partial_bar;
 pub use start::{replay_align_to_bar, replay_random_start};
 pub use step::{REPLAY_STEP_HELP, ReplayStep, parse_step};
+pub use tick_feed::{ReplaySecondsFeed, ReplayTickFeed};

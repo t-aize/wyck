@@ -57,8 +57,9 @@ pub use price::{PriceMap, format_value, quote_unit};
 pub use projection::ChartProjection;
 pub use replay::{
     ClockStep, REPLAY_RATES, REPLAY_STEP_HELP, ReplayAdvance, ReplayBounds, ReplayChange,
-    ReplayClock, ReplayFeed, ReplayInput, ReplayNoGaps, ReplayStep, ReplayTimeline, parse_step,
-    replay_align_to_bar, replay_auto_step, replay_fold_minutes, replay_partial_bar,
+    ReplayClock, ReplayFeed, ReplayInput, ReplayNoGaps, ReplaySecondsFeed, ReplaySource,
+    ReplayStep, ReplayTickFeed, ReplayTimeline, parse_step, replay_align_to_bar, replay_auto_step,
+    replay_fold_hybrid, replay_fold_minutes, replay_fold_ticks, replay_partial_bar,
     replay_random_start,
 };
 pub use scene::cmd::{

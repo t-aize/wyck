@@ -64,7 +64,7 @@ still: add a call back when the app needs it, following "Where to add X".
 
 Unit tests next to the code and a local mock WebSocket server for everything above the wire. The
 examples (`cargo run -p wyck-ctrader --example ctrader_prices -- EURUSD`, also `ctrader_accounts`,
-`ctrader_history`, `ctrader_demo_order`) run against a real demo account and need the variables of
+`ctrader_history`, `ctrader_demo_order`, and `ctrader_ticks`, which measures how far back the broker keeps ticks and how many a busy hour holds, so the replay constants can be set) run against a real demo account and need the variables of
 `.env.example` (copy it to `.env` at the root of the repository; Git ignores `.env`). Nothing
 automated does. Run: `cargo test -p wyck-ctrader`.
 

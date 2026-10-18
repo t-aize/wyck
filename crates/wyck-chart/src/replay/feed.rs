@@ -4,9 +4,9 @@
 //! boundaries are the broker's. Only the candle in progress is rebuilt, from minute bars or, when
 //! there are none, along the synthetic path of the candle itself.
 
-use wyck_market::{Bar, Period, Timeframe};
+use wyck_market::{Bar, Period, Tick, Timeframe};
 
-use super::forming::replay_fold_minutes;
+use super::forming::{replay_fold_hybrid, replay_fold_minutes};
 use super::path::replay_partial_bar;
 use crate::data::group_bars;
 
@@ -21,6 +21,9 @@ pub struct ReplayInput<'a> {
     pub base: &'a [Bar],
     /// The minute bars of the symbol, sorted. `None` forms a candle along its own path.
     pub minutes: Option<&'a [Bar]>,
+    /// The real ticks around the cursor, sorted, with the minute bars: the minute in progress is
+    /// then made of them. Without minute bars they are not used.
+    pub ticks: Option<&'a [Tick]>,
     /// Changes when `base` was edited other than at its end (older history put in front).
     pub generation: u64,
 }
@@ -34,11 +37,24 @@ pub struct ReplayChange {
     pub first_changed: usize,
 }
 
+/// What the candle in progress is made of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReplaySource {
+    /// Real ticks for the minute in progress, minute bars before it.
+    Ticks,
+    /// Minute bars, the one in progress along a synthetic path.
+    Minutes,
+    /// The candle itself, along a synthetic path.
+    #[default]
+    Own,
+}
+
 /// What a chart remembers between two moves of the cursor, so a move costs what changed.
 #[derive(Debug, Clone, Default)]
 pub struct ReplayFeed {
     shown: usize,
     generation: u64,
+    source: ReplaySource,
 }
 
 impl ReplayFeed {
@@ -50,6 +66,12 @@ impl ReplayFeed {
     /// Forgets what was written: the next reveal rebuilds the whole series.
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// What the candle in progress was made of the last time.
+    #[must_use]
+    pub fn source(&self) -> ReplaySource {
+        self.source
     }
 
     /// Writes into `out` the candles of `input` as the cursor shows them. Moving forward and back
@@ -93,6 +115,11 @@ impl ReplayFeed {
         out.truncate(cut);
         out.extend(group_bars(&slice, timeframe));
         self.shown = count;
+        self.source = match (input.minutes, input.ticks) {
+            (Some(_), Some(_)) => ReplaySource::Ticks,
+            (Some(_), None) => ReplaySource::Minutes,
+            (None, _) => ReplaySource::Own,
+        };
         self.generation = input.generation;
         ReplayChange {
             old_len,
@@ -147,9 +174,10 @@ fn split_last(
     if cursor_ms >= end {
         return (count, None);
     }
-    let forming = match input.minutes {
-        Some(minutes) => replay_fold_minutes(minutes, last.time_ms, cursor_ms),
-        None => replay_partial_bar(*last, cursor_ms - last.time_ms, end - last.time_ms),
+    let forming = match (input.minutes, input.ticks) {
+        (Some(minutes), Some(ticks)) => replay_fold_hybrid(minutes, ticks, last.time_ms, cursor_ms),
+        (Some(minutes), None) => replay_fold_minutes(minutes, last.time_ms, cursor_ms),
+        (None, _) => replay_partial_bar(*last, cursor_ms - last.time_ms, end - last.time_ms),
     };
     (count - 1, forming)
 }
@@ -157,6 +185,7 @@ fn split_last(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wyck_market::Tick;
 
     const MINUTE: i64 = 60_000;
 
@@ -192,6 +221,7 @@ mod tests {
             timeframe,
             base,
             minutes,
+            ticks: None,
             generation: 0,
         };
         feed.reveal_into(out, &input, cursor_ms)
@@ -335,15 +365,87 @@ mod tests {
         assert_eq!(fresh(Timeframe::Ticks, &m1, None, 3 * MINUTE).len(), 0);
     }
 
+    /// Three ticks in each minute: its open, its low or high, and its close.
+    fn ticks_of(minutes: &[Bar]) -> Vec<Tick> {
+        minutes
+            .iter()
+            .flat_map(|m| {
+                let extreme = if m.close >= m.open { m.low } else { m.high };
+                [
+                    Tick {
+                        time_ms: m.time_ms + 10_000,
+                        price: m.open,
+                    },
+                    Tick {
+                        time_ms: m.time_ms + 30_000,
+                        price: extreme,
+                    },
+                    Tick {
+                        time_ms: m.time_ms + 50_000,
+                        price: m.close,
+                    },
+                ]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_candle_in_progress_is_made_of_real_ticks_and_never_reads_its_minute_bar() {
+        let mut m1 = minute_bars(30);
+        let ticks = ticks_of(&m1);
+        let m5 = five_minute_bars(&m1);
+        if let Some(minute) = m1.get_mut(7) {
+            minute.high = 999_999;
+            minute.low = -999_999;
+        }
+        let input = ReplayInput {
+            timeframe: Timeframe::Bars(Period::M5),
+            base: &m5,
+            minutes: Some(&m1),
+            ticks: Some(&ticks),
+            generation: 0,
+        };
+        let mut feed = ReplayFeed::new();
+        let mut out = Vec::new();
+        feed.reveal_into(&mut out, &input, 7 * MINUTE + 30_000);
+        let candle = out.last().expect("a candle");
+        assert!(
+            candle.high < 999_999 && candle.low > -999_999,
+            "the poisoned minute is not read"
+        );
+        assert_eq!(feed.source(), ReplaySource::Ticks);
+        let minutes_only = ReplayInput {
+            ticks: None,
+            ..input
+        };
+        feed.reveal_into(&mut out, &minutes_only, 7 * MINUTE + 30_000);
+        assert_eq!(feed.source(), ReplaySource::Minutes);
+        feed.reveal_into(
+            &mut out,
+            &ReplayInput {
+                minutes: None,
+                ..input
+            },
+            7 * MINUTE + 30_000,
+        );
+        assert_eq!(feed.source(), ReplaySource::Own);
+    }
+
     #[test]
     fn any_sequence_of_cursor_moves_equals_a_rebuild_from_scratch() {
         let m1 = minute_bars(400);
         let m5 = five_minute_bars(&m1);
+        let ticks = ticks_of(&m1);
         let input = |timeframe, base, minutes| ReplayInput {
             timeframe,
             base,
             minutes,
+            ticks: None,
             generation: 0,
+        };
+        let with_ticks = |timeframe, base| ReplayInput {
+            ticks: Some(&ticks[..]),
+            ..input(timeframe, base, Some(&m1[..]))
         };
         let cases = [
             input(Timeframe::Bars(Period::M1), &m1, Some(&m1[..])),
@@ -351,6 +453,9 @@ mod tests {
             input(Timeframe::Multiple(Period::M5, 3), &m5, Some(&m1[..])),
             input(Timeframe::Bars(Period::M5), &m5, None),
             input(Timeframe::Multiple(Period::M1, 15), &m1, Some(&m1[..])),
+            with_ticks(Timeframe::Bars(Period::M1), &m1),
+            with_ticks(Timeframe::Bars(Period::M5), &m5),
+            with_ticks(Timeframe::Multiple(Period::M5, 3), &m5),
         ];
         let mut seed = 0x1234_5678_u64;
         for case in cases {
@@ -387,6 +492,7 @@ mod tests {
             timeframe: tf,
             base: &tail,
             minutes: None,
+            ticks: None,
             generation: 0,
         };
         feed.reveal_into(&mut out, &input, 20 * MINUTE);

@@ -30,12 +30,15 @@ impl Replay {
             *slot = (*slot).max(back_ms);
         };
         for demand in &self.demand {
-            let back = i64::try_from(demand.back_bars)
-                .unwrap_or(i64::MAX)
-                .saturating_mul(demand.period.millis())
-                .min(MAX_BACK_MS);
-            raise((demand.symbol_id, demand.period), back);
-            let lead = demand.period.millis().clamp(DAY_MS, MAX_LEAD_MS);
+            let mut lead = DAY_MS;
+            if let Some(period) = demand.period() {
+                let back = i64::try_from(demand.back_bars)
+                    .unwrap_or(i64::MAX)
+                    .saturating_mul(period.millis())
+                    .min(MAX_BACK_MS);
+                raise((demand.symbol_id, period), back);
+                lead = period.millis().clamp(DAY_MS, MAX_LEAD_MS);
+            }
             raise((demand.symbol_id, Period::M1), lead);
         }
         wanted
@@ -65,11 +68,12 @@ impl Replay {
             if let Some(job) = job
                 && !blocked
                 && !self.inflight.contains(&key)
-                && self.inflight.len() < MAX_IN_FLIGHT
+                && self.inflight.len() + self.tick_inflight.len() < MAX_IN_FLIGHT
             {
                 self.run(key, job, cx);
             }
         }
+        self.pump_ticks(cursor, now, cx);
         self.refresh_phase(cursor, now, cx);
     }
 
@@ -154,7 +158,7 @@ impl Replay {
             self.stores
                 .get(&key)
                 .is_some_and(|store| plan::ready_to_play(&store.coverage(), &need))
-        });
+        }) && self.ticks_ready(cursor, now);
         if ready {
             self.phase = Phase::Active;
             cx.emit(ReplayEvent::Ready);
