@@ -1,11 +1,37 @@
 //! What the user asks of the broker for a position or an order: close, reverse, move, protect.
 
-use super::{Account, Busy};
+use super::{Account, Busy, Notice, Tone};
 use crate::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
 use gpui::Context;
 use wyck_trading::TradeSide;
 
+/// Who asks for a change of protection. The user can be refused (a replay is on); what the app
+/// does for a plan it was told to keep (break-even, OCO, an ATR following) never is: it protects
+/// positions that are really open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Origin {
+    You,
+    Plan,
+}
+
 impl Account {
+    /// Whether a change asked by `origin` must wait: a replay shows the past, and the user must
+    /// not change a real order or position while looking at it. Says so when it refuses.
+    fn refuses(&self, origin: Origin, cx: &mut Context<Self>) -> bool {
+        if origin == Origin::You && self.replay {
+            Self::tell(
+                Notice::new(
+                    Tone::Warning,
+                    "Replay is on",
+                    "Orders and positions cannot be changed while a replay runs.",
+                ),
+                cx,
+            );
+            return true;
+        }
+        false
+    }
+
     /// Moves the stop loss of a position to its entry price, keeping the take profit.
     pub fn break_even(&mut self, position_id: i64, cx: &mut Context<Self>) {
         let Some(position) = self.book.positions.get(&position_id) else {
@@ -66,6 +92,9 @@ impl Account {
 
     /// Moves a working order to a new price (its limit or stop price).
     pub fn move_order(&mut self, order_id: i64, price: f64, cx: &mut Context<Self>) {
+        if self.refuses(Origin::You, cx) {
+            return;
+        }
         let Some(order) = self.book.orders.get(&order_id) else {
             return;
         };
@@ -93,6 +122,20 @@ impl Account {
         take_profit: Option<f64>,
         cx: &mut Context<Self>,
     ) {
+        self.protect_order_as(Origin::You, order_id, stop_loss, take_profit, cx);
+    }
+
+    pub(super) fn protect_order_as(
+        &mut self,
+        origin: Origin,
+        order_id: i64,
+        stop_loss: Option<f64>,
+        take_profit: Option<f64>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.refuses(origin, cx) {
+            return;
+        }
         let Some(order) = self.book.orders.get(&order_id) else {
             return;
         };
@@ -109,6 +152,9 @@ impl Account {
 
     /// Turns the trailing of a position's stop loss on or off, keeping the levels as they are.
     pub fn trail_position(&mut self, position_id: i64, on: bool, cx: &mut Context<Self>) {
+        if self.refuses(Origin::You, cx) {
+            return;
+        }
         let Some(position) = self.book.positions.get(&position_id) else {
             return;
         };
@@ -130,6 +176,20 @@ impl Account {
         take_profit: Option<f64>,
         cx: &mut Context<Self>,
     ) {
+        self.protect_position_as(Origin::You, position_id, stop_loss, take_profit, cx);
+    }
+
+    pub(super) fn protect_position_as(
+        &mut self,
+        origin: Origin,
+        position_id: i64,
+        stop_loss: Option<f64>,
+        take_profit: Option<f64>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.refuses(origin, cx) {
+            return;
+        }
         let Some(position) = self.book.positions.get(&position_id) else {
             return;
         };

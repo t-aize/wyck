@@ -120,6 +120,9 @@ impl MultiChart {
                 self.activate(from, cx);
                 cx.emit(MultiChartEvent::PickSymbol(from));
             }
+            ChartEvent::Action(_) if self.replay.read(cx).is_on() => {
+                cx.emit(MultiChartEvent::ReplayBlocked);
+            }
             ChartEvent::Action(action) => {
                 if let Some(symbol) = source.read(cx).symbol() {
                     let symbol = SymbolRef {
@@ -144,6 +147,8 @@ impl MultiChart {
                 self.activate(from, cx);
                 self.picture_all(cx);
             }
+            ChartEvent::ReplayStale => self.replay_changed(cx),
+            ChartEvent::ReplayPicked(time_ms) => self.replay_picked(*time_ms, cx),
         }
     }
 }

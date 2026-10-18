@@ -2,6 +2,8 @@
 
 pub mod live;
 pub mod load;
+pub(crate) mod replay_load;
+pub(crate) mod replay_ticks;
 
 /// The current time in Unix milliseconds, from the clock of the workspace (`wyck-clock`).
 pub fn now_ms() -> i64 {

@@ -119,6 +119,14 @@ impl View {
         }
     }
 
+    /// Called when `removed` points were taken off the end (a replay stepped back): keeps what the
+    /// user looks at in place unless they are following the newest point.
+    pub fn on_truncated(&mut self, removed: usize) {
+        if !self.is_following() {
+            self.offset += count_f64(removed);
+        }
+    }
+
     pub fn jump_to_latest(&mut self) {
         self.offset = Self::home_offset();
     }
@@ -228,6 +236,22 @@ mod tests {
         assert_eq!(
             view.offset, -52.0,
             "scrolled back: the same points stay put"
+        );
+    }
+
+    #[test]
+    fn truncating_undoes_appending() {
+        let mut view = View::new(8.0);
+        view.offset = -50.0;
+        view.on_appended(4);
+        view.on_truncated(4);
+        assert_eq!(view.offset, -50.0);
+        view.offset = View::home_offset();
+        view.on_truncated(4);
+        assert_eq!(
+            view.offset,
+            View::home_offset(),
+            "following: the end stays in view"
         );
     }
 

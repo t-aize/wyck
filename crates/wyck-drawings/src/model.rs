@@ -155,6 +155,12 @@ impl Drawing {
         }
     }
 
+    /// The earliest time one of the points is anchored to.
+    #[must_use]
+    pub fn first_time(&self) -> Option<i64> {
+        self.points.iter().map(|point| point.t).min()
+    }
+
     /// Whether the drawing shows on a chart of this timeframe (by its saved code).
     pub fn shows_on(&self, timeframe: &str) -> bool {
         !self.hidden

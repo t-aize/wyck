@@ -2,6 +2,7 @@
 //! of an OCO pair, moving the stops to break-even, closing at a time stop, and catching up on what
 //! was missed while the app was away.
 
+use super::actions::Origin;
 use super::{Account, Busy, HISTORY_DAYS, Notice, Status, TIME_STOP_RETRY, Tone};
 use gpui::Context;
 use std::collections::HashMap;
@@ -54,7 +55,7 @@ impl Account {
             let open: Vec<Open> = self.book.positions.values().filter_map(open_of).collect();
             for (id, stop) in plan::break_even_moves(&label, profit, &open, pip) {
                 let take_profit = self.book.positions.get(&id).and_then(|p| p.take_profit);
-                self.protect_position(id, Some(stop), take_profit, cx);
+                self.protect_position_as(Origin::Plan, id, Some(stop), take_profit, cx);
             }
         }
     }
@@ -129,7 +130,7 @@ impl Account {
                     };
                     let take_profit = open.take_profit;
                     stops += 1;
-                    self.protect_position(position, Some(stop), take_profit, cx);
+                    self.protect_position_as(Origin::Plan, position, Some(stop), take_profit, cx);
                 }
                 Catch::Cancel { order } => {
                     if self.book.orders.contains_key(&order) {

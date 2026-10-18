@@ -30,6 +30,7 @@ The modules below are private; a type is reached by its name at the root.
 | `transform` | The chart types that are not one bar per period: Renko, line break, Kagi, point and figure, range. Each filters prices into its own sequence of bricks, lines, columns or bars. |
 | `order_flow` | The chart types that look inside a bar, in four private modules: `volume` (volume candles and volume bars), `tpo` (market profile sessions), `footprint` (the settings and the analysis of one bar: point of control, value area, imbalances, stacks), `flow` (`Flow`, the order flow inferred from quotes). Their drawing is in `scene`. |
 | `scene` | `build(&Frame) -> Vec<Cmd>`: the data, the view and the settings as drawing commands. `cmd` is the command set, `scale` the bands (the price maps are `price`, a module of their own), `palette` the colors; `bands` draws the prices band, the indicator panes and the crosshair, `labels` the axes over them; `candles` (what the other chart types fall back to), `series`, `studies`, `drawings`, `axes`, `tpo`, `footprint` draw one thing each (private). |
+| `replay` | The pure core of the replay: `ReplayClock` (a cursor moved by play, step and seek, from wall times it is given; a step is `ClockStep`: a grid of a step that divides a day, a relative step in time, or a number of ticks), `ReplayStep` and `parse_step` (the steps of the menu, a custom one typed as `7 min`, `90s` or `50 ticks`), `ReplayFeed` (writes into a series the candles shown at a cursor: server bars that ended, the candle in progress rebuilt from minute bars by `replay_fold_minutes` or along `replay_partial_bar`'s synthetic path), `replay_random_start`, `replay_align_to_bar`. With real ticks the candle in progress is the minute bars that ended plus the ticks of the minute in progress (`replay_fold_hybrid`, never the bar of that minute), and a tick chart or a seconds chart is written by `ReplayTickFeed` and `ReplaySecondsFeed` from the ticks before the cursor. |
 | `projection` | `ChartProjection`: the chart seen as a `wyck_drawings::geometry::Projection`, so drawings follow it. |
 | `axis`, `zone`, `lines` | Round tick values and time labels; `Zone` (UTC, local or named time zone); `LineId` (what a horizontal line stands for). |
 | `export` | `table` picks rows and columns into a typed `Table`; `render` writes it (delimited text, JSON, JSON lines, Markdown, SQL); `options`, `choices`, `columns`, `source`, `presets` describe what the user can ask for. |
@@ -53,6 +54,11 @@ The modules below are private; a type is reached by its name at the root.
 - `Flow` is an estimate: the Open API has no trade tape, so a unit of volume is a quote that moved
   the middle of the spread, a buy if up and a sell if down, put on the bid price. The legend says
   so. Do not present it as traded size.
+- Replay knows the past only: a cursor `c` shows what happened strictly before `c` (a bar is seen
+  when `time < c`, ended when `c >= its end`). A tick at time `t` is seen when `t < c` too, so a step in ticks lands on `t + 1` and ticks of the same millisecond show together. With real ticks the bar of the minute in progress is never read, not even its open: it holds the price of ticks that have not happened yet. The synthetic path inside a minute is built from the
+  minute's final range, so it is plausible, not real; the default one-minute step never shows it.
+  `ReplayFeed::reveal_into` after any sequence of moves must equal a rebuild from scratch (a test
+  checks it); keep it so when changing the grouping.
 - A series is bounded (`MAX_BARS`, `MAX_TICKS`) and sorted by time: every join goes through the
   functions of `data`, which keep both true.
 

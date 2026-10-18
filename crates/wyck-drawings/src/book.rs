@@ -158,6 +158,9 @@ pub struct Book {
     position_shape: Option<PositionShape>,
     /// The view (a chart) that holds the button down on a drawing (see [`Book::hold`]).
     held_by: Option<u64>,
+    /// A replay shows the past only: a drawing that starts after this time is hidden. Not saved,
+    /// and not a change worth saving.
+    horizon: Option<i64>,
 }
 
 impl Book {
@@ -170,6 +173,31 @@ impl Book {
             next_id: doc.next_id,
             ..Self::default()
         }
+    }
+
+    /// Hides the drawings that start after `horizon` (a replay's cursor), or shows them all again
+    /// with `None`. Returns whether it changed. This is not saved and does not count as a change.
+    pub fn set_horizon(&mut self, horizon: Option<i64>) -> bool {
+        let changed = self.horizon != horizon;
+        self.horizon = horizon;
+        changed
+    }
+
+    #[must_use]
+    pub fn horizon(&self) -> Option<i64> {
+        self.horizon
+    }
+
+    /// Whether `drawing` shows on a chart of `timeframe` now: the timeframes it is set for, and the
+    /// horizon of a replay.
+    #[must_use]
+    pub fn shows(&self, drawing: &Drawing, timeframe: &str) -> bool {
+        drawing.shows_on(timeframe) && self.before_horizon(drawing)
+    }
+
+    fn before_horizon(&self, drawing: &Drawing) -> bool {
+        self.horizon
+            .is_none_or(|horizon| drawing.first_time().is_none_or(|time| time <= horizon))
     }
 
     pub fn to_doc(&self) -> DrawingsDoc {
@@ -242,7 +270,7 @@ impl Book {
         let ids: Vec<u64> = self
             .drawings(symbol)
             .iter()
-            .filter(|d| d.shows_on(timeframe) && !d.hidden)
+            .filter(|d| self.shows(d, timeframe) && !d.hidden)
             .map(|d| d.id)
             .collect();
         let Some((first, rest)) = ids.split_first() else {
@@ -277,7 +305,7 @@ impl Book {
         let ids: Vec<u64> = self
             .drawings(symbol)
             .iter()
-            .filter(|d| d.shows_on(timeframe) && !d.hidden && inside(d))
+            .filter(|d| self.shows(d, timeframe) && !d.hidden && inside(d))
             .map(|d| d.id)
             .collect();
         let mut all = if add { self.selection() } else { Vec::new() };
@@ -1371,6 +1399,36 @@ mod tests {
         assert_eq!(book.drawings(SYMBOL)[0].id, first);
         assert!(book.undo());
         assert_eq!(book.drawings(SYMBOL)[1].id, first);
+    }
+
+    #[test]
+    fn a_drawing_that_starts_after_the_horizon_is_neither_shown_nor_picked() {
+        let (mut book, first, _second) = two_lines();
+        let start = book
+            .get(SYMBOL, first)
+            .and_then(Drawing::first_time)
+            .expect("a point");
+        assert!(book.shows(book.get(SYMBOL, first).expect("drawing"), TF));
+        assert!(book.set_horizon(Some(start - 1)));
+        assert!(!book.shows(book.get(SYMBOL, first).expect("drawing"), TF));
+        assert!(
+            !book.select_all(SYMBOL, TF),
+            "hidden drawings are not selected either"
+        );
+        assert!(book.set_horizon(Some(start)));
+        assert!(book.shows(book.get(SYMBOL, first).expect("drawing"), TF));
+        assert!(book.set_horizon(None));
+        assert!(!book.set_horizon(None));
+    }
+
+    #[test]
+    fn setting_the_horizon_does_not_count_as_a_change_to_save() {
+        let mut book = with_a_line();
+        let revision = book.revision();
+        book.set_horizon(Some(0));
+        book.set_horizon(None);
+        assert_eq!(book.revision(), revision);
+        assert_eq!(book.to_doc().symbols.len(), 1, "what is saved is unchanged");
     }
 
     #[test]

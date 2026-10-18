@@ -39,5 +39,11 @@ gpui::actions!(
         ToggleLogScale,
         TogglePercentScale,
         ToggleGrid,
+        ReplayToggle,
+        ReplayPlayPause,
+        ReplayStepBack,
+        ReplayStepForward,
+        ReplayFaster,
+        ReplaySlower,
     ]
 );

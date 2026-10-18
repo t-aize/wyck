@@ -108,7 +108,7 @@ impl Snapshot {
             display: chart.display.clone(),
             settings: chart.settings.clone(),
             visible: chart.view.visible(shown, plot_w),
-            now_ms: wyck_app::market_data::now_ms(),
+            now_ms: chart.clock_ms(),
         }
     }
 

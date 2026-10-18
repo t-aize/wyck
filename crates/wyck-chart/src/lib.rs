@@ -15,6 +15,7 @@ mod options;
 mod order_flow;
 mod price;
 mod projection;
+mod replay;
 mod scene;
 mod settings;
 mod transform;
@@ -54,6 +55,13 @@ pub use order_flow::volume::{
 };
 pub use price::{PriceMap, format_value, quote_unit};
 pub use projection::ChartProjection;
+pub use replay::{
+    ClockStep, REPLAY_RATES, REPLAY_STEP_HELP, ReplayAdvance, ReplayBounds, ReplayChange,
+    ReplayClock, ReplayFeed, ReplayInput, ReplayNoGaps, ReplaySecondsFeed, ReplaySource,
+    ReplayStep, ReplayTickFeed, ReplayTimeline, parse_step, replay_align_to_bar, replay_auto_step,
+    replay_fold_hybrid, replay_fold_minutes, replay_fold_ticks, replay_partial_bar,
+    replay_random_start,
+};
 pub use scene::cmd::{
     Align, Cmd, P, fitted_origin, fitted_size, font, hsla, line_height, rgb_alpha, with_alpha,
 };

@@ -97,6 +97,7 @@ impl Dashboard {
             .update(cx, wyck_ui_chart::multichart::MultiChart::on_ready);
         self.trading
             .update(cx, wyck_app::account::Account::on_ready);
+        self.replay.update(cx, wyck_app::replay::Replay::on_ready);
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -335,6 +336,12 @@ impl Dashboard {
                 self.pending
                     .push(super::trade::Pending::Editor(request.clone()));
                 cx.notify();
+            }
+            MultiChartEvent::ReplayBlocked => {
+                self.replay_blocks(cx);
+            }
+            MultiChartEvent::ReplayFailed(message) => {
+                toast::Toast::error("The replay stopped", message.clone()).show(cx);
             }
         }
     }

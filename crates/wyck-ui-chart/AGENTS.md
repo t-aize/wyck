@@ -28,6 +28,7 @@ in the last column.
 | `chart::{events, lines, palette, corner, path_pieces}` | `ChartEvent` (what a chart tells the layout) and the other event types, public; order, position and alert lines (`ChartLine`); the chart colors and their gpui conversions; the corner buttons; cutting a line down to what a GPU path can hold. |
 | `multichart` (`multichart.rs`) | `MultiChart`: the charts of a layout (`Slot`s), the active one, the links, the rail, the usage limits (`view` draws it). `SymbolRef`, `MultiChartEvent`. What a chart asks of the order ticket is a `chart::events::TicketRequest`. |
 | `multichart::{charts, layout, links, split}` | Adding charts and giving them symbol, timeframe, hours and data; choosing the layout and linking; the rules of the links (plain data, tested without a window); the tree of splits whose lines the user drags. |
+| `chart::replay`, `multichart::replay` | A chart in a replay (tick charts and seconds charts too, from the ticks the replay holds): its series is the part of the history the replay cursor has reached (`ReplayFeed` writes it from the stores of `wyck_app::replay::Replay`), it takes nothing from the live prices and loads no history, and `clock_ms` is its "now". The layout enters every chart in the replay, tells the replay what each needs (`Demand`), shows the cursor, hides the drawings that start after it and handles the choice of the start bar. |
 | `multichart::{drawing_ui, drawing_cmds, favorites, clipboard, events, icon}` | The rail of tools, the style bar over a selected drawing and the pill of favorites; what the tools do for the active chart; copy and paste of indicators; pictures of the charts; the small drawing of a layout (`icon::layout_icon` is public). |
 
 ## Invariants and traps
@@ -37,6 +38,7 @@ in the last column.
   never reports it, which keeps linked charts free of loops.
 - **A frame is plain commands.** `wyck_chart::build` makes the `Cmd` list; `chart::paint` (screen) and
   `chart::raster` (PNG) execute it. A new thing to draw belongs in `wyck-chart`, not in `paint`.
+- **A chart in a replay never touches live data**: `Chart::replay` is set, `on_live`, `refill`, `on_ready`, older pages and the flow of a footprint return at once, `reload` re-seeds from the replay, and every "now" the chart draws or asks for goes through `clock_ms`. A new place that reads the clock or loads history must do the same, or the replay shows the present or the future. Orders, alerts and the lines of the account are hidden or refused while it runs.
 - **Live data goes through the hub.** Charts tell a `LiveHub` (in `wyck-app`) what they want and it
   keeps one subscription per symbol and period.
 - **An answer can arrive after its chart is gone.** What a background task hands back goes through

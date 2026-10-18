@@ -19,6 +19,8 @@ mod lists;
 mod marks;
 mod notice;
 mod picker;
+mod replay;
+mod replay_bar;
 pub(crate) mod session;
 mod trade;
 pub(crate) mod view;
@@ -36,6 +38,7 @@ use wyck_app::broker::Error as ApiError;
 use wyck_app::broker::session::Session;
 use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
+use wyck_app::replay::Replay;
 use wyck_app::workspace::{Documents, Workspace};
 use wyck_drawings::model::tool::Tool;
 use wyck_trading::guard::Mode;
@@ -118,6 +121,8 @@ enum MenuKind {
     Account,
     Timeframes,
     Layouts,
+    /// The start of a replay: from a bar, a random bar, the first bar or a date.
+    Replay,
 }
 
 impl Dashboard {
@@ -168,10 +173,17 @@ pub(crate) struct Dashboard {
     /// The menu that is open, if any: one at a time.
     open_menu: Option<MenuKind>,
     multi: Entity<MultiChart>,
+    /// The replay the charts follow; the header and the replay bar read and drive it.
+    replay: Entity<Replay>,
     workspace: Entity<Workspace>,
     /// The field of the menu where a custom timeframe is typed, made with the window, and the
     /// unit a bare number is in.
     tf_custom: Option<Entity<wyck_ui_kit::input::InputState>>,
+    /// The fields where a replay start, and a jump during a replay, are typed as dates.
+    replay_date: Option<Entity<wyck_ui_kit::input::InputState>>,
+    replay_goto: Option<Entity<wyck_ui_kit::input::InputState>>,
+    /// The field where a custom replay step is typed.
+    replay_step_field: Option<Entity<wyck_ui_kit::input::InputState>>,
     tf_unit: wyck_market::Unit,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
@@ -278,12 +290,21 @@ impl Dashboard {
         let prefs = workspace.read(cx).preferences().clone();
         // The keys the user chose, over the defaults bound at the start.
         crate::keymap::apply(&prefs.shortcuts, cx);
+        let replay = cx.new(|_| Replay::new(session.clone()));
+        cx.subscribe(
+            &replay,
+            |this, _replay, event: &wyck_app::replay::ReplayEvent, cx| {
+                this.on_replay_event(event, cx);
+            },
+        )
+        .detach();
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),
                 Rc::<LiveHub>::clone(&hub),
                 workspace.clone(),
                 drawings,
+                replay.clone(),
                 cx,
             )
         });
@@ -312,8 +333,12 @@ impl Dashboard {
             picker_opens: 0,
             open_menu: None,
             multi,
+            replay,
             workspace,
             tf_custom: None,
+            replay_date: None,
+            replay_goto: None,
+            replay_step_field: None,
             tf_unit: wyck_market::Unit::Minutes,
             pending_picker: false,
             trading,

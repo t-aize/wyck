@@ -156,6 +156,22 @@ impl Custom {
         self.pending = true;
     }
 
+    /// The replay went back, or jumped: what the scripts gave was made from more bars than the
+    /// chart shows, and may hold what has not happened yet. It is thrown away, and the runs in
+    /// flight are stopped and their answers ignored.
+    pub(super) fn reset_outputs(&mut self) {
+        for slot in &mut self.slots {
+            slot.running = None;
+            self.next_serial += 1;
+            slot.serial = self.next_serial;
+            slot.output = None;
+            slot.computed = None;
+            slot.dirty = false;
+        }
+        self.wanted += 1;
+        self.pending = true;
+    }
+
     /// The chart loads again: the prices of the other symbols were for the old symbol or
     /// timeframe.
     pub(super) fn forget_others(&mut self) {
@@ -356,6 +372,12 @@ impl Chart {
     /// handled here.
     fn other_symbols(&mut self, wanted: &[String], cx: &mut Context<Self>) -> Others {
         let own = self.symbol.as_ref().map(|s| custom::other::key_of(&s.name));
+        // The prices of another symbol are loaded up to now, which a replay must not show.
+        if self.replay.is_some() && wanted.iter().any(|key| Some(key) != own.as_ref()) {
+            return Others::Failed(
+                "the prices of another symbol are not available in a replay".to_owned(),
+            );
+        }
         let mut ready = OtherSymbols::new();
         let mut waiting = false;
         for key in wanted.iter().filter(|key| Some(*key) != own.as_ref()) {

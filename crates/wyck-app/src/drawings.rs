@@ -48,6 +48,14 @@ impl Drawings {
         &self.book
     }
 
+    /// Hides the drawings that start after `horizon` (a replay shows the past only), or shows them
+    /// all with `None`. Redraws the charts; nothing is saved.
+    pub fn set_horizon(&mut self, horizon: Option<i64>, cx: &mut Context<Self>) {
+        if self.book.set_horizon(horizon) {
+            cx.notify();
+        }
+    }
+
     /// Changes the book, tells every chart to redraw, and saves if the change is one to keep.
     pub fn edit<R>(&mut self, cx: &mut Context<Self>, change: impl FnOnce(&mut Book) -> R) -> R {
         let result = change(&mut self.book);

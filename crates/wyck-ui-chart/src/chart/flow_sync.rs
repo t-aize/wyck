@@ -91,7 +91,10 @@ impl Chart {
     /// Whether the flow of a footprint is still on its way in (nothing is shown for it yet, or
     /// a request is in flight).
     pub(super) fn flow_busy(&self) -> bool {
-        self.wants_flow() && (matches!(self.flow_load, FlowLoad::Loading) || !self.flow.is_loaded())
+        // A replay draws footprints as candles and never loads their flow.
+        self.replay.is_none()
+            && self.wants_flow()
+            && (matches!(self.flow_load, FlowLoad::Loading) || !self.flow.is_loaded())
     }
 
     /// Throws the flow away (the symbol, the timeframe or the type changed).
@@ -115,7 +118,7 @@ impl Chart {
     /// comes back here to ask for the next step. Cheap to call: it returns at once when there is
     /// nothing to do.
     pub(super) fn ensure_flow(&mut self, cx: &mut Context<Self>) {
-        if !self.wants_flow() {
+        if !self.wants_flow() || self.replay.is_some() {
             return;
         }
         match self.flow_load {
