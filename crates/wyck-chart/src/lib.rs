@@ -56,9 +56,10 @@ pub use order_flow::volume::{
 pub use price::{PriceMap, format_value, quote_unit};
 pub use projection::ChartProjection;
 pub use replay::{
-    REPLAY_RATES, ReplayAdvance, ReplayBounds, ReplayChange, ReplayClock, ReplayFeed, ReplayInput,
-    ReplayNoGaps, ReplayStep, ReplayTimeline, replay_align_to_bar, replay_auto_step,
-    replay_fold_minutes, replay_partial_bar, replay_random_start,
+    ClockStep, REPLAY_RATES, REPLAY_STEP_HELP, ReplayAdvance, ReplayBounds, ReplayChange,
+    ReplayClock, ReplayFeed, ReplayInput, ReplayNoGaps, ReplayStep, ReplayTimeline, parse_step,
+    replay_align_to_bar, replay_auto_step, replay_fold_minutes, replay_partial_bar,
+    replay_random_start,
 };
 pub use scene::cmd::{
     Align, Cmd, P, fitted_origin, fitted_size, font, hsla, line_height, rgb_alpha, with_alpha,

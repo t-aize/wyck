@@ -9,12 +9,14 @@ mod feed;
 mod forming;
 mod path;
 mod start;
+mod step;
 
 pub use clock::{
-    REPLAY_RATES, ReplayAdvance, ReplayBounds, ReplayClock, ReplayNoGaps, ReplayStep,
+    ClockStep, REPLAY_RATES, ReplayAdvance, ReplayBounds, ReplayClock, ReplayNoGaps,
     ReplayTimeline, replay_auto_step,
 };
 pub use feed::{ReplayChange, ReplayFeed, ReplayInput};
 pub use forming::replay_fold_minutes;
 pub use path::replay_partial_bar;
 pub use start::{replay_align_to_bar, replay_random_start};
+pub use step::{REPLAY_STEP_HELP, ReplayStep, parse_step};

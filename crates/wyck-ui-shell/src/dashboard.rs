@@ -20,6 +20,7 @@ mod marks;
 mod notice;
 mod picker;
 mod replay;
+mod replay_bar;
 pub(crate) mod session;
 mod trade;
 pub(crate) mod view;
@@ -181,6 +182,8 @@ pub(crate) struct Dashboard {
     /// The fields where a replay start, and a jump during a replay, are typed as dates.
     replay_date: Option<Entity<wyck_ui_kit::input::InputState>>,
     replay_goto: Option<Entity<wyck_ui_kit::input::InputState>>,
+    /// The field where a custom replay step is typed.
+    replay_step_field: Option<Entity<wyck_ui_kit::input::InputState>>,
     tf_unit: wyck_market::Unit,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
@@ -335,6 +338,7 @@ impl Dashboard {
             tf_custom: None,
             replay_date: None,
             replay_goto: None,
+            replay_step_field: None,
             tf_unit: wyck_market::Unit::Minutes,
             pending_picker: false,
             trading,

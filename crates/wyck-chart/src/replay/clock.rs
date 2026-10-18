@@ -3,89 +3,57 @@
 //! The clock never reads the wall time: the caller passes it in. Playback is anchored (a wall time
 //! and a count of steps taken since) so a late frame catches up instead of drifting.
 //!
-//! A cursor `c` means "what happened strictly before `c` is known". Steps land on a grid of the
-//! step size, counted from the Unix epoch, so a candle of any timeframe ends on a step.
+//! A cursor `c` means "what happened strictly before `c` is known". A step that divides a day lands
+//! on a grid counted from the Unix epoch, so a candle of any timeframe ends on a step; any other
+//! step in time is relative (`c` plus the step), so a step back undoes a step forward exactly. A
+//! step in ticks lands just after the n-th tick not yet seen.
 
 use wyck_core::math::{f64_to_i64, i64_to_f64};
 
 /// The updates per second the speed menu offers.
 pub const REPLAY_RATES: [f64; 6] = [0.1, 0.3, 1.0, 3.0, 10.0, 30.0];
 
-const MINUTE_MS: i64 = 60_000;
+const DAY_MS: i64 = 86_400_000;
 const MIN_RATE: f64 = 0.05;
 const MAX_RATE: f64 = 60.0;
 /// A frame that was very late takes this many steps at most: the rest is dropped.
 const MAX_STEPS_PER_CALL: i64 = 1_000;
 
-/// How much market time one update covers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ReplayStep {
-    /// The shortest timeframe among the charts, never under a minute (see [`replay_auto_step`]).
-    #[default]
-    Auto,
-    Seconds15,
-    Minute1,
-    Minutes5,
-    Minutes15,
-    Minutes30,
-    Hour1,
-    Hours4,
-    Day1,
+/// How the clock takes a step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClockStep {
+    /// To the next multiple of this many milliseconds.
+    Grid(i64),
+    /// By this many milliseconds from where the cursor is.
+    Relative(i64),
+    /// Over this many ticks of the data.
+    Ticks(u32),
 }
 
-impl ReplayStep {
-    pub const ALL: [Self; 9] = [
-        Self::Auto,
-        Self::Seconds15,
-        Self::Minute1,
-        Self::Minutes5,
-        Self::Minutes15,
-        Self::Minutes30,
-        Self::Hour1,
-        Self::Hours4,
-        Self::Day1,
-    ];
-
-    /// The length in milliseconds, or `None` for [`ReplayStep::Auto`].
+impl ClockStep {
+    /// A step in time: on the grid when it divides a day, else relative to the cursor.
     #[must_use]
-    pub fn millis(self) -> Option<i64> {
-        Some(match self {
-            Self::Auto => return None,
-            Self::Seconds15 => 15_000,
-            Self::Minute1 => MINUTE_MS,
-            Self::Minutes5 => 5 * MINUTE_MS,
-            Self::Minutes15 => 15 * MINUTE_MS,
-            Self::Minutes30 => 30 * MINUTE_MS,
-            Self::Hour1 => 60 * MINUTE_MS,
-            Self::Hours4 => 240 * MINUTE_MS,
-            Self::Day1 => 1_440 * MINUTE_MS,
-        })
-    }
-
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Auto => "Auto",
-            Self::Seconds15 => "15 seconds",
-            Self::Minute1 => "1 minute",
-            Self::Minutes5 => "5 minutes",
-            Self::Minutes15 => "15 minutes",
-            Self::Minutes30 => "30 minutes",
-            Self::Hour1 => "1 hour",
-            Self::Hours4 => "4 hours",
-            Self::Day1 => "1 day",
+    pub fn time(ms: i64) -> Self {
+        let ms = ms.max(1);
+        if DAY_MS % ms == 0 {
+            Self::Grid(ms)
+        } else {
+            Self::Relative(ms)
         }
     }
 }
 
-/// The step of [`ReplayStep::Auto`]: the shortest bar length among the charts, at least a minute.
+/// The step of [`ReplayStep::Auto`](super::ReplayStep::Auto): the shortest bar length among the
+/// charts, at least `floor_ms` and never under a second (a minute when the data is minute bars, a
+/// second when there are ticks).
 #[must_use]
-pub fn replay_auto_step(chart_bar_ms: impl IntoIterator<Item = i64>) -> i64 {
+pub fn replay_auto_step(chart_bar_ms: impl IntoIterator<Item = i64>, floor_ms: i64) -> i64 {
+    let floor_ms = floor_ms.max(1_000);
     chart_bar_ms
         .into_iter()
         .filter(|ms| *ms > 0)
         .min()
-        .map_or(MINUTE_MS, |ms| ms.max(MINUTE_MS))
+        .map_or(floor_ms, |ms| ms.max(floor_ms))
 }
 
 /// When market data exists, so the cursor can jump over the hours when nothing traded.
@@ -94,6 +62,25 @@ pub trait ReplayTimeline {
     fn next_data(&self, after_ms: i64) -> Option<i64>;
     /// The last data time strictly before `before_ms`.
     fn prev_data(&self, before_ms: i64) -> Option<i64>;
+
+    /// The `count`-th data time strictly after `after_ms` (the first one for 1), if there are so
+    /// many. Data at the same time count as one.
+    fn nth_data_after(&self, after_ms: i64, count: u32) -> Option<i64> {
+        let mut at = after_ms;
+        for _ in 0..count {
+            at = self.next_data(at)?;
+        }
+        Some(at)
+    }
+
+    /// The `count`-th data time strictly before `before_ms`, going back (the last one for 1).
+    fn nth_data_before(&self, before_ms: i64, count: u32) -> Option<i64> {
+        let mut at = before_ms;
+        for _ in 0..count {
+            at = self.prev_data(at)?;
+        }
+        Some(at)
+    }
 }
 
 /// A timeline that never skips: every step is taken, with or without data.
@@ -145,7 +132,7 @@ pub struct ReplayAdvance {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReplayClock {
     cursor_ms: i64,
-    step_ms: i64,
+    step: ClockStep,
     rate_hz: f64,
     playing: bool,
     anchor_wall_ms: i64,
@@ -155,10 +142,10 @@ pub struct ReplayClock {
 impl ReplayClock {
     /// A paused clock at `cursor_ms`, one update per second.
     #[must_use]
-    pub fn new(cursor_ms: i64, step_ms: i64) -> Self {
+    pub fn new(cursor_ms: i64, step: ClockStep) -> Self {
         Self {
             cursor_ms,
-            step_ms: step_ms.max(1),
+            step: normal(step),
             rate_hz: 1.0,
             playing: false,
             anchor_wall_ms: 0,
@@ -172,8 +159,8 @@ impl ReplayClock {
     }
 
     #[must_use]
-    pub fn step_ms(&self) -> i64 {
-        self.step_ms
+    pub fn step(&self) -> ClockStep {
+        self.step
     }
 
     #[must_use]
@@ -187,8 +174,8 @@ impl ReplayClock {
     }
 
     /// Changes the step. The cursor stays where it is.
-    pub fn set_step(&mut self, step_ms: i64) {
-        self.step_ms = step_ms.max(1);
+    pub fn set_step(&mut self, step: ClockStep) {
+        self.step = normal(step);
     }
 
     /// Changes the updates per second (kept between 0.05 and 60). While playing, the cursor does
@@ -277,7 +264,9 @@ impl ReplayClock {
         self.steps_since_anchor = 0;
     }
 
-    /// The next grid point; when nothing happens before it, the first one that shows what happens.
+    /// Where the next step lands: the next grid point or the cursor plus the step, and when
+    /// nothing happens before it, the first point that shows what happens. A step in ticks lands
+    /// just after the n-th tick not yet seen, and waits (`None`) when there are not so many.
     fn next_cursor<T: ReplayTimeline + ?Sized>(
         &self,
         bounds: ReplayBounds,
@@ -287,17 +276,31 @@ impl ReplayClock {
         if cursor >= bounds.cap_ms {
             return None;
         }
-        let mut next = grid_after(cursor, self.step_ms);
-        if let Some(unseen) = timeline.next_data(cursor.saturating_sub(1))
-            && unseen >= next
-        {
-            next = grid_after(unseen, self.step_ms);
-        }
+        let unseen = timeline.next_data(cursor.saturating_sub(1));
+        let next = match self.step {
+            ClockStep::Grid(step) => {
+                let next = grid_after(cursor, step);
+                unseen
+                    .filter(|unseen| *unseen >= next)
+                    .map_or(next, |unseen| grid_after(unseen, step))
+            }
+            ClockStep::Relative(step) => {
+                let next = cursor.saturating_add(step);
+                unseen
+                    .filter(|unseen| *unseen >= next)
+                    .map_or(next, |unseen| unseen.saturating_add(1))
+            }
+            ClockStep::Ticks(count) => timeline
+                .nth_data_after(cursor.saturating_sub(1), count)?
+                .saturating_add(1),
+        };
         let next = next.min(bounds.cap_ms);
         (next > cursor).then_some(next)
     }
 
-    /// The previous grid point; when nothing happened since it, the one that hides the newest data.
+    /// Where a step back lands: the previous grid point or the cursor minus the step, and when
+    /// nothing happened since it, the point that hides the newest data. A step in ticks hides that
+    /// many.
     fn prev_cursor<T: ReplayTimeline + ?Sized>(
         &self,
         bounds: ReplayBounds,
@@ -307,14 +310,33 @@ impl ReplayClock {
         if cursor <= bounds.floor_ms {
             return None;
         }
-        let mut prev = grid_before(cursor, self.step_ms);
-        if let Some(newest) = timeline.prev_data(cursor)
-            && prev > newest
-        {
-            prev = newest - newest.rem_euclid(self.step_ms);
-        }
+        let newest = timeline.prev_data(cursor);
+        let prev = match self.step {
+            ClockStep::Grid(step) => {
+                let prev = grid_before(cursor, step);
+                newest
+                    .filter(|newest| prev > *newest)
+                    .map_or(prev, |newest| newest - newest.rem_euclid(step))
+            }
+            ClockStep::Relative(step) => {
+                let prev = cursor.saturating_sub(step);
+                newest.filter(|newest| prev > *newest).unwrap_or(prev)
+            }
+            ClockStep::Ticks(count) => timeline
+                .nth_data_before(cursor, count)
+                .unwrap_or(bounds.floor_ms),
+        };
         let prev = prev.max(bounds.floor_ms);
         (prev < cursor).then_some(prev)
+    }
+}
+
+/// A step that cannot be taken is made one that can.
+fn normal(step: ClockStep) -> ClockStep {
+    match step {
+        ClockStep::Grid(ms) => ClockStep::Grid(ms.max(1)),
+        ClockStep::Relative(ms) => ClockStep::Relative(ms.max(1)),
+        ClockStep::Ticks(count) => ClockStep::Ticks(count.max(1)),
     }
 }
 
@@ -332,6 +354,8 @@ fn grid_before(time: i64, step: i64) -> i64 {
 mod tests {
     use super::*;
 
+    const MINUTE_MS: i64 = 60_000;
+
     const BOUNDS: ReplayBounds = ReplayBounds {
         floor_ms: 0,
         cap_ms: 100 * MINUTE_MS,
@@ -339,7 +363,7 @@ mod tests {
 
     #[test]
     fn stepping_forward_lands_on_the_next_multiple_of_the_step() {
-        let mut clock = ReplayClock::new(2 * MINUTE_MS + 17_000, 5 * MINUTE_MS);
+        let mut clock = ReplayClock::new(2 * MINUTE_MS + 17_000, ClockStep::time(5 * MINUTE_MS));
         assert!(clock.step_forward(BOUNDS, &ReplayNoGaps));
         assert_eq!(clock.cursor_ms(), 5 * MINUTE_MS);
         assert!(clock.step_forward(BOUNDS, &ReplayNoGaps));
@@ -348,7 +372,7 @@ mod tests {
 
     #[test]
     fn stepping_back_lands_on_the_previous_multiple_of_the_step() {
-        let mut clock = ReplayClock::new(12 * MINUTE_MS, 5 * MINUTE_MS);
+        let mut clock = ReplayClock::new(12 * MINUTE_MS, ClockStep::time(5 * MINUTE_MS));
         assert!(clock.step_back(BOUNDS, &ReplayNoGaps));
         assert_eq!(clock.cursor_ms(), 10 * MINUTE_MS);
         assert!(clock.step_back(BOUNDS, &ReplayNoGaps));
@@ -357,7 +381,7 @@ mod tests {
 
     #[test]
     fn a_step_back_never_goes_under_the_floor() {
-        let mut clock = ReplayClock::new(MINUTE_MS, 5 * MINUTE_MS);
+        let mut clock = ReplayClock::new(MINUTE_MS, ClockStep::time(5 * MINUTE_MS));
         assert!(clock.step_back(BOUNDS, &ReplayNoGaps));
         assert_eq!(clock.cursor_ms(), 0);
         assert!(!clock.step_back(BOUNDS, &ReplayNoGaps));
@@ -365,7 +389,7 @@ mod tests {
 
     #[test]
     fn playing_takes_a_step_per_period_of_the_rate_without_drift() {
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         clock.set_rate(2.0, 0);
         clock.play(10_000);
         let mut taken = 0;
@@ -380,7 +404,7 @@ mod tests {
 
     #[test]
     fn a_late_frame_takes_several_steps_at_once() {
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         clock.set_rate(10.0, 0);
         clock.play(0);
         let moved = clock.advance(1_000, BOUNDS, &ReplayNoGaps);
@@ -390,7 +414,7 @@ mod tests {
 
     #[test]
     fn changing_the_rate_while_playing_does_not_jump() {
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         clock.play(0);
         clock.advance(2_500, BOUNDS, &ReplayNoGaps);
         let before = clock.cursor_ms();
@@ -401,7 +425,7 @@ mod tests {
 
     #[test]
     fn a_paused_clock_does_not_move() {
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         assert_eq!(clock.advance(60_000, BOUNDS, &ReplayNoGaps).steps, 0);
         assert_eq!(clock.cursor_ms(), 0);
     }
@@ -412,7 +436,7 @@ mod tests {
             floor_ms: 0,
             cap_ms: 3 * MINUTE_MS + 30_000,
         };
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         clock.set_rate(10.0, 0);
         clock.play(0);
         let moved = clock.advance(2_000, bounds, &ReplayNoGaps);
@@ -425,7 +449,7 @@ mod tests {
     #[test]
     fn a_gap_with_no_data_is_skipped_to_the_step_that_shows_the_next_data() {
         let times: &[i64] = &[0, MINUTE_MS, 60 * MINUTE_MS];
-        let mut clock = ReplayClock::new(2 * MINUTE_MS, MINUTE_MS);
+        let mut clock = ReplayClock::new(2 * MINUTE_MS, ClockStep::time(MINUTE_MS));
         assert!(clock.step_forward(BOUNDS, times));
         assert_eq!(
             clock.cursor_ms(),
@@ -437,7 +461,7 @@ mod tests {
     #[test]
     fn data_right_after_the_cursor_is_not_skipped() {
         let times: &[i64] = &[0, MINUTE_MS, 2 * MINUTE_MS];
-        let mut clock = ReplayClock::new(MINUTE_MS, MINUTE_MS);
+        let mut clock = ReplayClock::new(MINUTE_MS, ClockStep::time(MINUTE_MS));
         assert!(clock.step_forward(BOUNDS, times));
         assert_eq!(clock.cursor_ms(), 2 * MINUTE_MS);
     }
@@ -445,7 +469,7 @@ mod tests {
     #[test]
     fn stepping_back_over_a_gap_lands_on_the_data_before_it() {
         let times: &[i64] = &[0, MINUTE_MS, 60 * MINUTE_MS];
-        let mut clock = ReplayClock::new(61 * MINUTE_MS, MINUTE_MS);
+        let mut clock = ReplayClock::new(61 * MINUTE_MS, ClockStep::time(MINUTE_MS));
         assert!(clock.step_back(BOUNDS, times));
         assert_eq!(clock.cursor_ms(), 60 * MINUTE_MS);
         assert!(clock.step_back(BOUNDS, times));
@@ -458,7 +482,7 @@ mod tests {
 
     #[test]
     fn seeking_clamps_to_the_bounds_and_pauses() {
-        let mut clock = ReplayClock::new(0, MINUTE_MS);
+        let mut clock = ReplayClock::new(0, ClockStep::time(MINUTE_MS));
         clock.play(0);
         clock.seek(1_000 * MINUTE_MS, BOUNDS);
         assert_eq!(clock.cursor_ms(), BOUNDS.cap_ms);
@@ -466,15 +490,116 @@ mod tests {
     }
 
     #[test]
-    fn the_auto_step_is_the_shortest_chart_and_never_under_a_minute() {
-        assert_eq!(replay_auto_step([3_600_000, 300_000, 86_400_000]), 300_000);
-        assert_eq!(replay_auto_step([15_000]), MINUTE_MS);
-        assert_eq!(replay_auto_step(std::iter::empty()), MINUTE_MS);
+    fn the_auto_step_is_the_shortest_chart_and_never_under_its_floor() {
+        assert_eq!(
+            replay_auto_step([3_600_000, 300_000, 86_400_000], MINUTE_MS),
+            300_000
+        );
+        assert_eq!(replay_auto_step([15_000], MINUTE_MS), MINUTE_MS);
+        assert_eq!(replay_auto_step(std::iter::empty(), MINUTE_MS), MINUTE_MS);
+        assert_eq!(replay_auto_step([15_000, 300_000], 1_000), 15_000);
+        assert_eq!(replay_auto_step([200], 0), 1_000, "never under a second");
     }
 
     #[test]
-    fn a_step_menu_entry_has_a_length_except_auto() {
-        assert_eq!(ReplayStep::Auto.millis(), None);
-        assert!(ReplayStep::ALL[1..].iter().all(|s| s.millis().is_some()));
+    fn a_step_that_divides_a_day_is_on_the_grid_and_another_is_relative() {
+        assert_eq!(
+            ClockStep::time(5 * MINUTE_MS),
+            ClockStep::Grid(5 * MINUTE_MS)
+        );
+        assert_eq!(ClockStep::time(90_000), ClockStep::Grid(90_000));
+        assert_eq!(
+            ClockStep::time(7 * MINUTE_MS),
+            ClockStep::Relative(7 * MINUTE_MS)
+        );
+        assert_eq!(ClockStep::time(5 * DAY_MS), ClockStep::Relative(5 * DAY_MS));
+    }
+
+    #[test]
+    fn a_relative_step_moves_by_its_length_and_back_undoes_it() {
+        let mut clock = ReplayClock::new(3 * MINUTE_MS + 20_000, ClockStep::time(7 * MINUTE_MS));
+        assert!(clock.step_forward(BOUNDS, &ReplayNoGaps));
+        assert_eq!(clock.cursor_ms(), 10 * MINUTE_MS + 20_000);
+        assert!(clock.step_forward(BOUNDS, &ReplayNoGaps));
+        assert_eq!(clock.cursor_ms(), 17 * MINUTE_MS + 20_000);
+        assert!(clock.step_back(BOUNDS, &ReplayNoGaps));
+        assert!(clock.step_back(BOUNDS, &ReplayNoGaps));
+        assert_eq!(clock.cursor_ms(), 3 * MINUTE_MS + 20_000);
+    }
+
+    #[test]
+    fn a_relative_step_skips_a_gap_to_the_step_that_shows_the_next_data() {
+        let times: &[i64] = &[0, MINUTE_MS, 60 * MINUTE_MS];
+        let mut clock = ReplayClock::new(2 * MINUTE_MS, ClockStep::time(7 * MINUTE_MS));
+        assert!(clock.step_forward(BOUNDS, times));
+        assert_eq!(
+            clock.cursor_ms(),
+            60 * MINUTE_MS + 1,
+            "just after the tick that was unseen"
+        );
+        assert!(clock.step_back(BOUNDS, times));
+        assert_eq!(
+            clock.cursor_ms(),
+            53 * MINUTE_MS + 1,
+            "seven minutes back: the bar of minute 60 is hidden again"
+        );
+        assert!(clock.step_back(BOUNDS, times));
+        assert_eq!(
+            clock.cursor_ms(),
+            MINUTE_MS,
+            "then the gap is crossed in one step"
+        );
+    }
+
+    #[test]
+    fn a_step_in_ticks_lands_just_after_the_nth_tick_not_yet_seen() {
+        let ticks: &[i64] = &[10, 20, 30, 40, 50];
+        let bounds = ReplayBounds {
+            floor_ms: 0,
+            cap_ms: 1_000,
+        };
+        let mut clock = ReplayClock::new(15, ClockStep::Ticks(2));
+        assert!(clock.step_forward(bounds, ticks));
+        assert_eq!(clock.cursor_ms(), 31, "ticks 20 and 30 are seen, 40 is not");
+        assert!(clock.step_forward(bounds, ticks));
+        assert_eq!(clock.cursor_ms(), 51);
+        assert!(
+            !clock.step_forward(bounds, ticks),
+            "no more ticks: it waits"
+        );
+        assert!(clock.step_back(bounds, ticks));
+        assert_eq!(clock.cursor_ms(), 40, "ticks 40 and 50 are hidden");
+    }
+
+    #[test]
+    fn one_tick_at_a_time_walks_every_tick_forward_and_back() {
+        let ticks: &[i64] = &[10, 20, 30];
+        let bounds = ReplayBounds {
+            floor_ms: 0,
+            cap_ms: 1_000,
+        };
+        let mut clock = ReplayClock::new(0, ClockStep::Ticks(1));
+        let mut seen = Vec::new();
+        while clock.step_forward(bounds, ticks) {
+            seen.push(clock.cursor_ms());
+        }
+        assert_eq!(seen, vec![11, 21, 31]);
+        let mut back = Vec::new();
+        while clock.step_back(bounds, ticks) {
+            back.push(clock.cursor_ms());
+        }
+        assert_eq!(back, vec![30, 20, 10, 0]);
+    }
+
+    #[test]
+    fn ticks_of_the_same_millisecond_show_together() {
+        let ticks: &[i64] = &[10, 10, 10, 20];
+        let bounds = ReplayBounds {
+            floor_ms: 0,
+            cap_ms: 1_000,
+        };
+        let mut clock = ReplayClock::new(0, ClockStep::Ticks(1));
+        assert!(clock.step_forward(bounds, ticks));
+        assert_eq!(clock.cursor_ms(), 11);
     }
 }

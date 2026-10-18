@@ -54,7 +54,7 @@ pub(crate) enum Job {
 pub(crate) fn prefetch_ahead_ms(rate_hz: f64, step_ms: i64) -> i64 {
     let eaten =
         wyck_core::math::f64_to_i64(wyck_core::math::i64_to_f64(step_ms) * rate_hz.max(0.0) * 60.0);
-    eaten.clamp(DAY_MS, MAX_AHEAD_MS)
+    eaten.max(2 * step_ms).clamp(DAY_MS, MAX_AHEAD_MS)
 }
 
 /// The first minute not yet over at `now_ms`: the cursor goes no further, a minute in progress
@@ -185,6 +185,16 @@ mod tests {
 
     #[test]
     fn the_prefetch_grows_with_the_speed_within_bounds() {
+        assert_eq!(
+            prefetch_ahead_ms(0.001, 7 * DAY_MS),
+            MAX_AHEAD_MS,
+            "twice a long step, within bounds"
+        );
+        assert_eq!(
+            prefetch_ahead_ms(0.001, 3 * DAY_MS),
+            6 * DAY_MS,
+            "twice a step ahead"
+        );
         assert_eq!(prefetch_ahead_ms(1.0, 60_000), DAY_MS);
         assert_eq!(prefetch_ahead_ms(30.0, 3_600_000), MAX_AHEAD_MS);
         assert!(prefetch_ahead_ms(30.0, 600_000) > DAY_MS);
