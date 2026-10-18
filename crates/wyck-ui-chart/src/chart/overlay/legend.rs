@@ -329,7 +329,7 @@ impl Chart {
     pub(super) fn market_dot(&self) -> Option<AnyElement> {
         use wyck_market::MarketStatus;
         let status = self.market_status()?;
-        let now = wyck_app::market_data::now_ms();
+        let now = self.clock_ms();
         let within = |at: Option<i64>| at.map(|t| wyck_drawings::geometry::duration_text(t - now));
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (

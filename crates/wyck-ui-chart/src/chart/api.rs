@@ -7,7 +7,6 @@ use wyck_chart::ScaleMode;
 use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceScale};
 
 use gpui::{Context, SharedString};
-use wyck_app::market_data::now_ms;
 
 impl Chart {
     pub fn timeframe(&self) -> Timeframe {
@@ -87,7 +86,7 @@ impl Chart {
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
     pub(crate) fn market_status(&self) -> Option<wyck_market::MarketStatus> {
-        Some(self.hours.as_ref()?.status_at(now_ms()))
+        Some(self.hours.as_ref()?.status_at(self.clock_ms()))
     }
 
     /// Tells the chart how many charts the layout holds.

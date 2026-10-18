@@ -30,7 +30,7 @@ impl Book {
         self.drawings(symbol)
             .iter()
             .rev()
-            .filter(|drawing| drawing.shows_on(timeframe))
+            .filter(|drawing| self.shows(drawing, timeframe))
             .find_map(|drawing| {
                 resolve(drawing)
                     .and_then(|resolved| geometry::hit::hit(&resolved, proj, at, true))
@@ -50,7 +50,7 @@ impl Book {
         resolve: &dyn Fn(&Drawing) -> Option<Drawing>,
     ) -> Option<(u64, Part)> {
         if let Some(id) = self.selected
-            && let Some(drawing) = self.get(symbol, id).filter(|d| d.shows_on(timeframe))
+            && let Some(drawing) = self.get(symbol, id).filter(|d| self.shows(d, timeframe))
             && let Some(resolved) = resolve(drawing)
             && let Some(part @ Part::Handle(_)) = geometry::hit::hit(&resolved, proj, at, true)
         {

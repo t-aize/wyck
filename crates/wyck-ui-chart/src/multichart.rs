@@ -19,6 +19,7 @@ mod favorites;
 pub mod icon;
 pub(crate) mod layout;
 pub mod links;
+mod replay;
 pub(crate) mod split;
 mod view;
 
@@ -34,6 +35,7 @@ use std::rc::Rc;
 use wyck_app::broker::session::Session;
 use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
+use wyck_app::replay::Replay;
 use wyck_app::workspace::LinksPref;
 use wyck_app::workspace::layouts;
 use wyck_app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
@@ -76,6 +78,10 @@ pub enum MultiChartEvent {
     PictureFailed(String),
     /// A chart asked for the editor of the indicator scripts.
     IndicatorEditor(EditorRequest),
+    /// The replay could not start or went on; the text is for the user.
+    ReplayFailed(String),
+    /// The user asked a chart for an order or an alert while a replay runs.
+    ReplayBlocked,
 }
 
 struct Slot {
@@ -150,6 +156,9 @@ pub struct MultiChart {
     hover_divider: Option<(usize, usize)>,
     /// The lines (orders, positions, alerts) of each symbol, handed to its charts.
     lines: HashMap<i64, Vec<ChartLine>>,
+    /// The replay every chart follows while it runs.
+    replay: Entity<Replay>,
+    _replay_events: Subscription,
 }
 
 impl EventEmitter<MultiChartEvent> for MultiChart {}
@@ -161,8 +170,15 @@ impl MultiChart {
         hub: Rc<LiveHub>,
         workspace: Entity<Workspace>,
         drawings: Entity<Drawings>,
+        replay: Entity<Replay>,
         cx: &mut Context<Self>,
     ) -> Self {
+        let replay_events = cx.subscribe(
+            &replay,
+            |this, _replay, event: &wyck_app::replay::ReplayEvent, cx| {
+                this.on_replay_event(event, cx);
+            },
+        );
         let prefs = workspace.read(cx).preferences().clone();
         let key = prefs.layout_key();
         drawings.update(cx, |drawings, cx| {
@@ -218,6 +234,8 @@ impl MultiChart {
             split_drag: None,
             hover_divider: None,
             lines: HashMap::new(),
+            replay,
+            _replay_events: replay_events,
         };
         for index in 0..layout(key).count() {
             multi.add_chart(prefs.chart(index), cx);

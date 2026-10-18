@@ -45,6 +45,7 @@ impl Render for Chart {
             .children(self.corner(cx))
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
+            .children(self.replay_banner(&geometry))
             .children(self.marquee())
             .children(self.status(cx))
             .on_mouse_down(MouseButton::Right, move |event, _window, cx| {

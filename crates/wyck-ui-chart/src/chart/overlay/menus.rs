@@ -155,7 +155,7 @@ impl Chart {
         if let Some(id) = self.drawing_under(x, y, cx) {
             groups.extend(self.drawing_items(chart, id, cx));
         }
-        if let (Some(raw), true) = (price_raw, self.symbol.is_some()) {
+        if let (Some(raw), true) = (price_raw, self.symbol.is_some() && self.replay.is_none()) {
             let text = format_price(f64_to_i64(raw.round()), digits);
             let real = to_real(raw);
             let buy_limit = ask.is_some_and(|ask| raw < i64_to_f64(ask));
@@ -323,7 +323,7 @@ impl Chart {
         let menu = self.menu?;
         let card = match menu {
             Menu::Zone => {
-                let now = wyck_app::market_data::now_ms();
+                let now = self.clock_ms();
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(

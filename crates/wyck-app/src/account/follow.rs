@@ -10,6 +10,7 @@ use crate::lost::lost;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+use super::actions::Origin;
 use super::{Account, Busy, Notice, Status, Tone, flatten};
 use crate::market_data::load;
 use crate::market_data::load::Loaded;
@@ -151,7 +152,7 @@ impl Account {
                         continue;
                     }
                     self.following.set.insert(job.id, (now, stop));
-                    self.protect_order(job.id, Some(stop), target, cx);
+                    self.protect_order_as(Origin::Plan, job.id, Some(stop), target, cx);
                 }
             }
         }

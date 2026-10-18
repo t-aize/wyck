@@ -241,6 +241,9 @@ impl Dashboard {
 
     /// An alert at the active chart's last price.
     pub(in crate::dashboard) fn add_alert_here(&mut self, cx: &mut Context<Self>) {
+        if self.replay_blocks(cx) {
+            return;
+        }
         let chart = self.multi.read(cx).active_chart().clone();
         let Some(symbol) = self.multi.read(cx).active_symbol(cx) else {
             return;

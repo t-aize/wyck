@@ -65,6 +65,13 @@ impl MultiChart {
             wanted_symbol: if shared.is_some() { None } else { symbol },
             _events: events,
         });
+        // A chart added while a replay runs joins it.
+        if self.replay.read(cx).is_on()
+            && let Some(slot) = self.slots.last()
+        {
+            slot.chart.update(cx, Chart::enter_replay);
+            self.replay_changed(cx);
+        }
     }
 
     /// Shows a symbol on chart `target`, or on every chart when the symbol is linked.

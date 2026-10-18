@@ -19,7 +19,7 @@ use wyck_chart::{aggregate_ticks, bucket_start, group_bars, last_group};
 use wyck_market::Timeframe;
 
 /// Bars in one request. Under the range limit the server sets for every period.
-const CHUNK_BARS: i64 = 1_500;
+pub(crate) const CHUNK_BARS: i64 = 1_500;
 /// How many bars a first load, and each older step, aims for.
 pub(crate) const WANT_BARS: usize = 1_200;
 /// Requests one call may make: a guard, not a target.

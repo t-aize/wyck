@@ -120,6 +120,9 @@ pub struct Account {
     focus: Option<i64>,
     /// Bumped on every (re)load, so answers to an old one are ignored.
     epoch: u64,
+    /// A replay of the past runs: nothing new is sent and no change is made to what is open (see
+    /// [`Self::set_replay`]).
+    replay: bool,
     _poll: gpui::Task<()>,
 }
 
@@ -182,6 +185,7 @@ impl Account {
             conversions: HashMap::new(),
             focus: None,
             epoch: 0,
+            replay: false,
             _poll: poll,
         }
     }
@@ -255,7 +259,25 @@ impl Account {
             day_start_balance: summary.balance - realized,
             last_loss_at: last_loss,
             now,
+            replay: self.replay,
         }
+    }
+
+    /// Turns the lock of a replay on or off. While it is on, a replay shows the past, so no new
+    /// order is sent and no order or position is changed by the user; closing a position or
+    /// cancelling an order still works, and what the app does for a plan it was given (break-even,
+    /// OCO, an ATR following) goes on. Returns whether it is now as asked: turning it on waits for
+    /// an order that is being sent or queued, so none is cut in two.
+    pub fn set_replay(&mut self, on: bool, cx: &mut Context<Self>) -> bool {
+        if on && (self.busy.contains(&Busy::Placing) || !self.queue.is_empty()) {
+            return false;
+        }
+        if self.replay != on {
+            self.replay = on;
+            cx.emit(AccountEvent::Changed);
+            cx.notify();
+        }
+        true
     }
 
     /// What stops new orders now, if anything.

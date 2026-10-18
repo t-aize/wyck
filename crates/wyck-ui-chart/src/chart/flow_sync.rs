@@ -115,7 +115,7 @@ impl Chart {
     /// comes back here to ask for the next step. Cheap to call: it returns at once when there is
     /// nothing to do.
     pub(super) fn ensure_flow(&mut self, cx: &mut Context<Self>) {
-        if !self.wants_flow() {
+        if !self.wants_flow() || self.replay.is_some() {
             return;
         }
         match self.flow_load {

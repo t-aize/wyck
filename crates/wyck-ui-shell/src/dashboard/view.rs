@@ -19,7 +19,7 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::{button, icon, theme, tokens};
 
 impl Dashboard {
-    pub(super) fn body(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(super) fn body(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let centered = div()
             .flex_1()
             .flex()
@@ -28,8 +28,12 @@ impl Dashboard {
             .justify_center()
             .gap_3()
             .px_6();
-        match &self.conn {
-            Conn::Failed(message) => centered
+        let failed = match &self.conn {
+            Conn::Failed(message) => Some(message.clone()),
+            _ => None,
+        };
+        if let Some(message) = failed {
+            centered
                 .child(icon::tinted(
                     IconName::CircleAlert,
                     28.,
@@ -47,7 +51,7 @@ impl Dashboard {
                         .text_center()
                         .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())
-                        .child(message.clone()),
+                        .child(message),
                 )
                 .child(
                     div()
@@ -63,10 +67,10 @@ impl Dashboard {
                             }),
                         )),
                 )
-                .into_any_element(),
-            _ => self
-                .trading_layout(self.multi.clone().into_any_element(), cx)
-                .into_any_element(),
+                .into_any_element()
+        } else {
+            let charts = self.charts_with_replay(window, cx);
+            self.trading_layout(charts, cx).into_any_element()
         }
     }
 }
@@ -84,22 +88,24 @@ impl Render for Dashboard {
         self.editor_frame(window, cx);
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
-        let body = self.body(cx).into_any_element();
+        let body = self.body(window, cx).into_any_element();
         let menu = self.render_menu(cx);
-        let menu_backdrop = (self.menu_is(MenuKind::Timeframes) || self.menu_is(MenuKind::Layouts))
-            .then(|| {
-                let this = cx.entity().downgrade();
-                deferred(wyck_ui_kit::menu::parts::backdrop(move |_, cx| {
-                    lost(
-                        "view: render",
-                        this.update(cx, |this, cx| {
-                            this.close_menus();
-                            cx.notify();
-                        }),
-                    );
-                }))
-                .with_priority(0)
-            });
+        let menu_backdrop = (self.menu_is(MenuKind::Timeframes)
+            || self.menu_is(MenuKind::Layouts)
+            || self.menu_is(MenuKind::Replay))
+        .then(|| {
+            let this = cx.entity().downgrade();
+            deferred(wyck_ui_kit::menu::parts::backdrop(move |_, cx| {
+                lost(
+                    "view: render",
+                    this.update(cx, |this, cx| {
+                        this.close_menus();
+                        cx.notify();
+                    }),
+                );
+            }))
+            .with_priority(0)
+        });
 
         // A second context name while a drawing is being made turns on the keys for that.
         let context = if self.multi.read(cx).drawing_in_progress(cx) {
@@ -107,8 +113,11 @@ impl Render for Dashboard {
         } else {
             "Dashboard"
         };
-        Self::drawing_actions(
-            div().key_context(context).track_focus(&self.focus_handle),
+        Self::replay_actions(
+            Self::drawing_actions(
+                div().key_context(context).track_focus(&self.focus_handle),
+                cx,
+            ),
             cx,
         )
         .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
@@ -196,6 +205,12 @@ impl Render for Dashboard {
             this.open_picker(window, cx);
         }))
         .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
+            // Escape gives up the choice of a replay start before anything else.
+            if this.replay.read(cx).is_picking() {
+                this.replay
+                    .update(cx, wyck_app::replay::Replay::cancel_pick);
+                return;
+            }
             // Escape gives up a drawing in progress before it closes anything else.
             let nothing_open = this.picker.is_none() && this.open_menu.is_none();
             // A menu of a chart (the time zone) closes before anything else.

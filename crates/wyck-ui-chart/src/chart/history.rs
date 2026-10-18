@@ -36,6 +36,9 @@ impl Chart {
                 Series::Ticks(_) => return None,
             }
         } else {
+            if self.replay.is_some() {
+                return None;
+            }
             let id = self.symbol.as_ref()?.id;
             let (bars, loaded_at) = self.atr_history.get(&(id, timeframe))?;
             if now_ms().saturating_sub(*loaded_at) > 30_000 {
@@ -44,7 +47,7 @@ impl Chart {
             bars
         };
         let last = bars.last()?;
-        let last_is_open = timeframe.bar_key(last.time_ms) == timeframe.bar_key(now_ms());
+        let last_is_open = timeframe.bar_key(last.time_ms) == timeframe.bar_key(self.clock_ms());
         settings.value(bars, last_is_open)
     }
 
@@ -54,6 +57,9 @@ impl Chart {
         settings: &wyck_trading::atr_stop::AtrStop,
         cx: &mut Context<Self>,
     ) {
+        if self.replay.is_some() {
+            return;
+        }
         let Some(timeframe) = settings.timeframe.as_deref().and_then(Timeframe::from_code) else {
             return;
         };
@@ -100,6 +106,10 @@ impl Chart {
 
     /// Throws the data away and loads the current symbol and timeframe from scratch.
     pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
+        if self.replay.is_some() {
+            self.reseed_replay(cx);
+            return;
+        }
         self.epoch += 1;
         let epoch = self.epoch;
         self.series = empty_series(self.timeframe);
@@ -188,14 +198,12 @@ impl Chart {
         self.reload(cx);
     }
 
-    /// "Now" for anything the chart draws that means "the current moment".
-    pub(super) fn now_for_display() -> i64 {
-        now_ms()
-    }
-
     /// The session is connected (again): fetch what was missed, or start over if the first
     /// load never made it.
     pub(crate) fn on_ready(&mut self, cx: &mut Context<Self>) {
+        if self.replay.is_some() {
+            return;
+        }
         match self.load {
             Load::Failed(_) => self.reload(cx),
             Load::Ready => self.refill(cx),
@@ -205,6 +213,9 @@ impl Chart {
 
     /// Fetches the prices between the newest point held and now, and joins them in.
     fn refill(&mut self, cx: &mut Context<Self>) {
+        if self.replay.is_some() {
+            return;
+        }
         self.flow_gap_open();
         let (Some(symbol), Some(from)) = (&self.symbol, self.series.last_time()) else {
             if self.symbol.is_some() && self.series.is_empty() {
@@ -271,6 +282,9 @@ impl Chart {
 
     /// Asks for older history when the view is near the oldest point held.
     pub(super) fn load_older_if_needed(&mut self, cx: &mut Context<Self>) {
+        if self.replay.is_some() {
+            return;
+        }
         // A footprint needs the flow of the bars it shows too.
         self.ensure_flow(cx);
         if !matches!(self.load, Load::Ready) {
@@ -358,6 +372,9 @@ impl Chart {
 
     /// A price event (with its live bars corrected) from the session.
     pub(crate) fn on_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {
+        if self.replay.is_some() {
+            return;
+        }
         let Some(id) = self.symbol.as_ref().map(|s| s.id) else {
             return;
         };

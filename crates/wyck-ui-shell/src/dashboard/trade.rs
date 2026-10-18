@@ -202,6 +202,9 @@ impl Dashboard {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.replay_blocks(cx) {
+            return;
+        }
         if !self.ticket_open {
             return;
         }
@@ -360,6 +363,9 @@ impl Dashboard {
         action: &ChartAction,
         cx: &mut Context<Self>,
     ) {
+        if self.replay_blocks(cx) {
+            return;
+        }
         match action {
             ChartAction::Ticket(request) => {
                 self.pending.push(Pending::Ticket {
@@ -380,6 +386,9 @@ impl Dashboard {
         price: f64,
         cx: &mut Context<Self>,
     ) {
+        if self.replay.read(cx).is_on() {
+            return;
+        }
         let account = self.trading.clone();
         match id {
             LineId::Order(order) => account.update(cx, |a, cx| a.move_order(order, price, cx)),
@@ -440,6 +449,9 @@ impl Dashboard {
 
     /// The close button of a line was clicked.
     pub(in crate::dashboard) fn on_line_closed(&mut self, id: LineId, cx: &mut Context<Self>) {
+        if self.replay.read(cx).is_on() {
+            return;
+        }
         match id {
             LineId::Position(position) => self.pending.push(Pending::ClosePosition(position)),
             LineId::Order(order) => self.trading.update(cx, |a, cx| a.cancel_order(order, cx)),

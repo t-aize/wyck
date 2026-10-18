@@ -47,6 +47,10 @@ pub(crate) enum ChartEvent {
     ScreenshotAll,
     /// The user asked for the editor of the indicator scripts.
     IndicatorEditor(EditorRequest),
+    /// The chart changed symbol or timeframe while replaying: the replay must hold other bars.
+    ReplayStale,
+    /// The user clicked the bar a replay starts from (its opening time).
+    ReplayPicked(i64),
 }
 
 /// What a chart asks the dashboard to open in the editor of the indicator scripts.

@@ -169,6 +169,9 @@ impl Chart {
 
     /// The draggable line within reach of the pointer, if any.
     fn line_at(&self, y: f32) -> Option<(LineId, f64)> {
+        if self.replay.is_some() {
+            return None;
+        }
         let map = self.main_map()?;
         self.lines
             .iter()
@@ -196,6 +199,12 @@ impl Chart {
         cx: &mut Context<Self>,
     ) {
         cx.emit(ChartEvent::Activated);
+        if self.replay_pick {
+            if let Some(hover) = self.hover_info(x, y) {
+                cx.emit(ChartEvent::ReplayPicked(hover.time_ms));
+            }
+            return;
+        }
         // A release that never came (the button let go outside the window) ends the last press
         // before this one starts.
         if self.drawing_drag {
@@ -468,6 +477,9 @@ impl Chart {
     }
 
     pub(super) fn cursor(&self, cx: &gpui::App) -> CursorStyle {
+        if self.replay_pick {
+            return CursorStyle::Crosshair;
+        }
         if self.drawing_drag {
             return grabbing();
         }

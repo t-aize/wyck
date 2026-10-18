@@ -290,6 +290,7 @@ fn phrase(line: Option<&OrderLine>) -> String {
 pub(crate) fn lock_text(lock: &Lock, money: &dyn Fn(f64) -> String, now: i64) -> String {
     match *lock {
         Lock::KillSwitch => "Kill switch is on: no new orders can be sent.".to_owned(),
+        Lock::Replay => "Replay is on: no new orders can be sent.".to_owned(),
         Lock::DailyLoss { loss, limit } => format!(
             "Daily loss limit reached ({} of {}): no new orders today.",
             money(loss),
@@ -447,6 +448,14 @@ mod tests {
             code: None,
         });
         assert_eq!(notice.details.as_deref(), Some("refused by the server"));
+    }
+
+    #[test]
+    fn a_replay_says_why_no_order_is_sent() {
+        assert_eq!(
+            lock_text(&Lock::Replay, &money, 0),
+            "Replay is on: no new orders can be sent."
+        );
     }
 
     #[test]

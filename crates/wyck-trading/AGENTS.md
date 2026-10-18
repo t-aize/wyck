@@ -33,6 +33,7 @@ Used by: `wyck-app`, `wyck-ctrader`, `wyck-drawings`, `wyck-ui-chart`, `wyck-ui-
   positions and orders are ordinary decimals, unlike the integer prices of bars and ticks.
 - Every number enum has `from_number` giving `None` for an unknown number: a server that adds a
   value shows up as a missing label, not as a crash. Keep that.
+- A replay locks new orders through the guard itself (`Standing::replay`, `Lock::Replay`), like the kill switch: closing and reducing orders still pass, and a limit of 0 does not turn it off.
 - `guard` is the one place that decides if an order may be sent. An order that only reduces what is
   open is never blocked: closing must always work. A limit of 0 is off. `RiskPrefs::normalized`
   repairs numbers that are not numbers.

@@ -150,6 +150,9 @@ pub struct Standing {
     pub last_loss_at: Option<i64>,
     /// Now, in Unix milliseconds.
     pub now: i64,
+    /// A replay of the past runs: no new order is sent while it does, since its prices are not
+    /// the market's.
+    pub replay: bool,
 }
 
 /// Why nothing new can be sent. These are codes with the numbers behind them: the sentence a
@@ -157,6 +160,8 @@ pub struct Standing {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Lock {
     KillSwitch,
+    /// A replay of the past is on.
+    Replay,
     /// The day's loss reached its limit.
     DailyLoss {
         loss: f64,
@@ -171,6 +176,9 @@ pub enum Lock {
 /// The lock in force, if any. The kill switch and the daily loss come first: they last longer
 /// than a cooldown.
 pub fn lock(prefs: &RiskPrefs, standing: &Standing) -> Option<Lock> {
+    if standing.replay {
+        return Some(Lock::Replay);
+    }
     if prefs.kill_switch {
         return Some(Lock::KillSwitch);
     }
@@ -564,6 +572,26 @@ mod tests {
         };
         assert_eq!(check(&prefs, &standing(), &closing), Verdict::Ok);
         assert!(check(&prefs, &standing(), &order(0.1)).is_block());
+    }
+
+    #[test]
+    fn a_replay_locks_new_orders_but_not_the_ones_that_reduce() {
+        let replaying = Standing {
+            replay: true,
+            ..standing()
+        };
+        let prefs = RiskPrefs::default();
+        assert_eq!(lock(&prefs, &replaying), Some(Lock::Replay));
+        assert_eq!(
+            check(&prefs, &replaying, &order(0.1)),
+            Verdict::Block(Refusal::Locked(Lock::Replay))
+        );
+        let closing = OrderFacts {
+            reduces: true,
+            ..order(5.0)
+        };
+        assert_eq!(check(&prefs, &replaying, &closing), Verdict::Ok);
+        assert_eq!(lock(&prefs, &standing()), None);
     }
 
     #[test]

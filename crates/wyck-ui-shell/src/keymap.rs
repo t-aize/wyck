@@ -155,6 +155,13 @@ pub(crate) static DEFS: &[Def] = &[
     def!("close_all_positions", "Close all positions", Trading, DASHBOARD, ["secondary-shift-x"], d::CloseAllPositions),
     def!("toggle_kill_switch", "Kill switch: stop all trading", Trading, DASHBOARD, ["secondary-shift-k"], d::ToggleKillSwitch),
     def!("add_alert", "Add a price alert", Trading, DASHBOARD, ["alt-a"], c::ChartAddAlert),
+    // The replay.
+    def!("replay_toggle", "Start or stop a replay", Chart, DASHBOARD, ["alt-shift-r"], d::ReplayToggle),
+    def!("replay_play_pause", "Replay: play or pause", Chart, DASHBOARD, ["alt-y"], d::ReplayPlayPause),
+    def!("replay_step_back", "Replay: one step back", Chart, DASHBOARD, ["alt-left"], d::ReplayStepBack),
+    def!("replay_step_forward", "Replay: one step forward", Chart, DASHBOARD, ["alt-right"], d::ReplayStepForward),
+    def!("replay_faster", "Replay: faster", Chart, DASHBOARD, ["alt-shift-up"], d::ReplayFaster),
+    def!("replay_slower", "Replay: slower", Chart, DASHBOARD, ["alt-shift-down"], d::ReplaySlower),
     // The chart.
     def!("pan_back", "Move the chart back", Chart, DASHBOARD, ["left"], c::ChartPanBack),
     def!("pan_forward", "Move the chart forward", Chart, DASHBOARD, ["right"], c::ChartPanForward),

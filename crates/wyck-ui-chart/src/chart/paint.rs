@@ -26,7 +26,14 @@ impl Chart {
     /// Builds the frame for the canvas at `bounds`.
     fn scene(&self, cx: &App, bounds: Bounds<Pixels>, scale: f32, with_pointer: bool) -> Vec<Cmd> {
         let timeframe = self.timeframe.code();
-        let visible = move |d: &wyck_drawings::model::Drawing| d.shows_on(&timeframe);
+        let horizon = self
+            .drawings
+            .as_ref()
+            .and_then(|drawings| drawings.read(cx).book().horizon());
+        let visible = move |d: &wyck_drawings::model::Drawing| {
+            d.shows_on(&timeframe)
+                && horizon.is_none_or(|h| d.first_time().is_none_or(|time| time <= h))
+        };
         let drawings =
             self.drawings
                 .as_ref()
@@ -50,7 +57,7 @@ impl Chart {
         let marks: Vec<PriceMark> = self
             .lines
             .iter()
-            .filter(|line| self.settings.trading.shows(line.id))
+            .filter(|line| self.replay.is_none() && self.settings.trading.shows(line.id))
             .map(|line| {
                 let mut mark = line.mark();
                 mark.price = self.line_price(line.id, mark.price);
@@ -75,7 +82,7 @@ impl Chart {
                 .filter(|_| with_pointer)
                 .map(|r| (r.time_ms, r.price)),
             ask: self.ask,
-            now_ms: Self::now_for_display(),
+            now_ms: self.clock_ms(),
             palette: super::palette::palette_for_chart(&self.settings.colors),
             drawings: drawings
                 .as_ref()
@@ -114,12 +121,7 @@ impl Chart {
             .symbol
             .as_ref()
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
-        let when = full_time(
-            wyck_app::market_data::now_ms(),
-            self.settings.zone,
-            false,
-            false,
-        );
+        let when = full_time(self.clock_ms(), self.settings.zone, false, false);
         let stamp: String = when.chars().filter(char::is_ascii_alphanumeric).collect();
         let name = format!(
             "wyck-{}-{}-{stamp}.png",
@@ -150,12 +152,7 @@ impl Chart {
             title.push_str("  ");
             title.push_str(self.settings.kind.label());
         }
-        let when = full_time(
-            wyck_app::market_data::now_ms(),
-            self.settings.zone,
-            false,
-            false,
-        );
+        let when = full_time(self.clock_ms(), self.settings.zone, false, false);
         let captions = [
             super::raster::Caption {
                 text: title,
@@ -164,10 +161,7 @@ impl Chart {
                 bold: true,
             },
             super::raster::Caption {
-                text: format!(
-                    "{when}  {}",
-                    self.settings.zone.label(wyck_app::market_data::now_ms())
-                ),
+                text: format!("{when}  {}", self.settings.zone.label(self.clock_ms())),
                 size: 11.0,
                 color: hsla(palette.text),
                 bold: false,

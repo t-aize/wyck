@@ -67,6 +67,7 @@ impl Dashboard {
             .child(divider())
             .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
+            .child(self.replay_button(fit.chart_labels, window, cx))
             .child(self.chart_buttons(fit.chart_labels, window, cx))
             .child(div().flex_1().min_w_0())
             .child(self.indicators_button(window, cx))

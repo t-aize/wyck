@@ -74,6 +74,7 @@ mod paint;
 pub(crate) mod palette;
 mod path_pieces;
 pub(crate) mod raster;
+mod replay;
 mod settings_rows;
 mod study_settings;
 pub(crate) mod tool_icon;
@@ -291,6 +292,10 @@ pub struct Chart {
     settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.
     lines: Vec<ChartLine>,
+    /// Set while the chart replays the past: the series is then what the replay cursor shows.
+    replay: Option<replay::ChartReplay>,
+    /// The user is choosing the bar a replay starts from: a click picks it.
+    replay_pick: bool,
     menu: Option<Menu>,
     /// Where the pointer was at the last right click, for the context menu.
     context_at: Option<(f32, f32)>,
@@ -375,6 +380,8 @@ impl Chart {
             over_drawing: None,
             settings_for: None,
             lines: Vec::new(),
+            replay: None,
+            replay_pick: false,
             menu: None,
             context_at: None,
             bounds: Rc::new(Cell::new(None)),

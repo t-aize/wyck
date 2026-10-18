@@ -229,3 +229,36 @@ fn the_chart_s_own_timeframe_gives_the_plain_average() {
         assert!((a.is_nan() && b.is_nan()) || (a - b).abs() < 1e-9);
     }
 }
+
+/// What an indicator shows for a bar must not depend on the bars after it: a replay computes
+/// indicators on the part of the history it has reached, and only then are they the ones the
+/// user would have seen. None of the built-in ones looks ahead with its default settings; one that
+/// will have to say so here.
+#[test]
+fn an_indicator_shows_the_same_on_a_bar_with_or_without_the_bars_after_it() {
+    let (full, prefix) = (input(300), input(240));
+    let mut peeking = Vec::new();
+    for kind in StudyKind::ALL {
+        let config = StudyConfig::new(kind);
+        let (long, short) = (compute(&config, &full), compute(&config, &prefix));
+        let same = short.plots.iter().all(|plot| {
+            long.plots
+                .iter()
+                .find(|other| other.key == plot.key)
+                .is_some_and(|other| {
+                    plot.values
+                        .iter()
+                        .zip(&other.values)
+                        .all(|(a, b)| (a.is_nan() && b.is_nan()) || (a - b).abs() < 1e-6)
+                })
+        });
+        if !same {
+            peeking.push(format!("{kind:?}"));
+        }
+    }
+    assert_eq!(
+        peeking,
+        Vec::<String>::new(),
+        "indicators that read bars after the one they are for"
+    );
+}
