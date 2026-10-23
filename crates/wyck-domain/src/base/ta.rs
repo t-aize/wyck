@@ -678,6 +678,237 @@ pub fn bars_since(condition: &[f64]) -> Vec<f64> {
         .collect()
 }
 
+/// The kinds of moving average a script can name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MovingAverage {
+    Sma,
+    Ema,
+    Wma,
+    Rma,
+    Hma,
+}
+
+impl MovingAverage {
+    /// The kind a name gives, in any case: `sma`, `ema`, `wma`, `rma` (Wilder) or `hma`.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name.trim().to_ascii_lowercase().as_str() {
+            "sma" => Some(Self::Sma),
+            "ema" => Some(Self::Ema),
+            "wma" => Some(Self::Wma),
+            "rma" | "wilder" | "smma" => Some(Self::Rma),
+            "hma" => Some(Self::Hma),
+            _ => None,
+        }
+    }
+
+    /// The average of `values` over `period` points.
+    pub fn of(self, values: &[f64], period: usize) -> Vec<f64> {
+        match self {
+            Self::Sma => sma(values, period),
+            Self::Ema => ema(values, period),
+            Self::Wma => wma(values, period),
+            Self::Rma => rma(values, period),
+            Self::Hma => hma(values, period),
+        }
+    }
+}
+
+/// The volume weighted average price that starts over with every `anchor` period, and the
+/// deviation of the price around it (for the bands). A bar without a price or a volume adds
+/// nothing and has no value; a period starts over before that test.
+pub fn vwap_anchored(
+    values: &[f64],
+    volume: &[f64],
+    day: &[i64],
+    anchor: crate::base::calendar::Anchor,
+) -> (Vec<f64>, Vec<f64>) {
+    let n = values.len();
+    let (mut line, mut deviation) = (vec![f64::NAN; n], vec![f64::NAN; n]);
+    let (mut pv, mut pv2, mut vol, mut current) = (0.0, 0.0, 0.0, None);
+    for i in 0..n {
+        let Some(&day) = day.get(i) else {
+            continue;
+        };
+        let period = anchor.key(day);
+        if current != Some(period) {
+            current = Some(period);
+            pv = 0.0;
+            pv2 = 0.0;
+            vol = 0.0;
+        }
+        let (price, size) = (at(values, i), at(volume, i));
+        if !price.is_finite() || !size.is_finite() {
+            continue;
+        }
+        let v = size.max(0.0);
+        pv += price * v;
+        pv2 += price * price * v;
+        vol += v;
+        let mean = if vol > 0.0 { pv / vol } else { price };
+        set(&mut line, i, mean);
+        let spread = if vol > 0.0 {
+            #[expect(
+                clippy::suspicious_operation_groupings,
+                reason = "the variance is E[x^2] minus the square of the mean"
+            )]
+            let variance = pv2 / vol - mean * mean;
+            variance.max(0.0).sqrt()
+        } else {
+            0.0
+        };
+        set(&mut deviation, i, spread);
+    }
+    (line, deviation)
+}
+
+/// How far the points of each window of `period` are from the least squares line through them:
+/// the square root of the mean of the squared gaps. The line is `linear_regression`'s.
+pub fn linear_regression_deviation(values: &[f64], period: usize) -> Vec<f64> {
+    let (level, slope) = linear_regression(values, period);
+    (0..values.len())
+        .map(|i| {
+            if i + 1 < period || !at(&level, i).is_finite() {
+                return f64::NAN;
+            }
+            let start = at(&level, i) - at(&slope, i) * count_f64(period - 1);
+            ((0..period)
+                .map(|j| {
+                    (at(values, i + 1 - period + j) - start - at(&slope, i) * count_f64(j)).powi(2)
+                })
+                .sum::<f64>()
+                / count_f64(period))
+            .sqrt()
+        })
+        .collect()
+}
+
+/// The money flow of each bar: where the close sits in the range, from -1 (at the low) to 1
+/// (at the high), times the volume. A bar with no range has none.
+pub fn money_flow_volume(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> {
+    (0..close.len())
+        .map(|i| {
+            let span = at(high, i) - at(low, i);
+            if span > 0.0 {
+                ((2.0 * at(close, i) - at(high, i) - at(low, i)) / span) * at(volume, i)
+            } else {
+                0.0
+            }
+        })
+        .collect()
+}
+
+/// The running total of the money flow (accumulation/distribution).
+pub fn accumulation_distribution(
+    high: &[f64],
+    low: &[f64],
+    close: &[f64],
+    volume: &[f64],
+) -> Vec<f64> {
+    cumulative(&money_flow_volume(high, low, close, volume))
+}
+
+/// The running total of the relative change of the close weighted by the volume.
+pub fn price_volume_trend(close: &[f64], volume: &[f64]) -> Vec<f64> {
+    let flow: Vec<f64> = (0..close.len())
+        .map(|i| {
+            if i == 0 || at(close, i - 1) == 0.0 || !at(close, i - 1).is_finite() {
+                0.0
+            } else {
+                (at(close, i) - at(close, i - 1)) / at(close, i - 1) * at(volume, i)
+            }
+        })
+        .collect();
+    cumulative(&flow)
+}
+
+/// The negative volume index, starting at 1: it moves with the price only on bars where the
+/// volume fell.
+pub fn negative_volume_index(close: &[f64], volume: &[f64]) -> Vec<f64> {
+    volume_index(close, volume, |now, before| now < before)
+}
+
+/// The positive volume index, starting at 1: it moves with the price only on bars where the
+/// volume rose.
+pub fn positive_volume_index(close: &[f64], volume: &[f64]) -> Vec<f64> {
+    volume_index(close, volume, |now, before| now > before)
+}
+
+fn volume_index(close: &[f64], volume: &[f64], counts: fn(f64, f64) -> bool) -> Vec<f64> {
+    let mut index = 1.0;
+    (0..close.len())
+        .map(|i| {
+            if i > 0 && counts(at(volume, i), at(volume, i - 1)) && at(close, i - 1) != 0.0 {
+                let change = (at(close, i) - at(close, i - 1)) / at(close, i - 1);
+                if change.is_finite() {
+                    index += index * change;
+                }
+            }
+            index
+        })
+        .collect()
+}
+
+/// The accumulation/distribution of Williams: the running total of how far the close is from the
+/// true low on a rise and from the true high on a fall.
+pub fn williams_accumulation_distribution(high: &[f64], low: &[f64], close: &[f64]) -> Vec<f64> {
+    let mut total = 0.0;
+    (0..close.len())
+        .map(|i| {
+            if i > 0 {
+                let before = at(close, i - 1);
+                let momentum = at(close, i) - before;
+                let gain = if momentum > 0.0 {
+                    at(close, i) - at(low, i).min(before)
+                } else if momentum < 0.0 {
+                    at(close, i) - at(high, i).max(before)
+                } else {
+                    0.0
+                };
+                if gain.is_finite() {
+                    total += gain;
+                }
+            }
+            total
+        })
+        .collect()
+}
+
+/// The variable accumulation/distribution of Williams: the body of each bar over its range,
+/// times the volume.
+pub fn williams_variable_accumulation_distribution(
+    open: &[f64],
+    high: &[f64],
+    low: &[f64],
+    close: &[f64],
+    volume: &[f64],
+) -> Vec<f64> {
+    (0..close.len())
+        .map(|i| {
+            let span = at(high, i) - at(low, i);
+            if span > 0.0 {
+                (at(close, i) - at(open, i)) / span * at(volume, i)
+            } else {
+                f64::NAN
+            }
+        })
+        .collect()
+}
+
+/// The intraday intensity index: where the close sits in the range, per unit of volume, running.
+pub fn intraday_intensity(high: &[f64], low: &[f64], close: &[f64], volume: &[f64]) -> Vec<f64> {
+    let mut total = 0.0;
+    (0..close.len())
+        .map(|i| {
+            let span = at(high, i) - at(low, i);
+            let step = (2.0 * at(close, i) - at(high, i) - at(low, i)) / (span * at(volume, i));
+            if step.is_finite() {
+                total += step;
+            }
+            total
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -968,5 +1199,92 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_moving_average_is_found_by_its_name() {
+        assert_eq!(MovingAverage::parse(" EMA "), Some(MovingAverage::Ema));
+        assert_eq!(MovingAverage::parse("Wilder"), Some(MovingAverage::Rma));
+        assert_eq!(MovingAverage::parse("kama"), None);
+        let v = [1.0, 2.0, 3.0, 4.0];
+        let bits = |values: Vec<f64>| values.iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+        assert_eq!(bits(MovingAverage::Sma.of(&v, 2)), bits(sma(&v, 2)));
+        assert_eq!(bits(MovingAverage::Hma.of(&v, 3)), bits(hma(&v, 3)));
+    }
+
+    #[test]
+    fn an_anchored_vwap_starts_over_with_each_period_and_has_a_deviation() {
+        use crate::base::calendar::Anchor;
+        // Two days of two bars: prices 10 and 20 with equal volume.
+        let price = [10.0, 20.0, 30.0, 50.0];
+        let volume = [1.0, 1.0, 1.0, 3.0];
+        let day = [0, 0, 1, 1];
+        let (line, spread) = vwap_anchored(&price, &volume, &day, Anchor::Day);
+        assert_eq!(line, [10.0, 15.0, 30.0, 45.0]);
+        assert_eq!(spread[0], 0.0);
+        assert!((spread[1] - 5.0).abs() < 1e-12);
+        // A week keeps both days together.
+        let (week, _) = vwap_anchored(&price, &volume, &day, Anchor::Week);
+        assert!((week[3] - (10.0 + 20.0 + 30.0 + 150.0) / 6.0).abs() < 1e-12);
+        // A bar without a price adds nothing and has no value.
+        let (gap, _) = vwap_anchored(&[10.0, f64::NAN, 30.0], &[1.0; 3], &[0; 3], Anchor::Day);
+        assert!(gap[1].is_nan() && (gap[2] - 20.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn the_deviation_from_a_regression_is_nothing_for_a_line_and_something_otherwise() {
+        let line: Vec<f64> = (0..10).map(|i| 3.0 + 2.0 * f64::from(i)).collect();
+        for value in &linear_regression_deviation(&line, 5)[4..] {
+            assert!(value.abs() < 1e-9);
+        }
+        let bumpy = [1.0, 3.0, 2.0, 5.0, 3.0, 6.0];
+        assert!(linear_regression_deviation(&bumpy, 4)[5] > 0.1);
+        assert!(linear_regression_deviation(&bumpy, 4)[1].is_nan());
+    }
+
+    #[test]
+    fn the_flows_of_the_volume_indicators_follow_their_definitions() {
+        let high = [12.0, 14.0, 13.0];
+        let low = [8.0, 10.0, 9.0];
+        let close = [12.0, 10.0, 11.0];
+        let volume = [100.0, 200.0, 50.0];
+        // The close at the high counts all the volume, at the low none of it.
+        assert_eq!(
+            money_flow_volume(&high, &low, &close, &volume),
+            [100.0, -200.0, 0.0]
+        );
+        assert_eq!(
+            accumulation_distribution(&high, &low, &close, &volume),
+            [100.0, -100.0, -100.0]
+        );
+        // Prices fall 10/12 - 1 and rise 1/10: the total follows them weighted by the volume.
+        let pvt = price_volume_trend(&close, &volume);
+        assert_eq!(pvt[0], 0.0);
+        assert!((pvt[1] - (-2.0 / 12.0 * 200.0)).abs() < 1e-9);
+        // The volume rose on bar 1 and fell on bar 2.
+        assert_eq!(negative_volume_index(&close, &[100.0, 200.0, 50.0])[1], 1.0);
+        assert!((negative_volume_index(&close, &[100.0, 200.0, 50.0])[2] - 1.1).abs() < 1e-9);
+        assert!(
+            (positive_volume_index(&close, &[100.0, 200.0, 50.0])[1] - 10.0 / 12.0).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn williams_indices_and_the_intraday_intensity_run_over_the_bars() {
+        let open = [10.0, 11.0, 10.0];
+        let high = [12.0, 13.0, 12.0];
+        let low = [9.0, 10.0, 9.0];
+        let close = [11.0, 12.0, 10.0];
+        let volume = [10.0, 10.0, 10.0];
+        // A rise of 1: the close minus the true low (min(low 10, previous close 11) = 10).
+        // A fall of 2: the close minus the true high (max(high 12, previous close 12) = 12).
+        assert_eq!(
+            williams_accumulation_distribution(&high, &low, &close),
+            [0.0, 2.0, 0.0]
+        );
+        let wvad = williams_variable_accumulation_distribution(&open, &high, &low, &close, &volume);
+        assert!((wvad[0] - 10.0 / 3.0).abs() < 1e-9);
+        let iii = intraday_intensity(&high, &low, &close, &volume);
+        assert!((iii[0] - (2.0 * 11.0 - 12.0 - 9.0) / 30.0).abs() < 1e-9);
     }
 }

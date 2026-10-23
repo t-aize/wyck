@@ -6,10 +6,13 @@
 //! part.
 
 pub mod appearance;
+pub mod calendar;
 pub mod defaults;
 pub mod flex;
 pub mod format;
 pub mod intern;
+pub mod levels;
 pub mod math;
+pub mod stats;
 pub mod ta;
 pub mod text_scale;
