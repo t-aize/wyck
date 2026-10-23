@@ -4,7 +4,7 @@
 The sounds are synthesized here (sine partials with an envelope), so they belong to this project
 and carry no third party license. Run it again to rebuild them; the output is deterministic.
 
-    python3 scripts/make_sounds.py
+    python3 tools/make_sounds.py
 """
 
 import math

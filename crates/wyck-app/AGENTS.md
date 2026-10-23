@@ -92,7 +92,7 @@ constructors exist only for tests (`#[cfg(test)]`). Run: `cargo test -p wyck-app
   `normalized` (its rules in the module of its domain under `workspace/preferences/`); a migration step only if an existing file changes shape.
 - An alert source or condition: `alerts::model::{source, condition}`, its rule in `alerts::eval`.
 - A sentence for an order outcome or a refusal: `account::notice`.
-- An alert sound: a file in `assets/sounds`, `alerts::sound`, and `scripts/make_sounds.py`.
+- An alert sound: a file in `assets/sounds`, `alerts::sound`, and `tools/make_sounds.py`.
 - A call to the broker the screens need: add it in `wyck-ctrader`, then reach it through `broker`.
 
 ## Do not

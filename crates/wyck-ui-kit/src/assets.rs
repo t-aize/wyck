@@ -16,7 +16,7 @@ use gpui_kit::assets::AllAssets;
 pub const FONT: &[u8] = include_bytes!("../assets/fonts/Inter.ttf");
 
 /// The mark of the app with its outline, 256 px high, for the screens that show it. Made from
-/// `assets/brand/source-logo.png` by `scripts/make_brand_assets.py`.
+/// `assets/brand/source-logo.png` by `tools/make_brand_assets.py`.
 const LOGO: &[u8] = include_bytes!("../assets/logo.png");
 
 /// The path the logo is served under, for `img(..)`.
