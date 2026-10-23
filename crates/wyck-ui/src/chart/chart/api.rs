@@ -2,9 +2,9 @@
 
 use super::events::ChartEvent;
 use super::{Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View};
-use wyck_chart::ChartLook;
-use wyck_chart::ScaleMode;
-use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceScale};
+use wyck_domain::chart::ChartLook;
+use wyck_domain::chart::ScaleMode;
+use wyck_domain::chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceScale};
 
 use gpui::{Context, SharedString};
 
@@ -42,7 +42,7 @@ impl Chart {
     pub(crate) fn set_hours(
         &mut self,
         id: i64,
-        hours: Option<std::sync::Arc<wyck_market::TradingHours>>,
+        hours: Option<std::sync::Arc<wyck_domain::market::TradingHours>>,
         cx: &mut Context<Self>,
     ) {
         let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
@@ -85,7 +85,7 @@ impl Chart {
     }
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub(crate) fn market_status(&self) -> Option<wyck_market::MarketStatus> {
+    pub(crate) fn market_status(&self) -> Option<wyck_domain::market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(self.clock_ms()))
     }
 

@@ -4,8 +4,8 @@
 use super::Preferences;
 use crate::workspace::layouts::{self, LayoutKey};
 use serde::{Deserialize, Serialize};
-use wyck_chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
-use wyck_market::Timeframe;
+use wyck_domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
+use wyck_domain::market::Timeframe;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct LayoutPref {
@@ -29,13 +29,13 @@ impl Default for LayoutPref {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinksPref {
     /// Every chart shows the same symbol.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub symbol: bool,
     #[serde(default)]
     pub interval: bool,
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub crosshair: bool,
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub time: bool,
     #[serde(default)]
     pub range: bool,
@@ -215,8 +215,8 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_chart::Zone;
-    use wyck_market::Period;
+    use wyck_domain::chart::Zone;
+    use wyck_domain::market::Period;
 
     #[test]
     fn a_saved_arrangement_is_read_back_exactly() {

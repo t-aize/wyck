@@ -7,7 +7,7 @@
 //! question does not float in an empty box.
 
 use std::rc::Rc;
-use wyck_core::math::{count_f32, f32_to_usize};
+use wyck_domain::base::math::{count_f32, f32_to_usize};
 
 use gpui::prelude::*;
 use gpui::{App, Context, SharedString, Window, div, px};

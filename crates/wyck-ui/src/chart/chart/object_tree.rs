@@ -10,9 +10,9 @@ use super::drawing_props;
 use super::tool_icon::tool_icon;
 use crate::kit::{button, form, form::Head, icon, modal, theme, tokens};
 use wyck_app::drawings::Drawings;
-use wyck_chart::Zone;
-use wyck_drawings::book::{Book, Order};
-use wyck_drawings::model::Drawing;
+use wyck_domain::chart::Zone;
+use wyck_domain::drawings::book::{Book, Order};
+use wyck_domain::drawings::model::Drawing;
 
 /// Opens the list of the drawings of `symbol`.
 pub(crate) fn open(

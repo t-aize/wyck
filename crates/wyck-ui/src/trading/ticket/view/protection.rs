@@ -361,9 +361,9 @@ impl OrderTicket {
                         })
                         .into(),
                 );
-                for (_, group) in wyck_market::GROUPS {
+                for (_, group) in wyck_domain::market::GROUPS {
                     for &tf in group {
-                        if tf == wyck_market::Timeframe::Ticks {
+                        if tf == wyck_domain::market::Timeframe::Ticks {
                             continue;
                         }
                         let code = tf.code();

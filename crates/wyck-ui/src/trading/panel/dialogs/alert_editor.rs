@@ -9,9 +9,9 @@ use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
 use wyck_app::alerts::model::source::{PnlScope, PriceKind};
 use wyck_app::alerts::{Alert, Alerts, Condition, Source, Trigger};
-use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
-use wyck_indicators::config::StudyConfig;
-use wyck_indicators::kind::StudyKind;
+use wyck_domain::base::math::{f64_to_i64, f64_to_u32, i64_to_f64};
+use wyck_domain::indicators::config::StudyConfig;
+use wyck_domain::indicators::kind::StudyKind;
 
 pub(super) struct AlertEditor {
     pub(super) alerts: Entity<Alerts>,

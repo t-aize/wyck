@@ -86,7 +86,7 @@ pub use token_store::{MemoryTokenStore, TokenStore};
 use tokio::sync::{broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::debug;
-use wyck_market::Period;
+use wyck_domain::market::Period;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]

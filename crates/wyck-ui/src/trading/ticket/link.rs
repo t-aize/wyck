@@ -8,8 +8,8 @@ use crate::chart::chart::events::{PlanState, PositionPlan};
 use crate::kit::input::InputState;
 use crate::kit::number;
 use gpui::{App, Context, Entity, Window};
-use wyck_trading::ticket;
-use wyck_trading::ticket::{Offset, Pending};
+use wyck_domain::trading::ticket;
+use wyck_domain::trading::ticket::{Offset, Pending};
 
 impl OrderTicket {
     /// Starts following a position drawing: the ticket takes its side, its entry and its

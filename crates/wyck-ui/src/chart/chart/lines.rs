@@ -7,13 +7,13 @@
 //! [`super::ChartEvent::LineMoved`] and [`super::ChartEvent::LineClosed`]. What that means (amend
 //! an order, move a stop, delete an alert) is decided by whoever made the lines.
 
-use wyck_market::PRICE_SCALE;
+use wyck_domain::market::PRICE_SCALE;
 
-use wyck_chart::PriceMark;
-use wyck_core::math::i64_to_f64;
-use wyck_drawings::model::style::Dash;
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::chart::PriceMark;
+use wyck_domain::drawings::model::style::Dash;
 
-use wyck_chart::LineId;
+use wyck_domain::chart::LineId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartLine {

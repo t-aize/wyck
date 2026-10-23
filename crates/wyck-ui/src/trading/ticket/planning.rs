@@ -10,12 +10,12 @@ use std::time::Duration;
 use wyck_app::lost::lost;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
-use wyck_chart::LineId;
-use wyck_core::math::{f64_to_i64, i64_to_f64};
-use wyck_drawings::model::style::Dash;
-use wyck_trading::contract::{Contract, Stepped};
-use wyck_trading::ticket::{Offset, Scale, SizeMode, TicketProblem};
-use wyck_trading::{amounts, risk, ticket};
+use wyck_domain::base::math::{f64_to_i64, i64_to_f64};
+use wyck_domain::chart::LineId;
+use wyck_domain::drawings::model::style::Dash;
+use wyck_domain::trading::contract::{Contract, Stepped};
+use wyck_domain::trading::ticket::{Offset, Scale, SizeMode, TicketProblem};
+use wyck_domain::trading::{amounts, risk, ticket};
 
 impl OrderTicket {
     pub(super) fn contract(&self, cx: &App) -> Contract {
@@ -373,10 +373,10 @@ impl OrderTicket {
                     if this.margin_epoch != epoch {
                         return;
                     }
-                    let money = |m: &wyck_trading::ExpectedMargin| {
+                    let money = |m: &wyck_domain::trading::ExpectedMargin| {
                         (
-                            wyck_trading::money(m.buy_margin, digits),
-                            wyck_trading::money(m.sell_margin, digits),
+                            wyck_domain::trading::money(m.buy_margin, digits),
+                            wyck_domain::trading::money(m.sell_margin, digits),
                         )
                     };
                     match answer.ok().and_then(Result::ok) {

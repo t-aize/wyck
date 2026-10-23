@@ -10,7 +10,7 @@
 //! (depth first), which is stable for a given layout.
 
 use super::layouts::{Cell, Layout};
-use wyck_core::math::u32_to_f32;
+use wyck_domain::base::math::u32_to_f32;
 
 /// The least share of a split a child keeps when a line is dragged.
 const MIN_SHARE: f32 = 0.08;

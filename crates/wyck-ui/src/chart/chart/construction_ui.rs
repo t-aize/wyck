@@ -7,10 +7,10 @@ use gpui::{AnyElement, Context, Entity, Subscription, Window};
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, named, number, switch};
-use wyck_chart::ChartKind;
-use wyck_chart::PricePath;
-use wyck_chart::TransformSettings;
-use wyck_core::math::{f32_of, f64_to_u32};
+use wyck_domain::base::math::{f32_of, f64_to_u32};
+use wyck_domain::chart::ChartKind;
+use wyck_domain::chart::PricePath;
+use wyck_domain::chart::TransformSettings;
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

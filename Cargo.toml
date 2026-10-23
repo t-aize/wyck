@@ -23,19 +23,14 @@ homepage = "https://github.com/t-aize/wyck"
 readme = "README.md"
 publish = false
 
-# The crates of this workspace. A crate lists the ones it uses here too (`wyck-core.workspace = true`);
+# The crates of this workspace. A crate lists the ones it uses here too (`wyck-clock.workspace = true`);
 # which ones it may use is decided by `LAYERS` in `xtask/src/deps.rs`.
 [workspace.dependencies]
 wyck-app = { path = "crates/wyck-app" }
-wyck-chart = { path = "crates/wyck-chart" }
 wyck-clock = { path = "crates/wyck-clock" }
-wyck-core = { path = "crates/wyck-core" }
 wyck-ctrader = { path = "crates/wyck-ctrader" }
-wyck-drawings = { path = "crates/wyck-drawings" }
-wyck-indicators = { path = "crates/wyck-indicators" }
-wyck-market = { path = "crates/wyck-market" }
+wyck-domain = { path = "crates/wyck-domain" }
 wyck-storage = { path = "crates/wyck-storage" }
-wyck-trading = { path = "crates/wyck-trading" }
 wyck-ui = { path = "crates/wyck-ui" }
 
 # Every external dependency, with its version. The features a crate needs are listed by that

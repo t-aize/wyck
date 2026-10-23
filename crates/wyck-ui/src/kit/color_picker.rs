@@ -25,7 +25,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use wyck_core::math::f32_to_u32;
+use wyck_domain::base::math::f32_to_u32;
 
 /// The size of the square, and the height of the hue bar.
 const AREA_W: f32 = 232.0;

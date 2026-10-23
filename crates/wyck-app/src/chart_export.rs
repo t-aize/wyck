@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use wyck_chart::ExportOptions;
-use wyck_chart::Preset;
+use wyck_domain::chart::ExportOptions;
+use wyck_domain::chart::Preset;
 use wyck_storage::{DocumentStore, Result};
 
 pub(crate) const DOCUMENT: &str = "export";
@@ -105,7 +105,7 @@ pub fn write(store: &DocumentStore, saved: &Saved) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_chart::{Delimiter, Format};
+    use wyck_domain::chart::{Delimiter, Format};
 
     /// A store of its own for one test.
     fn store() -> (tempfile::TempDir, DocumentStore) {

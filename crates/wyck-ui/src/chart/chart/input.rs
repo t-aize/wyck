@@ -13,10 +13,10 @@ use gpui::{Context, CursorStyle};
 use super::Chart;
 use super::events::ChartEvent;
 use super::lines::to_real;
-use wyck_chart::LineId;
-use wyck_chart::PriceScale;
-use wyck_core::math::{f32_of, i64_to_f64};
-use wyck_drawings::book::Grab;
+use wyck_domain::base::math::{f32_of, i64_to_f64};
+use wyck_domain::chart::LineId;
+use wyck_domain::chart::PriceScale;
+use wyck_domain::drawings::book::Grab;
 
 /// Where a position is on the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -5,8 +5,8 @@ use super::{DrawingProps, Swatch};
 use crate::kit::prelude::Switch;
 use crate::kit::{controls, number};
 use gpui::{App, Context, SharedString, Window};
-use wyck_drawings::model::Drawing;
-use wyck_drawings::model::style::MIN_LINE_OPACITY;
+use wyck_domain::drawings::model::Drawing;
+use wyck_domain::drawings::model::style::MIN_LINE_OPACITY;
 
 impl DrawingProps {
     pub(super) fn current(&self, cx: &App) -> Option<Drawing> {
@@ -21,7 +21,7 @@ impl DrawingProps {
     /// value. `restore` copies that part from the built-in style into the drawing's.
     pub(super) fn restore(
         cx: &mut Context<Self>,
-        restore: fn(&mut Drawing, &wyck_drawings::model::style::Style),
+        restore: fn(&mut Drawing, &wyck_domain::drawings::model::style::Style),
     ) -> impl Fn(&mut Window, &mut App) + 'static + use<> {
         let this = cx.entity();
         move |window, cx| {

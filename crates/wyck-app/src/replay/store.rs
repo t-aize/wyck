@@ -1,7 +1,7 @@
 //! The bars of one symbol and period that a replay holds, and the range of time they cover.
 
-use wyck_chart::{MAX_BARS, ReplayTimeline, merge_bars, prepend_bars};
-use wyck_market::Bar;
+use wyck_domain::chart::{MAX_BARS, ReplayTimeline, merge_bars, prepend_bars};
+use wyck_domain::market::Bar;
 
 use super::plan::{Coverage, EMPTY_HISTORY_MS};
 use crate::market_data::replay_load::Chunk;

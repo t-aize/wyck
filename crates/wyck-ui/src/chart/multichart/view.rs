@@ -15,7 +15,7 @@ impl Render for MultiChart {
         // A text drawing that was just made takes the keyboard, so its words can be typed.
         if self.drawings.read(cx).book().wants_text_focus() {
             self.drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, wyck_drawings::book::Book::take_text_focus);
+                drawings.edit(cx, wyck_domain::drawings::book::Book::take_text_focus);
             });
             window.focus(&gpui::Focusable::focus_handle(&self.text_input, cx), cx);
         }

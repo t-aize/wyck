@@ -4,9 +4,9 @@ use super::{ExportDialog, MAX_COPY_ROWS, Preview, human_bytes};
 use crate::kit::toast::{self, Kind};
 use gpui::{ClipboardItem, Context};
 use wyck_app::lost::lost;
-use wyck_chart::PREVIEW_ROWS;
-use wyck_chart::{RangeKind, TimeFormat};
-use wyck_chart::{clashes, date_is_valid, file_name, pattern_is_valid, render, table};
+use wyck_domain::chart::PREVIEW_ROWS;
+use wyck_domain::chart::{RangeKind, TimeFormat};
+use wyck_domain::chart::{clashes, date_is_valid, file_name, pattern_is_valid, render, table};
 
 impl ExportDialog {
     pub(super) fn build_preview(&self) -> Preview {

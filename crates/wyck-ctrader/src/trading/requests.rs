@@ -7,10 +7,10 @@
 
 use serde::Serialize;
 
-use wyck_core::math::{f64_to_i64, i64_to_f64};
-use wyck_market::PRICE_SCALE;
-use wyck_trading::guard::{Cleared, Fingerprint, Mode};
-use wyck_trading::{NewOrderType, TimeInForce, TradeSide};
+use wyck_domain::base::math::{f64_to_i64, i64_to_f64};
+use wyck_domain::market::PRICE_SCALE;
+use wyck_domain::trading::guard::{Cleared, Fingerprint, Mode};
+use wyck_domain::trading::{NewOrderType, TimeInForce, TradeSide};
 
 /// `ProtoOANewOrderReq`. Build with [`NewOrderReq::market`], [`NewOrderReq::limit`],
 /// [`NewOrderReq::stop`] or [`NewOrderReq::stop_limit`], then set the optional fields.
@@ -33,7 +33,7 @@ pub struct NewOrderReq {
     /// The stop price. Only for [`NewOrderType::Stop`] and [`NewOrderType::StopLimit`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
-    /// How long the order stays working, as [`wyck_trading::TimeInForce`]'s number.
+    /// How long the order stays working, as [`wyck_domain::trading::TimeInForce`]'s number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<i32>,
     /// When a good-till-date order expires, in Unix milliseconds.
@@ -64,11 +64,11 @@ pub struct NewOrderReq {
     /// Your own id for the order, at most 50 characters (like FIX `ClOrdID`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_order_id: Option<String>,
-    /// A stop loss relative to the entry price, in [`wyck_market::PRICE_SCALE`] units, instead of
+    /// A stop loss relative to the entry price, in [`wyck_domain::market::PRICE_SCALE`] units, instead of
     /// the absolute `stop_loss`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A take profit relative to the entry price, in [`wyck_market::PRICE_SCALE`] units, instead
+    /// A take profit relative to the entry price, in [`wyck_domain::market::PRICE_SCALE`] units, instead
     /// of the absolute `take_profit`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
@@ -305,10 +305,10 @@ pub struct AmendOrderReq {
     /// A new slippage, in points.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
-    /// A new relative stop loss, in [`wyck_market::PRICE_SCALE`] units.
+    /// A new relative stop loss, in [`wyck_domain::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A new relative take profit, in [`wyck_market::PRICE_SCALE`] units.
+    /// A new relative take profit, in [`wyck_domain::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -381,7 +381,7 @@ impl AmendPositionSlTpReq {
 mod tests {
     use super::*;
     use serde_json::json;
-    use wyck_trading::guard::{self, OrderFacts, RiskPrefs, Standing};
+    use wyck_domain::trading::guard::{self, OrderFacts, RiskPrefs, Standing};
 
     fn cleared_for(order: &NewOrderReq, mode: Mode) -> Cleared {
         guard::clear(

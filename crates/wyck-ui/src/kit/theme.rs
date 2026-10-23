@@ -12,11 +12,11 @@
 //! selection and of the warnings are derived from those.
 
 use std::sync::RwLock;
-use wyck_core::math::f32_of;
+use wyck_domain::base::math::f32_of;
 
 use gpui::{Rgba, rgb, rgba};
 
-pub(crate) use wyck_core::appearance::{Colors, contrast};
+pub(crate) use wyck_domain::base::appearance::{Colors, contrast};
 
 fn store() -> &'static RwLock<Colors> {
     static COLORS: RwLock<Colors> = RwLock::new(Colors::WYCK_DARK);
@@ -323,10 +323,10 @@ pub fn apply(cx: &mut gpui::App) {
 
 /// Puts a look in force: animations, the scale of the interface, the font and the palette. The
 /// windows are refreshed, so what is on screen follows at once.
-pub fn put_in_force(look: &wyck_core::appearance::Look, cx: &mut gpui::App) {
+pub fn put_in_force(look: &wyck_domain::base::appearance::Look, cx: &mut gpui::App) {
     crate::kit::anim::set_enabled(look.animations);
     // The widgets read this scale, and so does the text drawn on the charts.
-    wyck_core::text_scale::set(look.scale);
+    wyck_domain::base::text_scale::set(look.scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {
         if window
@@ -346,7 +346,7 @@ pub fn put_in_force(look: &wyck_core::appearance::Look, cx: &mut gpui::App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_core::appearance::luminance;
+    use wyck_domain::base::appearance::luminance;
 
     // These tests never put a palette in force: the others run beside them and read it.
 

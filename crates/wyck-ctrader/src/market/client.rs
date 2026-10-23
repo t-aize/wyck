@@ -13,7 +13,7 @@ use crate::connection::{Client, RateClass};
 use crate::error::Result;
 use crate::transport::messages::AccountReq;
 use crate::transport::wire::payload;
-use wyck_market::{
+use wyck_domain::market::{
     Asset, AssetClass, Bar, LightSymbol, Period, QuoteType, Symbol, SymbolCategory, Tick,
     decode_bars, decode_ticks,
 };

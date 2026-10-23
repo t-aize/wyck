@@ -14,9 +14,9 @@ use crate::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
 use wyck_app::lost::lost;
-use wyck_chart::ScaleMode;
-use wyck_core::math::i64_to_f64;
-use wyck_market::{PRICE_SCALE, format_price};
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::chart::ScaleMode;
+use wyck_domain::market::{PRICE_SCALE, format_price};
 
 impl Dashboard {
     pub(super) fn body(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -390,8 +390,9 @@ pub(super) fn quote_text(
 ) -> Option<super::details::Live> {
     let bid = quote.bid?;
     let spread = quote.ask.map(|ask| {
-        let pips =
-            i64_to_f64(ask - bid) / i64_to_f64(PRICE_SCALE) / wyck_market::pip_size(pip_position);
+        let pips = i64_to_f64(ask - bid)
+            / i64_to_f64(PRICE_SCALE)
+            / wyck_domain::market::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

@@ -20,7 +20,7 @@ use crate::kit::{
     theme, tokens,
 };
 use wyck_app::workspace::MAX_FAVORITE_TOOLS;
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::drawings::model::tool::Tool;
 
 const PILL_HEIGHT: f32 = 36.0;
 /// How far the pill sits above the bottom of the chart area, clear of the time axis.

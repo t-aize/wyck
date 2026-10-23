@@ -24,11 +24,11 @@ use crate::kit::{
 };
 use wyck_app::account::Busy;
 use wyck_app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
-use wyck_core::math::i64_to_f64;
-use wyck_trading::amounts;
-use wyck_trading::atr_stop::Smoothing;
-use wyck_trading::contract::{Contract, Limit};
-use wyck_trading::ticket::{Offset, SizeMode};
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::trading::amounts;
+use wyck_domain::trading::atr_stop::Smoothing;
+use wyck_domain::trading::contract::{Contract, Limit};
+use wyck_domain::trading::ticket::{Offset, SizeMode};
 
 /// The height of the bar that shows how a total is shared.
 const METER_HEIGHT: f32 = 6.0;

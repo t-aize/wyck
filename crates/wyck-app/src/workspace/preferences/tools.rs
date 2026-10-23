@@ -1,7 +1,7 @@
 //! The bar of favorite drawing tools: which tools are pinned and in what order.
 
 use super::Preferences;
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::drawings::model::tool::Tool;
 
 /// The most tools the bar of favorites holds.
 pub const MAX_FAVORITE_TOOLS: usize = 16;

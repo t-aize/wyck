@@ -52,8 +52,9 @@ pub(crate) enum Job {
 
 /// How far ahead of the cursor to keep data: a day at least, and what a minute of playing eats.
 pub(crate) fn prefetch_ahead_ms(rate_hz: f64, step_ms: i64) -> i64 {
-    let eaten =
-        wyck_core::math::f64_to_i64(wyck_core::math::i64_to_f64(step_ms) * rate_hz.max(0.0) * 60.0);
+    let eaten = wyck_domain::base::math::f64_to_i64(
+        wyck_domain::base::math::i64_to_f64(step_ms) * rate_hz.max(0.0) * 60.0,
+    );
     eaten.max(2 * step_ms).clamp(DAY_MS, MAX_AHEAD_MS)
 }
 

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::kit::field;
 use gpui::prelude::*;
-use wyck_market::GROUPS;
+use wyck_domain::market::GROUPS;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {

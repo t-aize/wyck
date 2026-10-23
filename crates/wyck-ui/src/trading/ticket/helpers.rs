@@ -1,9 +1,9 @@
 //! The small arithmetic and formats the ticket shares.
 
 use crate::kit::number;
-use wyck_core::math::{f64_to_i64, f64_to_u32, i64_to_f64};
-use wyck_trading::contract::Contract;
-use wyck_trading::ticket::{Offset, SizeMode};
+use wyck_domain::base::math::{f64_to_i64, f64_to_u32, i64_to_f64};
+use wyck_domain::trading::contract::Contract;
+use wyck_domain::trading::ticket::{Offset, SizeMode};
 
 /// The margin of a side: the buy one or the sell one.
 pub(super) fn side_of(margins: (f64, f64), buy: bool) -> f64 {

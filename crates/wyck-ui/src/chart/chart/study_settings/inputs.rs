@@ -10,7 +10,7 @@ use crate::kit::icon::IconName;
 use crate::kit::{button, controls, form, icon, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
-use wyck_core::math::{count_f64, f64_to_u32, f64_to_usize};
+use wyck_domain::base::math::{count_f64, f64_to_u32, f64_to_usize};
 
 impl StudyEditor {
     pub(super) fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
@@ -54,7 +54,7 @@ impl StudyEditor {
                         .iter()
                         .find(|decl| decl.key == input.key)
                 })
-                .is_some_and(wyck_indicators::custom::decl::InputDecl::in_style);
+                .is_some_and(wyck_domain::indicators::custom::decl::InputDecl::in_style);
             let in_style = script_style
                 || match config.kind {
                     StudyKind::VolumeProfile => matches!(

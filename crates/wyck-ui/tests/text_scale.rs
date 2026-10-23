@@ -1,9 +1,9 @@
 //! The sizes of the kit follow the text scale. The scale is one value for the whole process, so
 //! this is the only test that sets it, in a test binary of its own.
 
-use wyck_core::appearance::{SCALE_MAX, SCALE_MIN};
-use wyck_core::math::f32_of;
-use wyck_core::text_scale;
+use wyck_domain::base::appearance::{SCALE_MAX, SCALE_MIN};
+use wyck_domain::base::math::f32_of;
+use wyck_domain::base::text_scale;
 use wyck_ui::kit::tokens::{bar, height, scaled, space, text};
 
 #[test]

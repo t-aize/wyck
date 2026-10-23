@@ -46,8 +46,8 @@ use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
 use wyck_app::replay::Replay;
 use wyck_app::workspace::{Documents, Workspace};
-use wyck_drawings::model::tool::Tool;
-use wyck_trading::guard::Mode;
+use wyck_domain::drawings::model::tool::Tool;
+use wyck_domain::trading::guard::Mode;
 
 pub(crate) use crate::shell::actions::*;
 
@@ -184,7 +184,7 @@ pub(crate) struct Dashboard {
     replay_goto: Option<Entity<crate::kit::input::InputState>>,
     /// The field where a custom replay step is typed.
     replay_step_field: Option<Entity<crate::kit::input::InputState>>,
-    tf_unit: wyck_market::Unit,
+    tf_unit: wyck_domain::market::Unit,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
     /// The trading account: positions, orders, balance.
@@ -339,7 +339,7 @@ impl Dashboard {
             replay_date: None,
             replay_goto: None,
             replay_step_field: None,
-            tf_unit: wyck_market::Unit::Minutes,
+            tf_unit: wyck_domain::market::Unit::Minutes,
             pending_picker: false,
             trading,
             alerts,

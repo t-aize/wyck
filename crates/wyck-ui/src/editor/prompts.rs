@@ -8,7 +8,7 @@ use gpui::{Context, Task, Window};
 use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_app::scripts::folder::LibraryError;
-use wyck_indicators::custom::templates::{TEMPLATES, Template};
+use wyck_domain::indicators::custom::templates::{TEMPLATES, Template};
 
 impl IndicatorEditor {
     /// Asks for a name for a new script made from the template `template`.

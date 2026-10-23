@@ -12,7 +12,7 @@
 //! [`crate::kit::controls`].
 
 use std::rc::Rc;
-use wyck_core::math::f32_of;
+use wyck_domain::base::math::f32_of;
 
 use gpui::prelude::*;
 use gpui::{

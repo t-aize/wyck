@@ -9,8 +9,8 @@ use gpui::Context;
 use wyck_app::alerts;
 use wyck_app::market_data::now_ms;
 use wyck_app::prefs::panel::Tab;
-use wyck_core::math::i64_to_f64;
-use wyck_market::PRICE_SCALE;
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::market::PRICE_SCALE;
 
 impl Dashboard {
     /// Gives the alerts what they read from the account: how the symbols they watch are written
@@ -24,7 +24,7 @@ impl Dashboard {
             let contract = self.trading.read(cx).book.contracts.get(&id).copied();
             // Before the answer a contract is a placeholder: it must not hide what is known.
             let Some(contract) =
-                contract.filter(|c| *c != wyck_trading::contract::Contract::default())
+                contract.filter(|c| *c != wyck_domain::trading::contract::Contract::default())
             else {
                 continue;
             };
@@ -128,7 +128,7 @@ impl Dashboard {
     ) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
-        let pip = symbol.pip_position.map(wyck_market::pip_size);
+        let pip = symbol.pip_position.map(wyck_domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
             if let Some(pip) = pip {
@@ -179,7 +179,10 @@ impl Dashboard {
             crate::chart::chart::events::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe.clone_from(timeframe);
                 let spec = study.kind.spec();
-                if matches!(spec.format, wyck_indicators::spec::ValueFormat::Price) {
+                if matches!(
+                    spec.format,
+                    wyck_domain::indicators::spec::ValueFormat::Price
+                ) {
                     // An average or a band on the prices: the price crosses it.
                     alert.versus = Some(Source::Indicator {
                         study: study.clone(),
@@ -211,7 +214,7 @@ impl Dashboard {
             }
         }
         let digits = symbol.digits;
-        let pip = symbol.pip_position.map(wyck_market::pip_size);
+        let pip = symbol.pip_position.map(wyck_domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);
             if let Some(pip) = pip {

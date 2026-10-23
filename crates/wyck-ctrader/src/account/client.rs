@@ -4,7 +4,7 @@ use super::requests::{
     DealListReq as DealsReq, OrderListReq as OrdersReq, ReconcileReq as PortfolioReq,
 };
 use super::{DealListRes, OrderListRes, PositionUnrealizedPnLRes, ReconcileRes, TraderRes};
-use wyck_trading::{Deal, Order, Position, Trader};
+use wyck_domain::trading::{Deal, Order, Position, Trader};
 
 use crate::connection::{Client, RateClass};
 use crate::error::Result;
@@ -126,7 +126,7 @@ impl AccountDataClient {
     }
 
     /// The whole answer about the unrealized profit or loss of the open positions, with the
-    /// number of decimals of its amounts (see [`wyck_trading::money`]).
+    /// number of decimals of its amounts (see [`wyck_domain::trading::money`]).
     ///
     /// # Errors
     ///

@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use crate::system::runtime;
 use gpui::Context;
-use wyck_market::Period;
+use wyck_domain::market::Period;
 
 use super::plan::{self, Job, Need};
 use super::ticks::{TickStore, TickSupport, Verdict, probe_verdict};
@@ -58,8 +58,8 @@ impl Replay {
 
     /// How far ahead of the cursor ticks are loaded.
     fn ticks_ahead_ms(&self) -> i64 {
-        let eaten = wyck_core::math::f64_to_i64(
-            wyck_core::math::i64_to_f64(self.step_ms()) * self.rate_hz.max(0.0) * 60.0,
+        let eaten = wyck_domain::base::math::f64_to_i64(
+            wyck_domain::base::math::i64_to_f64(self.step_ms()) * self.rate_hz.max(0.0) * 60.0,
         );
         eaten.clamp(MIN_AHEAD_MS, MAX_AHEAD_MS)
     }

@@ -5,7 +5,7 @@ paths:
 
 # Rust code
 
-- Items are `pub(crate)` unless another crate uses them. A new public item of `wyck-chart` is
+- Items are `pub(crate)` unless another crate uses them. A new public item of `wyck-domain` `chart` is
   re-exported flat in its `lib.rs` under a name nobody else has.
 - `#[expect(lint, reason = "...")]`, not `#[allow]`.
 - Concrete first, then an enum, then `dyn`, then a generic. No trait with one implementation unless a

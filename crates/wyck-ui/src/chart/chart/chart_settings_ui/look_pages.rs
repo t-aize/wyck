@@ -6,12 +6,12 @@ use crate::kit::icon::IconName;
 use crate::kit::{controls, form, icon, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
-use wyck_chart::BoxSize;
-use wyck_chart::quote_unit;
-use wyck_chart::{ChartKind, ChartSettings, ScaleMode};
-use wyck_chart::{CrosshairStyle, ScaleMargin};
-use wyck_core::math::i64_to_f64;
-use wyck_market::PRICE_SCALE;
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::chart::BoxSize;
+use wyck_domain::chart::quote_unit;
+use wyck_domain::chart::{ChartKind, ChartSettings, ScaleMode};
+use wyck_domain::chart::{CrosshairStyle, ScaleMargin};
+use wyck_domain::market::PRICE_SCALE;
 
 impl ChartSettingsEditor {
     pub(super) fn kind_tiles(&self, current: ChartKind) -> AnyElement {

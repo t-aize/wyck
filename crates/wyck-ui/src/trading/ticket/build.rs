@@ -7,11 +7,11 @@ use crate::kit::number;
 use gpui::prelude::*;
 use gpui::{Context, Entity, Window};
 use wyck_app::account::Account;
-use wyck_core::math::{count_f64, f64_to_usize};
-use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::contract::Contract;
-use wyck_trading::plan;
-use wyck_trading::ticket::Offset;
+use wyck_domain::base::math::{count_f64, f64_to_usize};
+use wyck_domain::trading::atr_stop::AtrStop;
+use wyck_domain::trading::contract::Contract;
+use wyck_domain::trading::plan;
+use wyck_domain::trading::ticket::Offset;
 
 impl OrderTicket {
     pub fn new(

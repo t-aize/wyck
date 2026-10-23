@@ -30,7 +30,7 @@ pub(crate) enum ChartEvent {
     /// Something that is saved changed: the timeframe, the type, the indicators, the scale.
     SettingsChanged,
     /// How the chart looks changed. It is the same for every chart: the layout hands it to them all.
-    LookChanged(Box<wyck_chart::ChartLook>),
+    LookChanged(Box<wyck_domain::chart::ChartLook>),
     CopyIndicators,
     Paste,
     /// The user asked to change the symbol of this chart.
@@ -91,7 +91,7 @@ pub enum ChartAction {
 pub enum AlertSeed {
     /// An indicator of the chart, and the timeframe it is worked out on.
     Indicator {
-        study: Box<wyck_indicators::config::StudyConfig>,
+        study: Box<wyck_domain::indicators::config::StudyConfig>,
         timeframe: String,
     },
     Drawing {
@@ -108,7 +108,7 @@ pub enum AlertSeed {
 pub struct PositionLink {
     pub drawing: u64,
     /// The stop loss is this many ATRs from the entry.
-    pub atr: Option<wyck_trading::atr_stop::AtrStop>,
+    pub atr: Option<wyck_domain::trading::atr_stop::AtrStop>,
     /// The take profit is this multiple of the risk from the entry.
     pub rr: Option<f64>,
 }
@@ -121,7 +121,7 @@ pub struct PositionPlan {
     pub entry: f64,
     pub stop_loss: f64,
     pub take_profit: f64,
-    pub atr: Option<wyck_trading::atr_stop::AtrStop>,
+    pub atr: Option<wyck_domain::trading::atr_stop::AtrStop>,
     pub rr: Option<f64>,
 }
 

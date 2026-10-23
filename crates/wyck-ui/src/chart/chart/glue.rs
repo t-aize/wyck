@@ -3,8 +3,8 @@
 //! symbol.
 
 use gpui::{App, Context, Entity, Window};
-use wyck_chart::Zone;
-use wyck_market::PRICE_SCALE;
+use wyck_domain::chart::Zone;
+use wyck_domain::market::PRICE_SCALE;
 
 use super::events::{
     ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan, TicketRequest,
@@ -12,11 +12,11 @@ use super::events::{
 use super::study::kind::StudyKind;
 use super::{Chart, drawing_props, object_tree};
 use wyck_app::drawings::Drawings;
-use wyck_chart::ChartProjection;
-use wyck_core::math::{f64_to_usize, i64_to_f64};
-use wyck_drawings::book::{Book, Order, Press};
-use wyck_drawings::model::tool::Tool;
-use wyck_trading::atr_stop::{AtrStop, Smoothing};
+use wyck_domain::base::math::{f64_to_usize, i64_to_f64};
+use wyck_domain::chart::ChartProjection;
+use wyck_domain::drawings::book::{Book, Order, Press};
+use wyck_domain::drawings::model::tool::Tool;
+use wyck_domain::trading::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,8 +63,8 @@ impl Chart {
 
     pub(super) fn resolved_position(
         &self,
-        drawing: &wyck_drawings::model::Drawing,
-    ) -> Option<wyck_drawings::model::Drawing> {
+        drawing: &wyck_domain::drawings::model::Drawing,
+    ) -> Option<wyck_domain::drawings::model::Drawing> {
         let [first, _, _, ..] = drawing.points.as_slice() else {
             return Some(drawing.clone());
         };
@@ -234,7 +234,7 @@ impl Chart {
         let changed = self.with_projection(|projection| {
             // Past the edge of the plot there is nothing to follow: the point stays on the edge
             // instead of running off into time and prices the chart does not show.
-            let plot = wyck_drawings::geometry::Projection::plot(projection);
+            let plot = wyck_domain::drawings::geometry::Projection::plot(projection);
             let (x, y) = (x.clamp(plot.l, plot.r), y.clamp(plot.t, plot.b));
             drawings.update(cx, |drawings, cx| {
                 drawings.edit(cx, |book| {

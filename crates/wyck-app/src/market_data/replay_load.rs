@@ -5,7 +5,7 @@
 
 use super::load::{CHUNK_BARS, History};
 use crate::broker::Result;
-use wyck_market::{Bar, Period};
+use wyck_domain::market::{Bar, Period};
 
 /// Tuesday 2000-01-04 12:00 UTC: a day the markets are open, a week at a time from here.
 const PROBE_BASE_MS: i64 = 946_987_200_000;
@@ -132,7 +132,7 @@ mod tests {
 
     use super::*;
     use crate::broker::Error as ApiError;
-    use wyck_market::Tick;
+    use wyck_domain::market::Tick;
 
     const MINUTE: i64 = 60_000;
     /// 2026-01-05 00:00 UTC.

@@ -9844,7 +9844,7 @@ dependencies = [
  "winresource",
  "wyck-app",
  "wyck-clock",
- "wyck-core",
+ "wyck-domain",
  "wyck-storage",
  "wyck-ui",
 ]
@@ -9870,43 +9870,15 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "wyck-chart",
  "wyck-clock",
- "wyck-core",
  "wyck-ctrader",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
+ "wyck-domain",
  "wyck-storage",
- "wyck-trading",
-]
-
-[[package]]
-name = "wyck-chart"
-version = "0.2.2"
-dependencies = [
- "chrono",
- "chrono-tz",
- "serde",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "wyck-core",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
 ]
 
 [[package]]
 name = "wyck-clock"
 version = "0.2.2"
-
-[[package]]
-name = "wyck-core"
-version = "0.2.2"
-dependencies = [
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "wyck-ctrader"
@@ -9925,45 +9897,20 @@ dependencies = [
  "tracing",
  "uuid",
  "wyck-clock",
- "wyck-core",
- "wyck-market",
- "wyck-trading",
+ "wyck-domain",
 ]
 
 [[package]]
-name = "wyck-drawings"
-version = "0.2.2"
-dependencies = [
- "serde",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "wyck-core",
- "wyck-trading",
-]
-
-[[package]]
-name = "wyck-indicators"
-version = "0.2.2"
-dependencies = [
- "chrono",
- "rhai",
- "serde",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "wyck-core",
- "wyck-drawings",
- "wyck-market",
-]
-
-[[package]]
-name = "wyck-market"
+name = "wyck-domain"
 version = "0.2.2"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "rhai",
  "serde",
  "serde_json",
- "wyck-core",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
 ]
 
 [[package]]
@@ -9989,18 +9936,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wyck-trading"
-version = "0.2.2"
-dependencies = [
- "serde",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "tracing",
- "wyck-core",
- "wyck-market",
-]
-
-[[package]]
 name = "wyck-ui"
 version = "0.2.2"
 dependencies = [
@@ -10019,13 +9954,8 @@ dependencies = [
  "tracing",
  "unicode-segmentation",
  "wyck-app",
- "wyck-chart",
  "wyck-clock",
- "wyck-core",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
- "wyck-trading",
+ "wyck-domain",
 ]
 
 [[package]]

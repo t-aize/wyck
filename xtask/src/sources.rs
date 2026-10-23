@@ -36,6 +36,36 @@ struct Owner {
 /// ones adds its modules here, in the order of its old dependency chain.
 const MODULES: &[ModuleLayer] = &[
     ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "base",
+        may_use: &[],
+    },
+    ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "market",
+        may_use: &["base"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "trading",
+        may_use: &["base", "market"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "drawings",
+        may_use: &["base", "trading"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "indicators",
+        may_use: &["base", "drawings", "market"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-domain/src",
+        module: "chart",
+        may_use: &["base", "drawings", "indicators", "market"],
+    },
+    ModuleLayer {
         src: "crates/wyck-ui/src",
         module: "kit",
         may_use: &[],
@@ -80,7 +110,7 @@ const OWNERS: &[Owner] = &[
     },
     Owner {
         ident: "rhai",
-        only_under: &["crates/wyck-indicators/src/custom/"],
+        only_under: &["crates/wyck-domain/src/indicators/custom/"],
     },
     Owner {
         ident: "tiny_skia",

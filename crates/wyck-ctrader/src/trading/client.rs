@@ -4,16 +4,16 @@ use super::{AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionRe
 use crate::connection::{Client, RateClass};
 use crate::error::{Error, Result};
 use crate::transport::wire::payload;
-use wyck_trading::ExecutionEvent;
-use wyck_trading::guard::{Cleared, Mode};
+use wyck_domain::trading::ExecutionEvent;
+use wyck_domain::trading::guard::{Cleared, Mode};
 
 /// Trading bound to one account: places, amends and cancels orders, closes positions. See
 /// [`crate::AccountClient::trading`] and the [module docs](crate::trading) for the non-idempotency caveat.
 ///
 /// ```no_run
 /// # async fn demo(account: wyck_ctrader::AccountClient) -> wyck_ctrader::Result<()> {
-/// use wyck_trading::TradeSide;
-/// use wyck_trading::guard::{self, Mode};
+/// use wyck_domain::trading::TradeSide;
+/// use wyck_domain::trading::guard::{self, Mode};
 /// use wyck_ctrader::trading::NewOrderReq;
 ///
 /// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.
@@ -45,7 +45,7 @@ impl TradingClient {
         }
     }
 
-    /// Places a new order. `cleared` is the proof that the safety checks (`wyck_trading::guard::clear`)
+    /// Places a new order. `cleared` is the proof that the safety checks (`wyck_domain::trading::guard::clear`)
     /// passed for this very order and for this kind of account, demo or live: without it, or with
     /// one made for another order or the other kind, nothing is sent. `request`'s
     /// `ctid_trader_account_id` is overwritten with this account.

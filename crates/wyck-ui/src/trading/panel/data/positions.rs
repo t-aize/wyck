@@ -7,7 +7,7 @@ use super::{
 
 use wyck_app::account::Busy;
 use wyck_app::prefs::panel::Tab;
-use wyck_trading::contract;
+use wyck_domain::trading::contract;
 
 /// The profit of a position, or a wait while the quote it depends on has not come.
 fn profit_cell(profit: Option<f64>, currency: &str) -> Cell {

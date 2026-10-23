@@ -21,8 +21,8 @@ use crate::trading::panel::PanelEvent;
 use crate::trading::ticket::{OrderTicket, TicketEvent};
 use gpui::prelude::*;
 use gpui::{Context, Window};
-use wyck_chart::LineId;
-use wyck_trading::contract;
+use wyck_domain::chart::LineId;
+use wyck_domain::trading::contract;
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {

@@ -15,7 +15,7 @@ use wyck_storage::DocumentStore;
 
 use crate::saver::Saver;
 
-use wyck_core::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
+use wyck_domain::base::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
 
 pub(crate) const DOCUMENT: &str = "appearance";
 /// The font the app ships with.
@@ -36,7 +36,7 @@ pub struct Appearance {
     #[serde(default = "default_font")]
     pub font: String,
     /// Whether screens and panels move as they appear.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub animations: bool,
     /// The size of the interface, in percent of the size it was drawn at: text, controls and
     /// fields. For eyes that need larger text, or a small screen.

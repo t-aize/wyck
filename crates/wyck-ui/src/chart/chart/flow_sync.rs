@@ -7,12 +7,12 @@
 //! asked for when it is looked at.
 
 use std::time::{Duration, Instant};
-use wyck_chart::{Held, bar_open, next_step, supports};
+use wyck_domain::chart::{Held, bar_open, next_step, supports};
 
 use gpui::Context;
 use wyck_app::broker::Result as ApiResult;
 use wyck_app::broker::session::Session;
-use wyck_market::{Quote, QuoteType, merge_sides};
+use wyck_domain::market::{Quote, QuoteType, merge_sides};
 
 use super::{Chart, Load, flatten};
 use wyck_app::lost::lost;
@@ -20,10 +20,10 @@ use wyck_app::market_data::live::LiveUpdate;
 use wyck_app::market_data::load;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
-use wyck_chart::ChartKind;
-use wyck_chart::Flow;
-use wyck_chart::Series;
-use wyck_core::math::f64_to_usize;
+use wyck_domain::base::math::f64_to_usize;
+use wyck_domain::chart::ChartKind;
+use wyck_domain::chart::Flow;
+use wyck_domain::chart::Series;
 
 /// About how much time one request covers, in bars of the timeframe (at most [`MAX_CHUNK_BARS`]).
 const CHUNK_MS: i64 = 6 * 3_600_000;

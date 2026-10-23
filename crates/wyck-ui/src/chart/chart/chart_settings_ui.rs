@@ -16,11 +16,11 @@ use crate::kit::input::InputState;
 use crate::kit::{button, controls, form, form::Head, form::Tab, modal, number};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
-use wyck_chart::ChartColors;
-use wyck_chart::Rgba;
-use wyck_chart::{BoxSize, TransformSettings};
-use wyck_chart::{ChartKind, ChartSettings};
-use wyck_core::math::{f32_to_u32, f64_to_u32};
+use wyck_domain::base::math::{f32_to_u32, f64_to_u32};
+use wyck_domain::chart::ChartColors;
+use wyck_domain::chart::Rgba;
+use wyck_domain::chart::{BoxSize, TransformSettings};
+use wyck_domain::chart::{ChartKind, ChartSettings};
 
 /// The tallest the list of time zones grows before it scrolls.
 const ZONE_LIST_MAX: f32 = 380.0;

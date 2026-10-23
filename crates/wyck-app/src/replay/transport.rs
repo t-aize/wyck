@@ -1,7 +1,9 @@
 //! The transport of a replay: play, pause, steps, jumps, speed, and what it does on every frame.
 
 use gpui::Context;
-use wyck_chart::{ClockStep, ReplayBounds, ReplayClock, ReplayNoGaps, ReplayStep, ReplayTimeline};
+use wyck_domain::chart::{
+    ClockStep, ReplayBounds, ReplayClock, ReplayNoGaps, ReplayStep, ReplayTimeline,
+};
 
 use super::plan;
 use super::store::{DataTimes, Store};

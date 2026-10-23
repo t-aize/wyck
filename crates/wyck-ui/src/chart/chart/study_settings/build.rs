@@ -3,7 +3,7 @@
 use super::{App, Context, Entity, InputEvent, InputKind, InputState, StudyConfig, Window, number};
 use super::{Chart, Page, StudyEditor, Target};
 use gpui::prelude::*;
-use wyck_core::math::{f32_of, f64_to_u32};
+use wyck_domain::base::math::{f32_of, f64_to_u32};
 
 impl StudyEditor {
     pub(super) fn new(

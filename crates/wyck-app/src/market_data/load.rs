@@ -13,10 +13,10 @@ use std::future::Future;
 use crate::broker::market::{MAX_TICK_RANGE_MS, MarketClient};
 use crate::broker::session::Session;
 use crate::broker::{Error as ApiError, Result};
-use wyck_market::{Bar, Period, QuoteType, Tick};
+use wyck_domain::market::{Bar, Period, QuoteType, Tick};
 
-use wyck_chart::{aggregate_ticks, bucket_start, group_bars, last_group};
-use wyck_market::Timeframe;
+use wyck_domain::chart::{aggregate_ticks, bucket_start, group_bars, last_group};
+use wyck_domain::market::Timeframe;
 
 /// Bars in one request. Under the range limit the server sets for every period.
 pub(crate) const CHUNK_BARS: i64 = 1_500;

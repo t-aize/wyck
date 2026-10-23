@@ -67,9 +67,7 @@ table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder sa
 | Crate | Owns |
 |---|---|
 | `wyck-clock` | The one place the wall clock is read, so tests and replays can give another |
-| `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
-| `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
-| `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
+| `wyck-domain` | The domain: the shared vocabulary, symbols and bars, orders and the safety guard, drawing tools, indicators and Rhai scripts, the chart model, its scene and its export |
 | `wyck-storage`, `wyck-ctrader` | Files, secrets and backups; the cTrader Open API client |
 | `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates, the log and the async runtime |
 | `wyck-ui` | Every screen, one module each: the widget kit (controls, colors, the font, the symbol marks), the price chart, the order ticket and account panel, the script editor, the window frame |

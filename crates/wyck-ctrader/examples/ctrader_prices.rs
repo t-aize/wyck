@@ -13,7 +13,7 @@
 )]
 
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error, Event};
-use wyck_market::format_price;
+use wyck_domain::market::format_price;
 
 fn var(name: &str) -> wyck_ctrader::Result<String> {
     // A `.env` file is optional: the variables may already be in the environment.

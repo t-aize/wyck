@@ -1,7 +1,7 @@
 //! The icon of each drawing tool, for the list of drawings, the properties window and the bars.
 
 use crate::kit::icon::IconName;
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::drawings::model::tool::Tool;
 
 /// The icon that stands for `tool`.
 pub(crate) fn tool_icon(tool: Tool) -> IconName {

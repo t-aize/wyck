@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use wyck_market::{Asset, AssetClass, LightSymbol, SymbolCategory};
+use wyck_domain::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
 
 use super::marks::{self, Icon};
 

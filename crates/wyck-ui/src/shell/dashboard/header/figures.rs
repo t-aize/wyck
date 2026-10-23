@@ -12,7 +12,7 @@ impl Dashboard {
         let account = self.trading.read(cx);
         let summary = account.summary();
         let currency = account.book.currency.clone();
-        let money = |v: f64| wyck_trading::amounts::format_money(v, &currency);
+        let money = |v: f64| wyck_domain::trading::amounts::format_money(v, &currency);
         let connection = match &self.conn {
             Conn::Ready => ("Connected", theme::emerald()),
             Conn::Connecting => ("Connecting...", theme::muted_fg()),

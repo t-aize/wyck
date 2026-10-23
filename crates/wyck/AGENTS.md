@@ -5,7 +5,7 @@ the event loop; everything the app does is in the library crates it calls. This 
 packaging lives (the `[package.metadata.packager]` of `Cargo.toml`, the icons in `assets/`, and
 `build.rs`, which gives the Windows executable its icon).
 
-Depends on: `wyck-app`, `wyck-clock`, `wyck-core`, `wyck-storage`, `wyck-ui`,
+Depends on: `wyck-app`, `wyck-clock`, `wyck-domain`, `wyck-storage`, `wyck-ui`,
 `gpui`, `chrono`, `tracing`; `winresource` at build time on Windows.
 Used by: nobody; it is the end of the dependency graph.
 

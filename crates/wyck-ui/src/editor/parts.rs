@@ -19,12 +19,12 @@ use crate::kit::{
     theme, tokens,
 };
 use wyck_app::scripts as indicators;
-use wyck_drawings::model::tool::Tool;
-use wyck_indicators::custom::docs;
-use wyck_indicators::custom::docs::Group;
-use wyck_indicators::custom::library::{Entry as Script, registry};
-use wyck_indicators::custom::templates::TEMPLATES;
-use wyck_indicators::custom::{Problem, Severity};
+use wyck_domain::drawings::model::tool::Tool;
+use wyck_domain::indicators::custom::docs;
+use wyck_domain::indicators::custom::docs::Group;
+use wyck_domain::indicators::custom::library::{Entry as Script, registry};
+use wyck_domain::indicators::custom::templates::TEMPLATES;
+use wyck_domain::indicators::custom::{Problem, Severity};
 
 const TEMPLATE_CARD_WIDTH: f32 = 210.0;
 /// The widest the row of template cards grows.

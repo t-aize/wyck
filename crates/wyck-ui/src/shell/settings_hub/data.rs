@@ -13,7 +13,7 @@ use wyck_app::lost::lost;
 use wyck_app::storage::backup::Contents;
 use wyck_app::storage::backup::store::BackupStore;
 use wyck_app::storage::scripts::ScriptStore;
-use wyck_core::math::u64_to_f64;
+use wyck_domain::base::math::u64_to_f64;
 
 /// The most copies the page lists.
 const LISTED_COPIES: usize = 8;

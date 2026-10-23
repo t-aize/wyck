@@ -214,7 +214,7 @@ mod tests {
     use super::prefs::TicketPrefs;
     use super::prefs::plans::{Distance, PlanTemplate, TimeStopPrefs};
     use super::*;
-    use wyck_trading::plan::Only;
+    use wyck_domain::trading::plan::Only;
 
     fn plan(name: &str) -> PlanTemplate {
         PlanTemplate {

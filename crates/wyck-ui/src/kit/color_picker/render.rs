@@ -16,7 +16,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable;
 use gpui_kit::component::input::InputState;
 use std::rc::Rc;
-use wyck_core::math::f32_of;
+use wyck_domain::base::math::f32_of;
 
 impl Render for ColorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

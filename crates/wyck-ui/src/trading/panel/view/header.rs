@@ -8,9 +8,9 @@ use crate::trading::panel::data::Tone;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
 use wyck_app::prefs::panel::Tab;
-use wyck_core::format::grouped;
-use wyck_core::math::f64_to_i64;
-use wyck_trading::amounts::format_amount;
+use wyck_domain::base::format::grouped;
+use wyck_domain::base::math::f64_to_i64;
+use wyck_domain::trading::amounts::format_amount;
 
 impl AccountPanel {
     pub(super) fn tab_button(

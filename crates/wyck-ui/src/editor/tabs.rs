@@ -5,9 +5,9 @@ use crate::kit::confirm::{Tone, confirm_as};
 use crate::kit::input::InputEvent;
 use gpui::{Context, Window};
 use wyck_app::lost::lost;
-use wyck_indicators::custom::Problem;
-use wyck_indicators::custom::library::registry;
-use wyck_indicators::custom::run::Script;
+use wyck_domain::indicators::custom::Problem;
+use wyck_domain::indicators::custom::library::registry;
+use wyck_domain::indicators::custom::run::Script;
 
 impl IndicatorEditor {
     /// Opens the script `id` in a tab (or goes to its tab).

@@ -10,8 +10,8 @@ use super::{
 use crate::kit::focus::Keyboard as _;
 use crate::kit::prelude::StyledExt as _;
 use gpui::prelude::*;
-use wyck_core::math::i64_to_f64;
-use wyck_trading::contract::format_lots;
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::trading::contract::format_lots;
 
 impl OrderTicket {
     /// A button that opens a list under it, showing what is picked. It is the height and the

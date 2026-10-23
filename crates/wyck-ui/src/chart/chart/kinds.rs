@@ -1,7 +1,7 @@
 //! The chart types as the menus list them: their icons and their sections.
 
 use crate::kit::icon::IconName;
-use wyck_chart::ChartKind;
+use wyck_domain::chart::ChartKind;
 
 /// The icon that stands for a chart type.
 pub fn kind_icon(kind: ChartKind) -> IconName {

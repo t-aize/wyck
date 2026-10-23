@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use wyck_core::flex;
-use wyck_trading::margin::ExpectedMargin;
+use wyck_domain::base::flex;
+use wyck_domain::trading::margin::ExpectedMargin;
 
 /// `ProtoOAExpectedMarginReq`.
 #[derive(Debug, Serialize)]

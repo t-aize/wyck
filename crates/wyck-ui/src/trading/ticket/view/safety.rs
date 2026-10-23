@@ -5,8 +5,8 @@ use super::{
     text_button, theme, tokens,
 };
 use gpui::prelude::*;
-use wyck_core::math::f32_of;
-use wyck_trading::amounts::format_money;
+use wyck_domain::base::math::f32_of;
+use wyck_domain::trading::amounts::format_money;
 
 impl OrderTicket {
     /// What the safety limits say now: a lock that stops new orders (with the way out), a request

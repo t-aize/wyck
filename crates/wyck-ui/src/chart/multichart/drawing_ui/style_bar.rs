@@ -8,9 +8,9 @@ use crate::kit::icon::IconName;
 use crate::kit::{controls, layout, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Window, canvas, div, px};
-use wyck_core::math::f32_to_u32;
-use wyck_drawings::model::style::{Dash, PALETTE};
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::base::math::f32_to_u32;
+use wyck_domain::drawings::model::style::{Dash, PALETTE};
+use wyck_domain::drawings::model::tool::Tool;
 
 impl MultiChart {
     /// The bar over a selected drawing, or nothing. Only the cheap test lives here: the bar itself
@@ -307,7 +307,7 @@ impl MultiChart {
     reason = "a snapshot of the flags of the selected drawing, each read by its own control"
 )]
 pub(super) struct BarState {
-    pub(super) style: wyck_drawings::model::style::Style,
+    pub(super) style: wyck_domain::drawings::model::style::Style,
     pub(super) tool: Tool,
     pub(super) locked: bool,
     pub(super) hidden: bool,

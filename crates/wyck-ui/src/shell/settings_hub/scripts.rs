@@ -13,7 +13,7 @@ impl SettingsHub {
         let dir = indicators::dir(cx);
         let default_dir = indicators::default_dir(cx);
         let using_default = dir == default_dir;
-        let entries = wyck_indicators::custom::library::registry::all();
+        let entries = wyck_domain::indicators::custom::library::registry::all();
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
         // Where the scripts are kept is chosen with the other folders, on the Folders page.

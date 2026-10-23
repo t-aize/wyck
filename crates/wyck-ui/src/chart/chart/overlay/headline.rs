@@ -7,12 +7,12 @@ use crate::kit::icon::IconName;
 use crate::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
-use wyck_chart::ChartKind;
-use wyck_chart::Series;
-use wyck_chart::supports;
-use wyck_chart::{Geometry, axis_h, axis_w};
-use wyck_core::math::{f32_of, i64_to_f64};
-use wyck_market::format_price;
+use wyck_domain::base::math::{f32_of, i64_to_f64};
+use wyck_domain::chart::ChartKind;
+use wyck_domain::chart::Series;
+use wyck_domain::chart::supports;
+use wyck_domain::chart::{Geometry, axis_h, axis_w};
+use wyck_domain::market::format_price;
 
 impl Chart {
     /// The button that folds the lines of the indicators away, or brings them back. Folded, it

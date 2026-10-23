@@ -9,9 +9,9 @@ use crate::kit::prelude::Disableable;
 use crate::kit::{layout, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
-use wyck_core::math::f32_to_u32;
-use wyck_drawings::look::Cap;
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::base::math::f32_to_u32;
+use wyck_domain::drawings::look::Cap;
+use wyck_domain::drawings::model::tool::Tool;
 
 impl MultiChart {
     #[inline(never)]

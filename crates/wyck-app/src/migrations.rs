@@ -22,7 +22,7 @@
 use tracing::{info, warn};
 
 use crate::{alerts, drawings, workspace};
-use wyck_drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
+use wyck_domain::drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
 use wyck_storage::migrate::{Outcome, Plan, Step, StepError};
 use wyck_storage::{AppPaths, DocumentStore};
 
@@ -228,7 +228,7 @@ mod tests {
     use super::*;
     use crate::alerts::AlertBook;
     use crate::workspace::{Preferences, Watchlists};
-    use wyck_drawings::model::DrawingsDoc;
+    use wyck_domain::drawings::model::DrawingsDoc;
 
     #[test]
     fn every_plan_has_a_step_for_each_version_it_left_behind() {
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn how_the_charts_look_moves_out_of_each_chart_into_one_table() {
-        use wyck_chart::Zone;
+        use wyck_domain::chart::Zone;
         let mut table: toml::Table =
             toml::from_str(include_str!("fixtures/preferences-0.2-look.toml")).unwrap();
         assert!(lift_chart_look(&mut table).is_ok());
@@ -349,7 +349,7 @@ mod tests {
         // What each chart shows stayed with it.
         assert_eq!(
             preferences.chart(0).settings.scale,
-            wyck_chart::ScaleMode::Log
+            wyck_domain::chart::ScaleMode::Log
         );
         assert_eq!(preferences.chart(1).settings.studies.len(), 1);
         assert_eq!(preferences.chart(1).settings.main_weight, 5.0);
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn a_file_with_one_zone_for_every_chart_keeps_that_zone() {
-        use wyck_chart::Zone;
+        use wyck_domain::chart::Zone;
         let mut table: toml::Table =
             toml::from_str("schema_version = 2\nzone = \"utc\"\n[[charts]]\ntimeframe = \"M5\"\nkind = \"candles\"\n")
                 .unwrap();

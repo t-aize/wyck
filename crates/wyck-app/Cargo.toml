@@ -33,15 +33,10 @@ toml.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-wyck-chart.workspace = true
 wyck-clock.workspace = true
-wyck-core.workspace = true
 wyck-ctrader.workspace = true
-wyck-drawings.workspace = true
-wyck-indicators.workspace = true
-wyck-market.workspace = true
+wyck-domain.workspace = true
 wyck-storage.workspace = true
-wyck-trading.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

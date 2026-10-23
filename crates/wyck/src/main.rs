@@ -15,7 +15,7 @@ use wyck_app::scripts;
 use wyck_app::shortcuts::ShortcutPrefs;
 use wyck_app::system::logging;
 use wyck_app::updates;
-use wyck_core::math::u32_to_f32;
+use wyck_domain::base::math::u32_to_f32;
 use wyck_storage::AppPaths;
 use wyck_storage::backup::staged::{self, Applied};
 use wyck_storage::build_info::{self, BuildMode};

@@ -8,7 +8,7 @@ use crate::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, SharedString, Window, div, px};
 use wyck_app::replay::{Phase, Replay, TickMode};
-use wyck_chart::{REPLAY_RATES, ReplayStep, TIME_PATTERN};
+use wyck_domain::chart::{REPLAY_RATES, ReplayStep, TIME_PATTERN};
 
 use super::Dashboard;
 use icon::IconName;

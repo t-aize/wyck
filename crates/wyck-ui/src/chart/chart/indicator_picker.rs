@@ -19,7 +19,7 @@ use crate::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
 use wyck_app::scripts as indicators;
-use wyck_core::intern;
+use wyck_domain::base::intern;
 
 const SHORT_NAME_WIDTH: f32 = 58.0;
 

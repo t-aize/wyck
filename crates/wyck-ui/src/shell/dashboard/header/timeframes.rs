@@ -8,7 +8,7 @@ use crate::kit::{controls, icon, menu, theme, tokens};
 use crate::shell::dashboard::{Dashboard, MenuKind};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
-use wyck_market::{GROUPS, Timeframe, Unit};
+use wyck_domain::market::{GROUPS, Timeframe, Unit};
 
 impl Dashboard {
     /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,

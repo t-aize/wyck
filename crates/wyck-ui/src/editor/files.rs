@@ -6,7 +6,7 @@ use gpui::{Context, Entity, Window};
 use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
 use wyck_app::scripts::folder::LibraryError;
-use wyck_indicators::custom::library::registry;
+use wyck_domain::indicators::custom::library::registry;
 
 impl IndicatorEditor {
     /// Writes the script of the tab to its file.
@@ -120,7 +120,7 @@ impl IndicatorEditor {
                     if held {
                         editor.say(true, "It is on the chart already: it was updated.", cx);
                     } else {
-                        let study = wyck_indicators::config::StudyConfig::for_script(&id);
+                        let study = wyck_domain::indicators::config::StudyConfig::for_script(&id);
                         chart.update(cx, |chart, cx| chart.add_study(study, cx));
                         indicators::update_prefs(cx, |prefs| {
                             prefs.note_recent(&format!("script:{id}"));

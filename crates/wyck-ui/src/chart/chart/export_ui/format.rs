@@ -6,10 +6,10 @@ use crate::kit::icon::IconName;
 use crate::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
-use wyck_chart::ColumnKey;
-use wyck_chart::ExportOptions;
-use wyck_chart::builtin_presets;
-use wyck_chart::{
+use wyck_domain::chart::ColumnKey;
+use wyck_domain::chart::ExportOptions;
+use wyck_domain::chart::builtin_presets;
+use wyck_domain::chart::{
     Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, PriceDigits, Quote,
     TimeFormat,
 };

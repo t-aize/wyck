@@ -1,5 +1,5 @@
 //! The time stop and the saved plans of the order ticket. What they hold is described in
-//! [`wyck_trading::plan`] and [`super::super::prefs`].
+//! [`wyck_domain::trading::plan`] and [`super::super::prefs`].
 
 use super::line;
 use super::{
@@ -10,7 +10,7 @@ use crate::kit::focus::Keyboard as _;
 use crate::kit::prelude::Disableable;
 use gpui::prelude::*;
 use wyck_app::prefs::ticket as prefs;
-use wyck_trading::plan::Only;
+use wyck_domain::trading::plan::Only;
 
 impl OrderTicket {
     /// Closing the position once it has been open for a while.

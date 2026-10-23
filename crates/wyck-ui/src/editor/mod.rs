@@ -33,8 +33,8 @@ use std::time::Duration;
 use wyck_app::lost::lost;
 use wyck_app::saver::Saver;
 use wyck_app::scripts as indicators;
-use wyck_indicators::custom::library::registry;
-use wyck_indicators::custom::{Problem, Severity};
+use wyck_domain::indicators::custom::library::registry;
+use wyck_domain::indicators::custom::{Problem, Severity};
 
 #[expect(
     clippy::derive_partial_eq_without_eq,

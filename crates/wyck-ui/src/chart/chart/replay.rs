@@ -14,7 +14,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, FontWeight, div, px};
 use wyck_app::market_data::now_ms;
 use wyck_app::replay::{Demand, DemandKind, Replay, Store, TickStore, TickSupport};
-use wyck_chart::{
+use wyck_domain::chart::{
     Display, Geometry, MAX_BARS, MAX_TICKS, ReplayChange, ReplayFeed, ReplayInput,
     ReplaySecondsFeed, ReplaySource, ReplayTickFeed, Series, TIME_PATTERN, View,
 };
@@ -71,8 +71,8 @@ impl Chart {
         let symbol = self.symbol.as_ref()?;
         let group = usize::try_from(self.timeframe.group_size()).unwrap_or(1);
         let (kind, bar_ms) = match self.timeframe {
-            wyck_market::Timeframe::Ticks => (DemandKind::Ticks, None),
-            wyck_market::Timeframe::Seconds(seconds) => (
+            wyck_domain::market::Timeframe::Ticks => (DemandKind::Ticks, None),
+            wyck_domain::market::Timeframe::Seconds(seconds) => (
                 DemandKind::Seconds(seconds),
                 Some(i64::from(seconds) * 1_000),
             ),
@@ -162,10 +162,10 @@ impl Chart {
             }
             let went_back = cursor < state.cursor_ms;
             let result = match (timeframe, &mut self.series) {
-                (wyck_market::Timeframe::Ticks, Series::Ticks(out)) => {
+                (wyck_domain::market::Timeframe::Ticks, Series::Ticks(out)) => {
                     Some(reveal_ticks(state, out, held.tick_store(symbol_id), cursor))
                 }
-                (wyck_market::Timeframe::Seconds(seconds), Series::Bars(out)) => {
+                (wyck_domain::market::Timeframe::Seconds(seconds), Series::Bars(out)) => {
                     Some(reveal_seconds(
                         state,
                         out,
@@ -205,7 +205,7 @@ impl Chart {
             };
             if matches!(
                 timeframe,
-                wyck_market::Timeframe::Ticks | wyck_market::Timeframe::Seconds(_)
+                wyck_domain::market::Timeframe::Ticks | wyck_domain::market::Timeframe::Seconds(_)
             ) && held.tick_support(symbol_id) == TickSupport::Unavailable
             {
                 state.source = Source::NoTicks;
@@ -246,7 +246,7 @@ impl Chart {
 /// A tick chart: the ticks before the cursor, when the replay holds them.
 fn reveal_ticks(
     state: &mut ChartReplay,
-    out: &mut Vec<wyck_market::Tick>,
+    out: &mut Vec<wyck_domain::market::Tick>,
     store: Option<&TickStore>,
     cursor_ms: i64,
 ) -> ReplayChange {
@@ -271,7 +271,7 @@ fn reveal_ticks(
 /// A seconds chart: the bars the ticks before the cursor make, when the replay holds them.
 fn reveal_seconds(
     state: &mut ChartReplay,
-    out: &mut Vec<wyck_market::Bar>,
+    out: &mut Vec<wyck_domain::market::Bar>,
     store: Option<&TickStore>,
     bucket_ms: i64,
     cursor_ms: i64,
@@ -332,7 +332,7 @@ impl Chart {
                 .absolute()
                 .top(px(34.0))
                 .left_0()
-                .right(px(wyck_chart::axis_w()))
+                .right(px(wyck_domain::chart::axis_w()))
                 .flex()
                 .justify_center()
                 .child(

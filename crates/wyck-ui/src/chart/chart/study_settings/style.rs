@@ -8,7 +8,7 @@ use crate::kit::icon::IconName;
 use crate::kit::{controls, form, number, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div};
-use wyck_drawings::model::style::{DASHES, WIDTHS};
+use wyck_domain::drawings::model::style::{DASHES, WIDTHS};
 
 impl StudyEditor {
     pub(super) fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {

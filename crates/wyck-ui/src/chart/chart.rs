@@ -21,7 +21,7 @@
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
 //! | `volume`, `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
 //! | `tpo`, `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
-//! | the export code of `wyck-chart`, `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
+//! | the export code of `wyck_domain::chart`, `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
 //! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
 //! out.
@@ -33,7 +33,7 @@
 //!   amount of data: points narrower than a pixel are folded into pixel columns.
 //! - What is derived from the prices (a Renko construction, the indicators) is computed once per
 //!   change of the prices or settings (`display`), never per frame.
-//! - The data is bounded ([`wyck_chart::MAX_BARS`], [`wyck_chart::MAX_TICKS`]), and older history is only
+//! - The data is bounded ([`wyck_domain::chart::MAX_BARS`], [`wyck_domain::chart::MAX_TICKS`]), and older history is only
 //!   fetched when the user scrolls near the oldest point held.
 //! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
 //!   it keeps one subscription per symbol and period however many charts show it.
@@ -97,17 +97,19 @@ use wyck_app::broker::session::Session;
 use wyck_app::broker::{Error as ApiError, Result as ApiResult};
 use wyck_app::drawings::Drawings;
 use wyck_app::market_data::live::LiveHub;
-use wyck_chart::Display;
-use wyck_chart::Flow;
-use wyck_chart::Geometry;
-use wyck_chart::LineId;
-use wyck_chart::Series;
-use wyck_chart::View;
-use wyck_chart::{ChartKind, ChartSettings};
-use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceMap, geometry, main_map, quote_unit, supports};
-use wyck_core::math::f64_to_i64;
-use wyck_indicators as study;
-use wyck_market::Timeframe;
+use wyck_domain::base::math::f64_to_i64;
+use wyck_domain::chart::Display;
+use wyck_domain::chart::Flow;
+use wyck_domain::chart::Geometry;
+use wyck_domain::chart::LineId;
+use wyck_domain::chart::Series;
+use wyck_domain::chart::View;
+use wyck_domain::chart::{ChartKind, ChartSettings};
+use wyck_domain::chart::{
+    DEFAULT_BAR_PX, MAX_STUDIES, PriceMap, geometry, main_map, quote_unit, supports,
+};
+use wyck_domain::indicators as study;
+use wyck_domain::market::Timeframe;
 
 #[expect(
     clippy::derive_partial_eq_without_eq,
@@ -222,7 +224,7 @@ pub struct Chart {
     id: u64,
     symbol: Option<Symbol>,
     /// When the symbol trades, once its details are known.
-    hours: Option<std::sync::Arc<wyck_market::TradingHours>>,
+    hours: Option<std::sync::Arc<wyck_domain::market::TradingHours>>,
     /// Whether this is the chart the user works on; only that one shows its toolbar when there
     /// are several.
     selected: bool,
@@ -237,7 +239,7 @@ pub struct Chart {
     max_studies: usize,
     /// The prices, as held.
     series: Series,
-    atr_history: HashMap<(i64, Timeframe), (Vec<wyck_market::Bar>, i64)>,
+    atr_history: HashMap<(i64, Timeframe), (Vec<wyck_domain::market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
     /// The stop an ATR following position drawing last got, by drawing, for the moments the ATR
     /// is not at hand (see `resolved_position`).
@@ -271,7 +273,7 @@ pub struct Chart {
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     /// The server bars of the newest bar of a grouped timeframe, which live bars join.
-    group_tail: Vec<wyck_market::Bar>,
+    group_tail: Vec<wyck_domain::market::Bar>,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
@@ -287,7 +289,7 @@ pub struct Chart {
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
     /// The drawing under the pointer and how it can be grabbed there.
-    over_drawing: Option<(u64, wyck_drawings::book::Grab)>,
+    over_drawing: Option<(u64, wyck_domain::drawings::book::Grab)>,
     /// A drawing was double-clicked: its settings open at the next render, which has the window.
     settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.

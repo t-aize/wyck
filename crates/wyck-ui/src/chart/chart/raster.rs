@@ -1,4 +1,4 @@
-//! A picture of a chart: the same drawing commands the screen gets (`wyck_chart::build`), painted
+//! A picture of a chart: the same drawing commands the screen gets (`wyck_domain::chart::build`), painted
 //! into pixels in memory with `tiny-skia`, text included (the app's own Inter font, rasterized by
 //! `ab_glyph`), and encoded as PNG.
 //!
@@ -10,12 +10,12 @@ use tiny_skia::{
     FillRule, Mask, Paint, PathBuilder, Pixmap, PremultipliedColorU8, Rect, Stroke, StrokeDash,
     Transform,
 };
-use wyck_chart::Hsla;
-use wyck_chart::{fitted_origin, fitted_size};
+use wyck_domain::chart::Hsla;
+use wyck_domain::chart::{fitted_origin, fitted_size};
 
 use crate::kit::assets;
-use wyck_chart::Cmd;
-use wyck_core::math::{f32_to_i32, f32_to_u32};
+use wyck_domain::base::math::{f32_to_i32, f32_to_u32};
+use wyck_domain::chart::Cmd;
 
 /// A clip rectangle, in logical pixels.
 #[derive(Debug, Clone, Copy)]
@@ -626,9 +626,9 @@ pub(crate) fn compose_png(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_chart::Align;
-    use wyck_core::math::{f64_to_i64, i64_to_f64};
-    use wyck_drawings::look::Face;
+    use wyck_domain::base::math::{f64_to_i64, i64_to_f64};
+    use wyck_domain::chart::Align;
+    use wyck_domain::drawings::look::Face;
 
     /// A tile of one flat color.
     fn tile(w: u32, h: u32, red: u8) -> Pixmap {
@@ -662,21 +662,21 @@ mod tests {
         assert_eq!(picture.pixel(2, 5).unwrap().red(), 0, "the gap");
         assert_eq!(picture.pixel(39, 5).unwrap().red(), 255, "the cut tile");
     }
-    use wyck_chart::{font, rgb_alpha};
+    use wyck_domain::chart::{font, rgb_alpha};
 
     #[test]
     #[ignore = "writes a chart preview for visual review"]
     fn indicator_families_preview() {
-        use wyck_chart::ChartSettings;
-        use wyck_chart::Display;
-        use wyck_chart::Palette;
-        use wyck_chart::Series;
-        use wyck_chart::View;
-        use wyck_chart::{Frame, build};
-        use wyck_indicators::config::StudyConfig;
-        use wyck_indicators::kind::StudyKind;
-        use wyck_market::Bar;
-        use wyck_market::Timeframe;
+        use wyck_domain::chart::ChartSettings;
+        use wyck_domain::chart::Display;
+        use wyck_domain::chart::Palette;
+        use wyck_domain::chart::Series;
+        use wyck_domain::chart::View;
+        use wyck_domain::chart::{Frame, build};
+        use wyck_domain::indicators::config::StudyConfig;
+        use wyck_domain::indicators::kind::StudyKind;
+        use wyck_domain::market::Bar;
+        use wyck_domain::market::Timeframe;
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {
@@ -832,8 +832,8 @@ mod tests {
             scale: 1.0,
             font,
         };
-        let short = canvas.measure("1.0", wyck_chart::font());
-        let long = canvas.measure("1.08412", wyck_chart::font());
+        let short = canvas.measure("1.0", wyck_domain::chart::font());
+        let long = canvas.measure("1.08412", wyck_domain::chart::font());
         assert!(short > 0.0 && long > short * 1.8);
     }
 
@@ -850,7 +850,7 @@ mod tests {
                 color: rgb_alpha(0x00ff_ffff, 1.0),
                 background: Some(rgb_alpha(0x0022_6666, 1.0)),
                 align: Align::Center,
-                valign: wyck_drawings::look::VAlign::Auto,
+                valign: wyck_domain::drawings::look::VAlign::Auto,
                 bold: false,
                 face: Face::default(),
             }],

@@ -8,7 +8,7 @@ use crate::kit::prelude::Disableable;
 use crate::kit::prelude::Selectable;
 use crate::kit::prelude::StyledExt as _;
 use gpui::prelude::*;
-use wyck_trading::contract::format_lots;
+use wyck_domain::trading::contract::format_lots;
 
 impl OrderTicket {
     /// What is open on the symbol, with what can be done to it.
@@ -262,7 +262,9 @@ impl OrderTicket {
                     .child(format!(
                         "{} {} {} @ {}",
                         if buy { "Buy" } else { "Sell" },
-                        order.kind().map_or("order", wyck_trading::OrderType::label),
+                        order
+                            .kind()
+                            .map_or("order", wyck_domain::trading::OrderType::label),
                         format_lots(frame.contract.lots_of_volume(order.trade_data.volume)),
                         frame.price(price)
                     ))

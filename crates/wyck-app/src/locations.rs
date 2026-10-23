@@ -18,7 +18,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use wyck_core::math::u64_to_f64;
+use wyck_domain::base::math::u64_to_f64;
 
 use gpui::App;
 use tracing::{info, warn};

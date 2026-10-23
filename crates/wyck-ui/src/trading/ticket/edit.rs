@@ -5,9 +5,9 @@ use super::{Kind, OrderTicket, TicketEvent};
 use crate::kit::number;
 use gpui::{Context, Window};
 use wyck_app::account::Busy;
-use wyck_core::math::{f64_to_usize, i64_to_f64};
-use wyck_trading::ticket;
-use wyck_trading::ticket::{Offset, SizeMode};
+use wyck_domain::base::math::{f64_to_usize, i64_to_f64};
+use wyck_domain::trading::ticket;
+use wyck_domain::trading::ticket::{Offset, SizeMode};
 
 impl OrderTicket {
     /// Whether a side can be picked: a followed drawing is a long or a short, not both.
@@ -184,14 +184,14 @@ impl OrderTicket {
                 .settings()
                 .studies
                 .iter()
-                .find(|study| study.kind == wyck_indicators::kind::StudyKind::Atr)
+                .find(|study| study.kind == wyck_domain::indicators::kind::StudyKind::Atr)
         {
             self.atr.length = f64_to_usize(study.input("length")).clamp(1, 1_000);
             self.atr.smoothing = match f64_to_usize(study.input("smoothing")) {
-                1 => wyck_trading::atr_stop::Smoothing::Sma,
-                2 => wyck_trading::atr_stop::Smoothing::Ema,
-                3 => wyck_trading::atr_stop::Smoothing::Wma,
-                _ => wyck_trading::atr_stop::Smoothing::Rma,
+                1 => wyck_domain::trading::atr_stop::Smoothing::Sma,
+                2 => wyck_domain::trading::atr_stop::Smoothing::Ema,
+                3 => wyck_domain::trading::atr_stop::Smoothing::Wma,
+                _ => wyck_domain::trading::atr_stop::Smoothing::Rma,
             };
             Self::write(
                 &self.atr_length.clone(),

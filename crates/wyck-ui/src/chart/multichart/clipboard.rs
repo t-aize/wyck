@@ -2,7 +2,7 @@
 
 use super::MultiChart;
 use gpui::Context;
-use wyck_drawings::model::tool::Tool;
+use wyck_domain::drawings::model::tool::Tool;
 
 impl MultiChart {
     /// Ctrl+C: copies the selected drawings, or else the indicators of the chart.

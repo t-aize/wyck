@@ -88,7 +88,7 @@ const OWNERS: &[(&str, &[&str])] = &[
     ("keyring", &["wyck-storage"]),
     ("notify-rust", &["wyck-app"]),
     ("reqwest", &["wyck-ctrader"]),
-    ("rhai", &["wyck-indicators"]),
+    ("rhai", &["wyck-domain"]),
     ("rodio", &["wyck-app"]),
     ("tiny-skia", &["wyck-ui"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
@@ -104,43 +104,13 @@ const LAYERS: &[Layer] = &[
         forbidden: NOT_IN_THE_DOMAIN,
     },
     Layer {
-        name: "wyck-core",
+        name: "wyck-domain",
         internal: &[],
         forbidden: NOT_IN_THE_DOMAIN,
     },
     Layer {
-        name: "wyck-market",
-        internal: &["wyck-core"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-trading",
-        internal: &["wyck-core", "wyck-market"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-drawings",
-        internal: &["wyck-core", "wyck-trading"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-indicators",
-        internal: &["wyck-core", "wyck-drawings", "wyck-market"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-chart",
-        internal: &[
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-        ],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
         name: "wyck-ctrader",
-        internal: &["wyck-clock", "wyck-core", "wyck-market", "wyck-trading"],
+        internal: &["wyck-clock", "wyck-domain"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -175,31 +145,12 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "wyck-app",
-        internal: &[
-            "wyck-chart",
-            "wyck-clock",
-            "wyck-core",
-            "wyck-ctrader",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-storage",
-            "wyck-trading",
-        ],
+        internal: &["wyck-clock", "wyck-ctrader", "wyck-domain", "wyck-storage"],
         forbidden: &["ab_glyph", "gpui-kit", "tiny-skia", "tokio-tungstenite"],
     },
     Layer {
         name: "wyck-ui",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-clock",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-        ],
+        internal: &["wyck-app", "wyck-clock", "wyck-domain"],
         // The screens name `gpui-kit` through the `kit` module only: `sources.rs` checks that.
         forbidden: NOT_IN_A_SCREEN_BUT_THE_KIT,
     },
@@ -208,7 +159,7 @@ const LAYERS: &[Layer] = &[
         internal: &[
             "wyck-app",
             "wyck-clock",
-            "wyck-core",
+            "wyck-domain",
             "wyck-storage",
             "wyck-ui",
         ],
@@ -555,7 +506,7 @@ rhai.workspace = true
         )];
         let problems = check_workspace(&table(root), &members, &[layer("a", &[])]);
         assert_eq!(problems.len(), 1, "{problems:?}");
-        assert!(problems[0].contains("only wyck-indicators may use `rhai`"));
+        assert!(problems[0].contains("only wyck-domain may use `rhai`"));
     }
 
     #[test]

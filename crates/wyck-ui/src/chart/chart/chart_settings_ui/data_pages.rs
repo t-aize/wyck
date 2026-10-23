@@ -8,9 +8,9 @@ use crate::kit::icon::IconName;
 use crate::kit::{button, controls, form, icon, modal, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
-use wyck_chart::ChartColors;
-use wyck_chart::ChartSettings;
-use wyck_chart::Zone;
+use wyck_domain::chart::ChartColors;
+use wyck_domain::chart::ChartSettings;
+use wyck_domain::chart::Zone;
 
 impl ChartSettingsEditor {
     pub(super) fn canvas_page(

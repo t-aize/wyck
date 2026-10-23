@@ -1,7 +1,7 @@
 //! The small computations behind the account panel that do not need the account: the average
 //! entry of several positions, and how a moment is written.
 
-use wyck_core::math::i64_to_f64;
+use wyck_domain::base::math::i64_to_f64;
 
 /// The average of prices weighted by volume, from `(price, volume)` pairs. `None` when there is
 /// no volume.

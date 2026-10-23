@@ -9,12 +9,12 @@ use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
 use crate::kit::{controls, form, number, tokens};
-use wyck_chart::ChartSettings;
-use wyck_chart::PricePath;
-use wyck_chart::{
+use wyck_domain::base::math::{f32_of, f64_to_u32};
+use wyck_domain::chart::ChartSettings;
+use wyck_domain::chart::PricePath;
+use wyck_domain::chart::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
-use wyck_core::math::{f32_of, f64_to_u32};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

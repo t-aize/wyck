@@ -6,7 +6,7 @@ use super::{
 };
 use crate::kit::field;
 use gpui::prelude::*;
-use wyck_core::math::i64_to_f64;
+use wyck_domain::base::math::i64_to_f64;
 
 impl DrawingProps {
     /// What the position comes to with these settings, as rows of a card: the plan in figures.

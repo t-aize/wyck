@@ -7,7 +7,7 @@ use gpui::Context;
 use super::Chart;
 use super::events::{ChartEvent, Hover, Span};
 use super::input::Region;
-use wyck_core::math::{count_f64, f64_to_usize};
+use wyck_domain::base::math::{count_f64, f64_to_usize};
 
 impl Chart {
     pub(super) fn focus_pending_time(&mut self, cx: &mut Context<Self>) {

@@ -1,11 +1,11 @@
 //! Names and edits of the points of a drawing.
 
-use wyck_core::math::i64_to_f64;
-use wyck_drawings::model::tool::Tool;
-use wyck_drawings::model::{Drawing, Point};
-use wyck_drawings::wave_names;
-use wyck_market::GROUPS;
-use wyck_market::PRICE_SCALE;
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::drawings::model::tool::Tool;
+use wyck_domain::drawings::model::{Drawing, Point};
+use wyck_domain::drawings::wave_names;
+use wyck_domain::market::GROUPS;
+use wyck_domain::market::PRICE_SCALE;
 
 pub(super) fn every_timeframe() -> Vec<String> {
     GROUPS
@@ -95,8 +95,8 @@ pub(super) fn format_real(raw: f64, digits: u32) -> String {
 mod tests {
 
     use super::*;
-    use wyck_drawings::model::tool::Tool;
-    use wyck_drawings::model::{Drawing, Point};
+    use wyck_domain::drawings::model::tool::Tool;
+    use wyck_domain::drawings::model::{Drawing, Point};
 
     #[test]
     fn a_positions_points_keep_their_shape_when_typed() {

@@ -4,13 +4,13 @@
 
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
-use wyck_chart::{axis_h, axis_w, zone_w};
+use wyck_domain::chart::{axis_h, axis_w, zone_w};
 
 use super::{Chart, Menu};
 use crate::kit::icon::IconName;
 use crate::kit::{controls, icon, theme, tokens};
-use wyck_chart::PriceScale;
-use wyck_chart::ScaleMode;
+use wyck_domain::chart::PriceScale;
+use wyck_domain::chart::ScaleMode;
 
 /// A toggle of the price scale.
 fn toggle(

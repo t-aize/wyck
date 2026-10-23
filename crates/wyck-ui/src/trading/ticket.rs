@@ -54,13 +54,13 @@ use crate::kit::number;
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
 use wyck_app::account::Account;
 pub(crate) use wyck_app::prefs::ticket as prefs;
-use wyck_core::math::i64_to_f64;
-use wyck_trading::atr_stop::AtrStop;
-use wyck_trading::contract::Stepped;
-use wyck_trading::plan;
-use wyck_trading::plan::ExitPlan;
-use wyck_trading::ticket;
-use wyck_trading::ticket::{Offset, Pending, SizeMode, TicketProblem};
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::trading::atr_stop::AtrStop;
+use wyck_domain::trading::contract::Stepped;
+use wyck_domain::trading::plan;
+use wyck_domain::trading::plan::ExitPlan;
+use wyck_domain::trading::ticket;
+use wyck_domain::trading::ticket::{Offset, Pending, SizeMode, TicketProblem};
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub(crate) const LINE_ENTRY: u8 = 0;

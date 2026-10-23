@@ -1,6 +1,6 @@
 //! The colors a chart draws with, and the conversions between the chart's own color types and gpui's.
 
-use wyck_chart::{ChartColors, Hsla, Palette, Rgba};
+use wyck_domain::chart::{ChartColors, Hsla, Palette, Rgba};
 
 pub(super) fn palette_for_chart(colors: &ChartColors) -> Palette {
     let mut base = Palette::new();

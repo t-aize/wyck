@@ -17,7 +17,7 @@
 use std::time::{Duration, Instant};
 
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
-use wyck_market::QuoteType;
+use wyck_domain::market::QuoteType;
 
 const MINUTE_MS: i64 = 60_000;
 const HOUR_MS: i64 = 3_600_000;

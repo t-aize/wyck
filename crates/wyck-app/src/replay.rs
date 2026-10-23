@@ -16,8 +16,10 @@ use std::time::Duration;
 
 use crate::system::runtime;
 use gpui::{Context, EventEmitter};
-use wyck_chart::{ClockStep, ReplayClock, ReplayStep, replay_auto_step, replay_random_start};
-use wyck_market::Period;
+use wyck_domain::chart::{
+    ClockStep, ReplayClock, ReplayStep, replay_auto_step, replay_random_start,
+};
+use wyck_domain::market::Period;
 
 use crate::broker::session::Session;
 use crate::broker::{Error as ApiError, Result as ApiResult};

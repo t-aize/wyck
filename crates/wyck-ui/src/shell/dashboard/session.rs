@@ -17,7 +17,7 @@ use wyck_app::lost::lost;
 use wyck_app::market_data::live::{PEEK_OWNER, Wish};
 use wyck_app::system::runtime;
 use wyck_app::system::runtime::RecvError;
-use wyck_market::Spot;
+use wyck_domain::market::Spot;
 
 impl Dashboard {
     pub(super) fn on_active_chart(
@@ -168,7 +168,12 @@ impl Dashboard {
         });
         let ids = entries
             .iter()
-            .map(|e| (wyck_indicators::custom::other::key_of(&e.name), e.id))
+            .map(|e| {
+                (
+                    wyck_domain::indicators::custom::other::key_of(&e.name),
+                    e.id,
+                )
+            })
             .collect();
         self.multi
             .update(cx, |multi, cx| multi.set_symbol_ids(ids, cx));
@@ -252,7 +257,7 @@ impl Dashboard {
                     Ok(Ok(symbol)) => {
                         let digits = u32::try_from(symbol.digits).unwrap_or(5);
                         let pip_position = symbol.pip_position;
-                        let hours = wyck_market::TradingHours::from_symbol(&symbol);
+                        let hours = wyck_domain::market::TradingHours::from_symbol(&symbol);
                         this.multi
                             .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                         this.details

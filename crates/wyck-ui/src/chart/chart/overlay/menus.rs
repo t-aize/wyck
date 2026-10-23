@@ -15,11 +15,11 @@ use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
 };
 use wyck_app::lost::lost;
-use wyck_chart::Zone;
-use wyck_chart::{Geometry, axis_h};
-use wyck_core::math::{f32_of, f64_to_i64, i64_to_f64};
-use wyck_drawings::book::Order;
-use wyck_market::format_price;
+use wyck_domain::base::math::{f32_of, f64_to_i64, i64_to_f64};
+use wyck_domain::chart::Zone;
+use wyck_domain::chart::{Geometry, axis_h};
+use wyck_domain::drawings::book::Order;
+use wyck_domain::market::format_price;
 
 impl Chart {
     /// The items for the drawing under the pointer, at the top of the right-click menu.
@@ -41,7 +41,7 @@ impl Chart {
                 chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
             }
         };
-        let long = drawing.tool == wyck_drawings::model::tool::Tool::LongPosition;
+        let long = drawing.tool == wyck_domain::drawings::model::tool::Tool::LongPosition;
         let settings = chart.clone();
         let mut about = vec![
             Entry::new("Settings...")
@@ -215,7 +215,7 @@ impl Chart {
                 .filter(|s| {
                     s.visible
                         && !s.is_script()
-                        && s.kind != wyck_indicators::kind::StudyKind::VolumeProfile
+                        && s.kind != wyck_domain::indicators::kind::StudyKind::VolumeProfile
                 })
                 .take(6)
             {

@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use wyck_core::flex;
+use wyck_domain::base::flex;
 
 /// `ProtoOAApplicationAuthReq`: identifies the application.
 #[derive(Serialize)]

@@ -50,7 +50,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tracing::{debug, info, trace, warn};
-use wyck_trading::guard::Mode;
+use wyck_domain::trading::guard::Mode;
 
 use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{Error, ErrorKind, Result};

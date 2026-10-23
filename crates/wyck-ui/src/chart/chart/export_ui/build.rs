@@ -8,10 +8,10 @@ use gpui::prelude::*;
 use gpui::{Context, Entity, SharedString, Window};
 use std::collections::BTreeMap;
 use wyck_app::chart_export as store;
-use wyck_chart::ColumnKey;
-use wyck_chart::Content;
-use wyck_chart::ExportOptions;
-use wyck_core::math::f64_to_u32;
+use wyck_domain::base::math::f64_to_u32;
+use wyck_domain::chart::ColumnKey;
+use wyck_domain::chart::Content;
+use wyck_domain::chart::ExportOptions;
 
 impl ExportDialog {
     pub(super) fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {

@@ -6,7 +6,7 @@ use crate::kit::menu as popup;
 use gpui::{App, Context, SharedString, Window};
 use wyck_app::lost::lost;
 use wyck_app::scripts as indicators;
-use wyck_indicators::custom::library::registry;
+use wyck_domain::indicators::custom::library::registry;
 
 impl IndicatorEditor {
     /// Puts the cursor at a place a problem points to.

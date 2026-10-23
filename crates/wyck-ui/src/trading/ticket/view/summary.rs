@@ -5,9 +5,9 @@ use super::{
     div, format_units, icon, number, px, theme, tokens,
 };
 use gpui::prelude::*;
-use wyck_core::math::{f32_of, i64_to_f64};
-use wyck_trading::amounts::format_money;
-use wyck_trading::contract::format_lots;
+use wyck_domain::base::math::{f32_of, i64_to_f64};
+use wyck_domain::trading::amounts::format_money;
+use wyck_domain::trading::contract::format_lots;
 
 impl OrderTicket {
     pub(super) fn summary(&self, f: &Frame) -> AnyElement {

@@ -2,8 +2,8 @@
 
 use super::{MAX_RECENT_COLORS, MAX_RECENT_TOOLS, MultiChart};
 use gpui::{Context, Window};
-use wyck_drawings::model::style::{Dash, MIN_LINE_OPACITY};
-use wyck_drawings::model::tool::{Group, Tool};
+use wyck_domain::drawings::model::style::{Dash, MIN_LINE_OPACITY};
+use wyck_domain::drawings::model::tool::{Group, Tool};
 
 impl MultiChart {
     pub(crate) fn pick_tool(&mut self, tool: Option<Tool>, cx: &mut Context<Self>) {
@@ -76,7 +76,7 @@ impl MultiChart {
     /// Enter: ends an arrow path with the points it has. Returns whether it did.
     pub fn finish_drawing(&mut self, cx: &mut Context<Self>) -> bool {
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, wyck_drawings::book::Book::finish)
+            drawings.edit(cx, wyck_domain::drawings::book::Book::finish)
         })
     }
 
@@ -97,7 +97,7 @@ impl MultiChart {
             return true;
         }
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, wyck_drawings::book::Book::cancel)
+            drawings.edit(cx, wyck_domain::drawings::book::Book::cancel)
         })
     }
 
@@ -120,7 +120,7 @@ impl MultiChart {
     pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
-        change: impl FnOnce(&mut wyck_drawings::book::Book, &str) -> bool,
+        change: impl FnOnce(&mut wyck_domain::drawings::book::Book, &str) -> bool,
     ) {
         let Some(symbol) = self.symbol_name(cx) else {
             return;
@@ -140,13 +140,13 @@ impl MultiChart {
 
     pub fn undo_drawing(&mut self, cx: &mut Context<Self>) {
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, wyck_drawings::book::Book::undo)
+            drawings.edit(cx, wyck_domain::drawings::book::Book::undo)
         });
     }
 
     pub fn redo_drawing(&mut self, cx: &mut Context<Self>) {
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, wyck_drawings::book::Book::redo)
+            drawings.edit(cx, wyck_domain::drawings::book::Book::redo)
         });
     }
 
@@ -156,7 +156,7 @@ impl MultiChart {
     }
 
     pub(crate) fn clear_drawings(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, wyck_drawings::book::Book::clear);
+        self.edit_book(cx, wyck_domain::drawings::book::Book::clear);
     }
 
     pub(crate) fn set_drawing_color(&mut self, color: u32, cx: &mut Context<Self>) {
@@ -183,11 +183,11 @@ impl MultiChart {
     }
 
     pub(crate) fn toggle_drawing_fill(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, wyck_drawings::book::Book::toggle_fill);
+        self.edit_book(cx, wyck_domain::drawings::book::Book::toggle_fill);
     }
 
     pub(crate) fn toggle_drawing_lock(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, wyck_drawings::book::Book::toggle_lock);
+        self.edit_book(cx, wyck_domain::drawings::book::Book::toggle_lock);
     }
 
     /// The words field changed: the selected text drawing says what it says.

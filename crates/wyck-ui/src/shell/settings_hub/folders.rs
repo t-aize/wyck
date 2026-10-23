@@ -15,7 +15,7 @@ use wyck_app::locations::{self, Row};
 use wyck_app::lost::lost;
 use wyck_app::storage::locations::Kind;
 use wyck_app::storage::relocate::{PlanError, Step};
-use wyck_core::math::u64_to_f64;
+use wyck_domain::base::math::u64_to_f64;
 
 /// A size in bytes as a few characters.
 fn size(bytes: u64) -> String {

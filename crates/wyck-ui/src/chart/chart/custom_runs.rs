@@ -29,7 +29,7 @@ use wyck_app::market_data::load::{self, Loaded};
 use wyck_app::market_data::now_ms;
 use wyck_app::scripts as indicators;
 use wyck_app::system::runtime;
-use wyck_chart::study_input;
+use wyck_domain::chart::study_input;
 
 /// What a run was made from, to know whether another is wanted.
 #[derive(Debug, Clone, PartialEq)]

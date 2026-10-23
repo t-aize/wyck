@@ -11,7 +11,7 @@ use crate::kit::{button, icon, theme, toast, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Window, div, px};
 use wyck_app::replay::{Phase, Replay, ReplayEvent};
-use wyck_chart::{REPLAY_RATES, REPLAY_STEP_HELP, parse_step};
+use wyck_domain::chart::{REPLAY_RATES, REPLAY_STEP_HELP, parse_step};
 
 use super::{Dashboard, MenuKind};
 use icon::IconName;

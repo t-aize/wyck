@@ -1,14 +1,14 @@
 //! What the user is told about their orders and about a failed request, in words.
 //!
-//! The account book (`wyck_trading::book`) says what happened as an [`Outcome`]; this module
+//! The account book (`wyck_domain::trading::book`) says what happened as an [`Outcome`]; this module
 //! turns it into a [`Notice`] the dashboard shows as a toast. A server refusal code and a failed
 //! request are put in sentences here too.
 
 use crate::broker::Error as ApiError;
-use wyck_trading::book::{OrderLine, Outcome};
-use wyck_trading::contract::format_lots;
-use wyck_trading::enums::OrderType;
-use wyck_trading::guard::{Lock, Refusal, Warning};
+use wyck_domain::trading::book::{OrderLine, Outcome};
+use wyck_domain::trading::contract::format_lots;
+use wyck_domain::trading::enums::OrderType;
+use wyck_domain::trading::guard::{Lock, Refusal, Warning};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {

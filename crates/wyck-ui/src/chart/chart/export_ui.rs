@@ -4,7 +4,7 @@
 //! change. The file is written, or the text copied, from a snapshot taken when the panel opened,
 //! so the numbers do not move under it while the chart goes on receiving prices.
 //!
-//! What the export contains is decided in `wyck-chart` (its export code); this is only the window on it.
+//! What the export contains is decided in `wyck_domain::chart` (its export code); this is only the window on it.
 
 mod build;
 pub(crate) mod format;
@@ -21,14 +21,14 @@ use std::collections::BTreeMap;
 use wyck_app::chart_export as store;
 use wyck_app::chart_export::Saved;
 use wyck_app::storage::DocumentStore;
-use wyck_chart::ColumnKey;
-use wyck_chart::Display;
-use wyck_chart::ExportOptions;
-use wyck_chart::Series;
-use wyck_chart::Source;
-use wyck_chart::Zone;
-use wyck_chart::{ChartKind, ChartSettings};
-use wyck_core::math::count_f64;
+use wyck_domain::base::math::count_f64;
+use wyck_domain::chart::ColumnKey;
+use wyck_domain::chart::Display;
+use wyck_domain::chart::ExportOptions;
+use wyck_domain::chart::Series;
+use wyck_domain::chart::Source;
+use wyck_domain::chart::Zone;
+use wyck_domain::chart::{ChartKind, ChartSettings};
 
 /// The most rows put on the clipboard: past it a file is the better way.
 const MAX_COPY_ROWS: usize = 250_000;

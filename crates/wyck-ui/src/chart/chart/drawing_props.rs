@@ -23,17 +23,17 @@ use crate::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use wyck_app::drawings::Drawings;
-use wyck_chart::Zone;
-use wyck_core::math::{count_f64, f32_of, f64_to_u32, f64_to_usize, i64_to_f64};
-use wyck_drawings::ICONS;
-use wyck_drawings::icon_key;
-use wyck_drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
-use wyck_drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
-use wyck_drawings::model::tool::Tool;
-use wyck_drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
-use wyck_drawings::wave_names;
-use wyck_market::PRICE_SCALE;
-use wyck_trading::atr_stop::{AtrStop, Smoothing};
+use wyck_domain::base::math::{count_f64, f32_of, f64_to_u32, f64_to_usize, i64_to_f64};
+use wyck_domain::chart::Zone;
+use wyck_domain::drawings::ICONS;
+use wyck_domain::drawings::icon_key;
+use wyck_domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+use wyck_domain::drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
+use wyck_domain::drawings::model::tool::Tool;
+use wyck_domain::drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
+use wyck_domain::drawings::wave_names;
+use wyck_domain::market::PRICE_SCALE;
+use wyck_domain::trading::atr_stop::{AtrStop, Smoothing};
 
 pub(crate) struct PropsContext {
     pub(crate) zone: Zone,
@@ -327,7 +327,7 @@ impl DrawingProps {
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .default_value(zone.format(point.t, wyck_chart::TIME_PATTERN))
+                        .default_value(zone.format(point.t, wyck_domain::chart::TIME_PATTERN))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
                 subscriptions.push(number::watch_parsed(

@@ -10,8 +10,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use wyck_app::market_data::live::LiveUpdate;
 use wyck_app::workspace::ChartState;
-use wyck_market::SpotEvent;
-use wyck_market::Timeframe;
+use wyck_domain::market::SpotEvent;
+use wyck_domain::market::Timeframe;
 
 impl MultiChart {
     pub(super) fn add_chart(&mut self, state: ChartState, cx: &mut Context<Self>) {
@@ -124,7 +124,7 @@ impl MultiChart {
 
     /// The broker said how a symbol is quoted.
     /// The symbols of the account arrived: `ids` has the id of each by name (see
-    /// [`wyck_indicators::custom::other::key_of`]).
+    /// [`wyck_domain::indicators::custom::other::key_of`]).
     pub fn set_symbol_ids(&mut self, ids: HashMap<String, i64>, cx: &mut Context<Self>) {
         self.symbol_ids = Arc::new(ids);
         for slot in &self.slots {
@@ -135,7 +135,12 @@ impl MultiChart {
     }
 
     /// A symbol's trading hours arrived.
-    pub fn set_hours(&mut self, id: i64, hours: wyck_market::TradingHours, cx: &mut Context<Self>) {
+    pub fn set_hours(
+        &mut self,
+        id: i64,
+        hours: wyck_domain::market::TradingHours,
+        cx: &mut Context<Self>,
+    ) {
         self.hours.insert(id, Arc::new(hours));
         self.give_hours(cx);
     }

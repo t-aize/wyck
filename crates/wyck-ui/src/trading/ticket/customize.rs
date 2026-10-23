@@ -16,8 +16,8 @@ use gpui::{AnyElement, App, Context, Entity, Subscription, Window};
 use super::OrderTicket;
 use crate::kit::{button, controls, form, form::Head, form::Tab, modal, number};
 use wyck_app::prefs::ticket::Layout;
-use wyck_core::math::f32_of;
-use wyck_trading::ticket::SizeMode;
+use wyck_domain::base::math::f32_of;
+use wyck_domain::trading::ticket::SizeMode;
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
 const PRESET_MODES: [(SizeMode, &str, &str); 5] = [

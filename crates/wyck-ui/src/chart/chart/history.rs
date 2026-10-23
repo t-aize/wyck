@@ -2,14 +2,14 @@
 //! connection, and the live prices.
 
 use std::time::{Duration, Instant};
-use wyck_chart::{
+use wyck_domain::chart::{
     apply_live_bar, fold_group, fold_tick, merge_bars, prepend_bars, prepend_ticks, splice_ticks,
     touch_last_bar, trim_front,
 };
 
 use gpui::Context;
 use wyck_app::broker::Result as ApiResult;
-use wyck_market::Tick;
+use wyck_domain::market::Tick;
 
 use super::{Chart, Load, Older, empty_series, flatten};
 use wyck_app::lost::lost;
@@ -18,14 +18,14 @@ use wyck_app::market_data::load;
 use wyck_app::market_data::load::Loaded;
 use wyck_app::market_data::now_ms;
 use wyck_app::system::runtime;
-use wyck_chart::{Display, View};
-use wyck_chart::{MAX_BARS, MAX_TICKS, Series};
-use wyck_core::math::count_f64;
-use wyck_market::Timeframe;
+use wyck_domain::base::math::count_f64;
+use wyck_domain::chart::{Display, View};
+use wyck_domain::chart::{MAX_BARS, MAX_TICKS, Series};
+use wyck_domain::market::Timeframe;
 
 impl Chart {
     /// ATR for this chart's symbol and the selected chart or dedicated timeframe.
-    pub fn atr_value(&self, settings: &wyck_trading::atr_stop::AtrStop) -> Option<f64> {
+    pub fn atr_value(&self, settings: &wyck_domain::trading::atr_stop::AtrStop) -> Option<f64> {
         let timeframe = settings
             .timeframe
             .as_deref()
@@ -54,7 +54,7 @@ impl Chart {
     /// Fetches an ATR timeframe that differs from the visible chart.
     pub fn request_atr(
         &mut self,
-        settings: &wyck_trading::atr_stop::AtrStop,
+        settings: &wyck_domain::trading::atr_stop::AtrStop,
         cx: &mut Context<Self>,
     ) {
         if self.replay.is_some() {

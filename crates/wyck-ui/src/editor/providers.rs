@@ -1,6 +1,6 @@
 //! What connects the words of a script to the editor of gpui: the colors, the folds, the list of
 //! names that opens while typing, and the help that shows under the pointer. The thinking is in
-//! [`wyck_indicators::custom::lexer`] and [`wyck_indicators::custom::assist`]; this only hands it over in the shape the editor takes.
+//! [`wyck_domain::indicators::custom::lexer`] and [`wyck_domain::indicators::custom::assist`]; this only hands it over in the shape the editor takes.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -16,10 +16,10 @@ use lsp_types::{
 };
 
 use crate::kit::theme;
-use wyck_indicators::custom::assist;
-use wyck_indicators::custom::assist::CandidateKind;
-use wyck_indicators::custom::lexer;
-use wyck_indicators::custom::lexer::{Kind, Token};
+use wyck_domain::indicators::custom::assist;
+use wyck_domain::indicators::custom::assist::CandidateKind;
+use wyck_domain::indicators::custom::lexer;
+use wyck_domain::indicators::custom::lexer::{Kind, Token};
 
 /// The name of the language, as the editor is told.
 pub(crate) const LANGUAGE: &str = "rhai";

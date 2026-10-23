@@ -27,9 +27,9 @@ use wyck_app::storage::backup::store::BackupEntry;
 use wyck_app::system::build_info::{BuildMode, VERSION};
 use wyck_app::updates;
 use wyck_app::workspace::{UsageLimits, Workspace};
-use wyck_chart::MAX_STUDIES;
-use wyck_core::math::{count_f64, f64_to_usize};
-use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
+use wyck_domain::base::math::{count_f64, f64_to_usize};
+use wyck_domain::chart::MAX_STUDIES;
+use wyck_domain::drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 
 mod about;
 

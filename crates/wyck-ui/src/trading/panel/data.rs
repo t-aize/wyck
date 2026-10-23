@@ -13,10 +13,10 @@ use crate::kit::tokens;
 use wyck_app::account::Account;
 use wyck_app::alerts::Alerts;
 use wyck_app::prefs::panel::Tab;
-use wyck_chart::Zone;
-use wyck_trading::amounts::format_amount;
-use wyck_trading::contract;
-use wyck_trading::contract::Contract;
+use wyck_domain::chart::Zone;
+use wyck_domain::trading::amounts::format_amount;
+use wyck_domain::trading::contract;
+use wyck_domain::trading::contract::Contract;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

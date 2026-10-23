@@ -7,7 +7,7 @@
 
 use super::load::History;
 use crate::broker::Result;
-use wyck_market::Tick;
+use wyck_domain::market::Tick;
 
 /// What a chunk aims for: big enough to be few requests, small enough to be quick and to waste
 /// little when the replay moves on before the answer comes.
@@ -91,7 +91,7 @@ mod tests {
 
     use super::*;
     use crate::broker::Error as ApiError;
-    use wyck_market::{Bar, Period};
+    use wyck_domain::market::{Bar, Period};
 
     /// A server with a tick every `every_ms` from `start` to `end`, and a log of the requests.
     struct Fake {

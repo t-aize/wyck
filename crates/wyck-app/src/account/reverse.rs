@@ -7,9 +7,9 @@ use crate::broker::trading::NewOrderReq;
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;
-use wyck_trading::ExecutionType;
-use wyck_trading::TradeSide;
-use wyck_trading::guard::Verdict;
+use wyck_domain::trading::ExecutionType;
+use wyck_domain::trading::TradeSide;
+use wyck_domain::trading::guard::Verdict;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ReverseOrder {
@@ -189,7 +189,7 @@ impl Account {
 mod tests {
 
     use super::{ReverseOrder, ReverseTracker};
-    use wyck_trading::ExecutionType;
+    use wyck_domain::trading::ExecutionType;
 
     fn order() -> ReverseOrder {
         ReverseOrder {

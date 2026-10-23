@@ -1,6 +1,6 @@
 //! The colors of the picker, and the conversions between hexadecimal text, RGB and HSV.
 
-use wyck_core::math::f32_to_u32;
+use wyck_domain::base::math::f32_to_u32;
 
 /// The colors of the theme offered to click: a row of grays, then eight hues in four shades.
 pub(crate) const PRESETS: [u32; 40] = [

@@ -1,7 +1,9 @@
 //! The request and response messages of the market calls.
 
 use serde::{Deserialize, Serialize};
-use wyck_market::{Asset, AssetClass, LightSymbol, Symbol, SymbolCategory, WireTick, WireTrendbar};
+use wyck_domain::market::{
+    Asset, AssetClass, LightSymbol, Symbol, SymbolCategory, WireTick, WireTrendbar,
+};
 
 /// `ProtoOASymbolsListReq`.
 #[derive(Debug, Serialize)]

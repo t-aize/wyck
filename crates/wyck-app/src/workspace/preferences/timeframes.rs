@@ -2,7 +2,7 @@
 //! the menu.
 
 use super::Preferences;
-use wyck_market::{QUICK, Timeframe};
+use wyck_domain::market::{QUICK, Timeframe};
 
 pub(super) fn default_favorite_timeframes() -> Vec<String> {
     QUICK.iter().map(|timeframe| timeframe.code()).collect()
@@ -95,7 +95,7 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_market::Period;
+    use wyck_domain::market::Period;
 
     #[test]
     fn favorite_timeframes_keep_menu_order_and_never_run_out() {

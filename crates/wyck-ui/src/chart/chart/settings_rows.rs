@@ -8,7 +8,7 @@ use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
 
 use super::Chart;
 use crate::kit::{controls, form, number, tokens};
-use wyck_chart::ChartSettings;
+use wyck_domain::chart::ChartSettings;
 
 pub(super) fn edit(
     chart: &Entity<Chart>,

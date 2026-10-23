@@ -5,12 +5,12 @@
 use crate::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
-use wyck_market::Symbol;
+use wyck_domain::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
 use crate::kit::{anim, icon, layout, theme, tokens};
-use wyck_core::math::{f64_to_i64, i64_to_f64};
+use wyck_domain::base::math::{f64_to_i64, i64_to_f64};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {
@@ -27,9 +27,13 @@ fn units(hundredths: i64) -> String {
     let whole = hundredths / 100;
     let rest = hundredths % 100;
     if rest == 0 {
-        wyck_core::format::grouped(whole)
+        wyck_domain::base::format::grouped(whole)
     } else {
-        format!("{}.{:02}", wyck_core::format::grouped(whole), rest.abs())
+        format!(
+            "{}.{:02}",
+            wyck_domain::base::format::grouped(whole),
+            rest.abs()
+        )
     }
 }
 
@@ -50,9 +54,9 @@ fn volume(hundredths: i64, lot_size: Option<i64>) -> String {
         Some(lot) => {
             let lots = i64_to_f64(hundredths) / i64_to_f64(lot);
             let text = if lots >= 1000.0 {
-                wyck_core::format::grouped(f64_to_i64(lots.round()))
+                wyck_domain::base::format::grouped(f64_to_i64(lots.round()))
             } else {
-                wyck_core::format::trim(lots, 4)
+                wyck_domain::base::format::trim(lots, 4)
             };
             let plural = if (lots - 1.0).abs() < f64::EPSILON {
                 ""

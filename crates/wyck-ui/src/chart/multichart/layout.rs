@@ -6,9 +6,9 @@ use super::split::Node;
 use super::{MultiChart, MultiChartEvent};
 use gpui::{Context, MouseButton, MouseMoveEvent};
 use wyck_app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
-use wyck_chart::ChartContent;
-use wyck_chart::ChartSettings;
-use wyck_market::Timeframe;
+use wyck_domain::chart::ChartContent;
+use wyck_domain::chart::ChartSettings;
+use wyck_domain::market::Timeframe;
 
 impl MultiChart {
     /// Arranges the charts as `key` says. Charts that stay keep their state, in order; new ones

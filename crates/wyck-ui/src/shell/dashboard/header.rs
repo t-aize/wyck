@@ -12,7 +12,7 @@ pub(crate) mod figures;
 pub(crate) mod timeframes;
 use super::{Conn, Dashboard, MenuKind, Tick};
 use crate::kit::{anim, icon, layout, theme, tokens};
-use wyck_core::math::count_f32;
+use wyck_domain::base::math::count_f32;
 
 /// The widest the subtitle of the symbol grows before it is cut.
 const SUBTITLE_MAX: f32 = 170.0;
@@ -358,7 +358,7 @@ impl Dashboard {
             .when(ready && problem.is_none(), |el| {
                 el.when(fit.equity, |el| {
                     el.child(figure(
-                        wyck_trading::amounts::format_money(summary.equity, &currency),
+                        wyck_domain::trading::amounts::format_money(summary.equity, &currency),
                         theme::fg(),
                     ))
                 })
@@ -366,7 +366,7 @@ impl Dashboard {
                     format!(
                         "{}{}",
                         if summary.unrealized > 0.0 { "+" } else { "" },
-                        wyck_trading::amounts::format_money(summary.unrealized, &currency)
+                        wyck_domain::trading::amounts::format_money(summary.unrealized, &currency)
                     ),
                     profit_color,
                 ))

@@ -40,11 +40,11 @@ use wyck_app::replay::Replay;
 use wyck_app::workspace::LinksPref;
 use wyck_app::workspace::layouts;
 use wyck_app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
-use wyck_chart::LineId;
-use wyck_drawings::model::tool::{Group, Tool};
-use wyck_indicators::config::StudyConfig;
-use wyck_market::LiveBarTracker;
-use wyck_market::Timeframe;
+use wyck_domain::chart::LineId;
+use wyck_domain::drawings::model::tool::{Group, Tool};
+use wyck_domain::indicators::config::StudyConfig;
+use wyck_domain::market::LiveBarTracker;
+use wyck_domain::market::Timeframe;
 
 /// How many recent tools and colors are kept.
 const MAX_RECENT_TOOLS: usize = 8;
@@ -105,7 +105,7 @@ pub struct MultiChart {
     /// Corrects the live bars of the price events before the charts see them.
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
-    hours: HashMap<i64, std::sync::Arc<wyck_market::TradingHours>>,
+    hours: HashMap<i64, std::sync::Arc<wyck_domain::market::TradingHours>>,
     /// The ids of the symbols of the account by name, for the indicators that read a second symbol.
     symbol_ids: std::sync::Arc<HashMap<String, i64>>,
     next_id: u64,

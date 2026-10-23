@@ -7,12 +7,12 @@
 //! between two parts of one surface is `theme::border_hairline`.
 //!
 //! Text, heights and widths follow the size of the interface the user chose (see
-//! [`wyck_core::text_scale`]): they are functions that give the base size times that scale, so the
+//! [`wyck_domain::base::text_scale`]): they are functions that give the base size times that scale, so the
 //! whole app grows or shrinks together and a person who needs larger text gets it everywhere.
 
 /// A base size at the scale in force.
 pub fn scaled(base: f32) -> f32 {
-    wyck_core::text_scale::scaled(base)
+    wyck_domain::base::text_scale::scaled(base)
 }
 
 /// Text sizes, in pixels.

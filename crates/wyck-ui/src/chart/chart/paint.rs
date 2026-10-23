@@ -3,7 +3,7 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
-use wyck_chart::{Hsla, PriceMark, build, fitted_origin, fitted_size, full_time, hsla};
+use wyck_domain::chart::{Hsla, PriceMark, build, fitted_origin, fitted_size, full_time, hsla};
 
 use gpui::prelude::*;
 use gpui::{
@@ -12,12 +12,12 @@ use gpui::{
     ScrollWheelEvent, SharedString, TextAlign, TextRun, Window, canvas, point, px, size,
 };
 
-use wyck_drawings::look::Face;
+use wyck_domain::drawings::look::Face;
 
 use super::Chart;
 use super::path_pieces;
-use wyck_chart::{Cmd, DrawingView, Frame, P};
-use wyck_core::math::f32_of;
+use wyck_domain::base::math::f32_of;
+use wyck_domain::chart::{Cmd, DrawingView, Frame, P};
 
 /// Most points in one path: a GPU path may only hold so many vertices (see [`super::path_pieces`]).
 const PATH_BATCH: usize = 3_000;
@@ -30,7 +30,7 @@ impl Chart {
             .drawings
             .as_ref()
             .and_then(|drawings| drawings.read(cx).book().horizon());
-        let visible = move |d: &wyck_drawings::model::Drawing| {
+        let visible = move |d: &wyck_domain::drawings::model::Drawing| {
             d.shows_on(&timeframe)
                 && horizon.is_none_or(|h| d.first_time().is_none_or(|time| time <= h))
         };

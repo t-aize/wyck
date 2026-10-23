@@ -10,7 +10,7 @@
 use std::time::Duration;
 
 use secrecy::SecretString;
-use wyck_trading::guard::Mode;
+use wyck_domain::trading::guard::Mode;
 
 /// The port of the JSON endpoint. TCP and WebSocket both work on it; this crate uses WebSocket.
 pub(crate) const JSON_PORT: u16 = 5036;

@@ -8,9 +8,9 @@ use crate::kit::icon::IconName;
 use crate::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
-use wyck_chart::{Geometry, axis_w};
-use wyck_chart::{compact, format_value, signed};
-use wyck_core::math::{count_f32, count_i64, f32_of};
+use wyck_domain::base::math::{count_f32, count_i64, f32_of};
+use wyck_domain::chart::{Geometry, axis_w};
+use wyck_domain::chart::{compact, format_value, signed};
 
 impl Chart {
     /// The background of a button of the legend while the pointer is over it. It is made from the
@@ -274,7 +274,7 @@ impl Chart {
             Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
-            Some((wyck_drawings::model::tool::Tool::ArrowPath, placed, _)) => format!(
+            Some((wyck_domain::drawings::model::tool::Tool::ArrowPath, placed, _)) => format!(
                 "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),
@@ -327,10 +327,11 @@ impl Chart {
 
     /// A dot that says whether the symbol's market is open, with when it opens or closes.
     pub(super) fn market_dot(&self) -> Option<AnyElement> {
-        use wyck_market::MarketStatus;
+        use wyck_domain::market::MarketStatus;
         let status = self.market_status()?;
         let now = self.clock_ms();
-        let within = |at: Option<i64>| at.map(|t| wyck_drawings::geometry::duration_text(t - now));
+        let within =
+            |at: Option<i64>| at.map(|t| wyck_domain::drawings::geometry::duration_text(t - now));
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (
                 theme::emerald(),
@@ -409,7 +410,11 @@ impl Chart {
     /// The volume, the delta and what each side traded in the bar that opens at `time_ms`, added to
     /// the legend of a footprint.
     pub(super) fn flow_values(&self, time_ms: i64, row: gpui::Div) -> gpui::Div {
-        let Some((sell, buy)) = self.flow.bar(time_ms).map(wyck_chart::BarFlow::totals) else {
+        let Some((sell, buy)) = self
+            .flow
+            .bar(time_ms)
+            .map(wyck_domain::chart::BarFlow::totals)
+        else {
             return row;
         };
         let delta =

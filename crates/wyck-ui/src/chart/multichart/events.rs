@@ -6,7 +6,7 @@ use crate::chart::chart::Chart;
 use crate::chart::chart::events::ChartEvent;
 use crate::chart::chart::raster::PICTURE_SCALE;
 use gpui::{Context, Entity};
-use wyck_core::math::u32_to_f32;
+use wyck_domain::base::math::u32_to_f32;
 
 impl MultiChart {
     pub fn picture(&mut self, cx: &mut Context<Self>) {

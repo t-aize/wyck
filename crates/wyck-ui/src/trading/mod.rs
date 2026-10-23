@@ -1,6 +1,6 @@
 //! The trading screens: the order ticket ([`ticket`]) and the account panel under the charts
 //! ([`panel`]). The account itself, the book and the arithmetic of lots, pips and profit are
-//! `wyck-app` and `wyck-trading`.
+//! `wyck-app` and `wyck_domain::trading`.
 //!
 //! On the charts, positions, their stop loss and take profit, working orders, alerts and the
 //! ticket's pending prices show as lines ([`lines`] builds them); dragging one moves what it
@@ -13,10 +13,10 @@ use std::collections::HashMap;
 
 use crate::chart::chart::ChartLine;
 use wyck_app::alerts::AlertBook;
-use wyck_chart::LineId;
-use wyck_drawings::model::style::Dash;
-use wyck_trading::book::AccountBook;
-use wyck_trading::{amounts, contract};
+use wyck_domain::chart::LineId;
+use wyck_domain::drawings::model::style::Dash;
+use wyck_domain::trading::book::AccountBook;
+use wyck_domain::trading::{amounts, contract};
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`
@@ -108,7 +108,9 @@ pub fn lines(
         } else {
             "Sell"
         };
-        let kind = order.kind().map_or("order", wyck_trading::OrderType::label);
+        let kind = order
+            .kind()
+            .map_or("order", wyck_domain::trading::OrderType::label);
         let lots = contract::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = order.limit_price.or(order.stop_price) {
@@ -171,7 +173,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use wyck_app::alerts::Condition;
-    use wyck_trading::{Order, Position};
+    use wyck_domain::trading::{Order, Position};
 
     #[test]
     fn every_position_order_and_alert_gets_its_lines() {

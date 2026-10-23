@@ -1,8 +1,8 @@
 //! The ticks of one symbol that a replay holds, the times of its ticks for the clock, and whether
 //! the broker has ticks at the place the replay starts.
 
-use wyck_chart::{ReplayTimeline, prepend_ticks};
-use wyck_market::Tick;
+use wyck_domain::chart::{ReplayTimeline, prepend_ticks};
+use wyck_domain::market::Tick;
 
 use super::plan::Coverage;
 use crate::market_data::replay_ticks::{FIRST_SPAN_MS, TickChunk, next_span_ms};

@@ -9,7 +9,7 @@ use gpui::{Context, Window, div, px};
 use wyck_app::alerts::model::source::{PnlScope, PriceKind};
 use wyck_app::alerts::sound::SoundKind;
 use wyck_app::alerts::{Condition, Source, Trigger};
-use wyck_indicators::config::StudyConfig;
+use wyck_domain::indicators::config::StudyConfig;
 
 impl Render for AlertEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -285,7 +285,7 @@ impl Render for AlertEditor {
         if self.draft.needs_bars() || trigger == Trigger::OncePerBar {
             let tf_this = cx.entity();
             let current = self.draft.timeframe.clone();
-            let frames: Vec<wyck_market::Timeframe> = wyck_market::QUICK
+            let frames: Vec<wyck_domain::market::Timeframe> = wyck_domain::market::QUICK
                 .into_iter()
                 .filter(|t| t.bar_ms().is_some())
                 .collect();
@@ -304,8 +304,8 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text = wyck_market::Timeframe::from_code(&current)
-                .map_or(current.clone(), wyck_market::Timeframe::label);
+            let text = wyck_domain::market::Timeframe::from_code(&current)
+                .map_or(current.clone(), wyck_domain::market::Timeframe::label);
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),
@@ -376,7 +376,7 @@ impl Render for AlertEditor {
                         .gap_2()
                         .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
-                        .child(wyck_chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
+                        .child(wyck_domain::chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
                         .child(div().text_color(theme::fg()).child(f.text.clone())),
                 )
             })

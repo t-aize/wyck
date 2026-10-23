@@ -6,8 +6,8 @@ use crate::trading::panel::stats;
 use std::collections::BTreeMap;
 use wyck_app::account::Account;
 use wyck_app::prefs::panel::Tab;
-use wyck_trading::Position;
-use wyck_trading::contract;
+use wyck_domain::trading::Position;
+use wyck_domain::trading::contract;
 
 /// What the account holds on one symbol.
 #[derive(Default)]

@@ -1,16 +1,11 @@
 ---
 paths:
-  - "crates/wyck-core/**"
-  - "crates/wyck-market/**"
-  - "crates/wyck-trading/**"
-  - "crates/wyck-drawings/**"
-  - "crates/wyck-indicators/**"
-  - "crates/wyck-chart/**"
+  - "crates/wyck-domain/**"
 ---
 
-# Domain crates
+# The domain crate
 
-These crates are pure: no window, no file, no socket, no `gpui`, no `tokio`, no `reqwest`, no
+This crate is pure: no window, no file, no socket, no `gpui`, no `tokio`, no `reqwest`, no
 `keyring`. `cargo xtask deps` fails on such a dependency.
 
 - A price is the server's raw integer until the last step; a float is for the screen.
@@ -18,5 +13,5 @@ These crates are pure: no window, no file, no socket, no `gpui`, no `tokio`, no 
   not know becomes a default, never an error.
 - A saved name or code (`Tool`, `ChartKind`, a serde field) is never renamed without an alias and a
   migration.
-- Work per frame is bounded by the screen, not by the data (`wyck-chart`).
-- Money maths and the order guard (`wyck-trading`) are not weakened to make a test pass.
+- Work per frame is bounded by the screen, not by the data (`chart`).
+- Money maths and the order guard (`trading`) are not weakened to make a test pass.

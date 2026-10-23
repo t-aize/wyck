@@ -7,13 +7,13 @@ use crate::kit::number;
 use gpui::{App, Context, SharedString, Window};
 use wyck_app::broker::trading::NewOrderReq;
 use wyck_app::market_data::now_ms;
-use wyck_core::math::f64_to_u32;
-use wyck_trading::NewOrderType;
-use wyck_trading::follow::AtrFollow;
-use wyck_trading::plan;
-use wyck_trading::ticket::TicketProblem;
-use wyck_trading::{TimeInForce, TradeSide};
-use wyck_trading::{amounts, contract, ticket};
+use wyck_domain::base::math::f64_to_u32;
+use wyck_domain::trading::NewOrderType;
+use wyck_domain::trading::follow::AtrFollow;
+use wyck_domain::trading::plan;
+use wyck_domain::trading::ticket::TicketProblem;
+use wyck_domain::trading::{TimeInForce, TradeSide};
+use wyck_domain::trading::{amounts, contract, ticket};
 
 impl OrderTicket {
     /// The order as it would be sent, or why it cannot be.
@@ -231,7 +231,7 @@ impl OrderTicket {
     /// timeframe it is read on (the chart's own when none was picked). `None` when the option is
     /// off, the order is not a pending one, the stop is not an ATR one, or the ticket follows a
     /// drawing, which has its own ATR.
-    fn follow_base(&self, cx: &App) -> Option<wyck_trading::atr_stop::AtrStop> {
+    fn follow_base(&self, cx: &App) -> Option<wyck_domain::trading::atr_stop::AtrStop> {
         if !(self.follow_atr && self.stop_atr && self.kind.is_pending() && self.link.is_none()) {
             return None;
         }

@@ -7,9 +7,9 @@ use crate::kit::prelude::Disableable;
 use crate::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
-use wyck_chart::ExportOptions;
-use wyck_chart::PREVIEW_ROWS;
-use wyck_chart::{Content, Order, RangeKind};
+use wyck_domain::chart::ExportOptions;
+use wyck_domain::chart::PREVIEW_ROWS;
+use wyck_domain::chart::{Content, Order, RangeKind};
 
 impl ExportDialog {
     pub(super) fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {

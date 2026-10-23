@@ -9,8 +9,8 @@ use serde_json::Value;
 use wyck_app::account::Busy;
 use wyck_app::market_data::now_ms;
 use wyck_app::prefs::panel::Tab;
-use wyck_trading::contract;
-use wyck_trading::{OrderType, money};
+use wyck_domain::trading::contract;
+use wyck_domain::trading::{OrderType, money};
 
 /// How far back the history reaches, in days.
 const HISTORY_DAYS: i64 = 7;
