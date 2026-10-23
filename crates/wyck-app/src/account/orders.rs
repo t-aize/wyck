@@ -7,9 +7,9 @@ use crate::broker::{Error as ApiError, Event, Result as ApiResult};
 use crate::lost::lost;
 use crate::system::runtime;
 use gpui::Context;
-use wyck_trading::doubt::InDoubt;
-use wyck_trading::guard;
-use wyck_trading::guard::{Blocked, Cleared, Verdict};
+use wyck_domain::trading::doubt::InDoubt;
+use wyck_domain::trading::guard;
+use wyck_domain::trading::guard::{Blocked, Cleared, Verdict};
 
 impl Account {
     /// Runs a trading call; on failure says why and reads the account again (the call may have
@@ -17,7 +17,7 @@ impl Account {
     pub(super) fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
         F: FnOnce(crate::broker::trading::TradingClient) -> Fut + Send + 'static,
-        Fut: Future<Output = ApiResult<wyck_trading::ExecutionEvent>> + Send + 'static,
+        Fut: Future<Output = ApiResult<wyck_domain::trading::ExecutionEvent>> + Send + 'static,
     {
         if !self.busy.insert(busy) {
             return;
@@ -232,7 +232,7 @@ impl Account {
     /// The account was read again: tells the user what became of each new order whose answer never
     /// came. Nothing is sent from here; whether to send an order again is the user's to decide.
     pub(super) fn settle_in_doubt(&mut self, cx: &mut Context<Self>) {
-        use wyck_trading::doubt::Found;
+        use wyck_domain::trading::doubt::Found;
         for doubt in std::mem::take(&mut self.in_doubt) {
             let found = doubt.find(
                 self.book.orders.values(),
@@ -247,7 +247,7 @@ impl Account {
             let what = format!(
                 "your {} order of {} lots on {name}",
                 if doubt.buy { "buy" } else { "sell" },
-                wyck_trading::contract::format_lots(lots)
+                wyck_domain::trading::contract::format_lots(lots)
             );
             let notice = match found {
                 Found::Working { .. } => Notice::new(
@@ -417,7 +417,7 @@ impl Account {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_trading::TradeSide;
+    use wyck_domain::trading::TradeSide;
 
     #[test]
     fn a_plan_is_checked_as_its_biggest_side_with_the_volumes_added_up() {

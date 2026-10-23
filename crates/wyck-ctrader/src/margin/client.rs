@@ -2,7 +2,7 @@
 
 use super::ExpectedMarginRes;
 use super::requests::ExpectedMarginReq as MarginReq;
-use wyck_trading::ExpectedMargin;
+use wyck_domain::trading::ExpectedMargin;
 
 use crate::connection::{Client, RateClass};
 use crate::error::Result;

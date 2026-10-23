@@ -32,7 +32,7 @@ use tracing::{debug, warn};
 
 use crate::config::ClientCredentials;
 use crate::error::{Error, Result};
-use wyck_core::flex;
+use wyck_domain::base::flex;
 
 /// The consent page, where the user grants access.
 pub(crate) const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";

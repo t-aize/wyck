@@ -1,3 +1,6 @@
-//! The async runtime and build facts (`wyck-platform`), as the screens reach them.
+//! The log files, the async runtime and the build facts, as the screens reach them.
 
-pub use wyck_platform::*;
+pub mod logging;
+pub mod runtime;
+
+pub use wyck_storage::build_info;

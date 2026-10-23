@@ -3,7 +3,7 @@
 use super::{Account, Busy, Notice, Tone};
 use crate::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
 use gpui::Context;
-use wyck_trading::TradeSide;
+use wyck_domain::trading::TradeSide;
 
 /// Who asks for a change of protection. The user can be refused (a replay is on); what the app
 /// does for a plan it was told to keep (break-even, OCO, an ATR following) never is: it protects

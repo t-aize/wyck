@@ -4,7 +4,7 @@ The one place that decides where the app's files live, how they are written, and
 secret is kept: the config, the documents (layouts, drawings, favorites), the indicator scripts, the
 backups, the credentials and the encryption behind them. No screen, no network.
 
-Depends on: `wyck-clock`, `wyck-platform`, `serde`, `serde_json`, `toml`, `secrecy`, `zeroize`, `keyring`,
+Depends on: `wyck-clock`, `serde`, `serde_json`, `toml`, `secrecy`, `zeroize`, `keyring`,
 `directories`, `argon2`, `chacha20poly1305`, `getrandom`, `uuid`, `thiserror`, `tracing`
 (`proptest` and `tempfile` in tests only).
 Used by: `wyck`, `wyck-app`.
@@ -19,6 +19,7 @@ app names them.
 | (root) | `WyckConfig` (open it, add profiles, read secrets, `documents()`, `backups()`, `diagnose()`), `AppConfig`, `ProfileConfig`, `ProfileId`, `AppPaths`, `DocumentStore`, `SecretStore` and `SecretKey`, `ConfigError` and `Result`, `atomic_write`. |
 | `paths` | `AppPaths`: the standard folders of the system, or the ones the environment or the user chose. |
 | `locations`, `relocate` | Where each kind of data lives and the file that says so (public): `kind` (the five kinds), `pointer` (`locations.toml`), `folder` (can a folder be used, its marker), `cloud` (cloud folders, sync conflict copies). Moving a kind to another folder, staged and made at the next start (public): `planning` (what a move would do), `staging` (the file that waits), `applying` (the start-up move), `copying` (copy and read back), `left_behind` (old folders kept aside). |
+| `build_info` | `BuildMode` (`Development` or `Production`, fixed by `debug_assertions`) and `VERSION` (the version of the workspace); a development build and the installed app stay apart because folders and the keyring service are named after the mode (public). |
 | `identity` | The names a build keeps its state under, so a development build never shares a folder or a credential with the installed app (public). |
 | `documents` | `DocumentStore`: typed TOML documents, one file each, with a `schema_version`. |
 | `migrate` | Upgrading a saved file step by step when its layout changes (public). |
@@ -74,4 +75,4 @@ candidates for deletion with their tests in Phase 6. Run: `cargo test -p wyck-st
 - Do not write a file without `atomic_write`, nor build a path from a name that did not go through
   `names`.
 - Do not put a secret in an error, a log line, the config or a document.
-- Do not depend on any crate above `wyck-platform`.
+- Do not depend on any crate of the workspace but `wyck-clock`: this is the bottom of the infrastructure.

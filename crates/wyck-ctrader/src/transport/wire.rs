@@ -14,7 +14,7 @@
 //!
 //! Numbers in JSON may be written as numbers or as strings (a 64 bit id or a price is often sent
 //! as text by protobuf's JSON mapping), so every integer field across this crate's messages
-//! accepts both (see [`wyck_core::flex`]).
+//! accepts both (see [`wyck_domain::base::flex`]).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -244,7 +244,7 @@ impl Envelope {
 mod tests {
     use super::*;
     use serde_json::json;
-    use wyck_core::flex;
+    use wyck_domain::base::flex;
 
     #[test]
     fn a_request_serializes_with_camel_case_keys() {

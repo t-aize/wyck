@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use wyck_indicators::custom::Limits;
+use wyck_domain::indicators::custom::Limits;
 
 pub(crate) const DOCUMENT: &str = "indicators";
 
@@ -47,11 +47,13 @@ impl Budget {
             Self::Light => Limits {
                 operations: 5_000_000,
                 time: Duration::from_secs(2),
+                memory: Limits::DEFAULT_MEMORY / 2,
             },
             Self::Normal => Limits::default(),
             Self::Heavy => Limits {
                 operations: 100_000_000,
                 time: Duration::from_secs(10),
+                memory: Limits::DEFAULT_MEMORY * 2,
             },
         }
     }
@@ -60,7 +62,7 @@ impl Budget {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prefs {
     /// Whether the folder is read again every moment, so a file edited elsewhere shows up.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub auto_reload: bool,
     #[serde(default)]
     pub budget: Budget,

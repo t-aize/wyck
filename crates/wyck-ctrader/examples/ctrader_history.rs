@@ -12,7 +12,7 @@
 #![expect(clippy::print_stdout, reason = "an example talks to the terminal")]
 
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
-use wyck_market::{Period, to_price};
+use wyck_domain::market::{Period, to_price};
 
 fn var(name: &str) -> wyck_ctrader::Result<String> {
     // A `.env` file is optional: the variables may already be in the environment.

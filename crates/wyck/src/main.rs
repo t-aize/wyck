@@ -1,15 +1,10 @@
 //! Wyck, a desktop trading terminal for cTrader: the program that starts the app and opens its
-//! window. Every screen is a `wyck-ui-*` crate and everything else is a library crate of the
+//! window. Every screen is in `wyck-ui` and everything else is a library crate of the
 //! workspace; this file only puts them together.
 
 // A release build on Windows is a window app: without this the system opens a console beside it.
 // A debug build keeps the console, where the logs are printed.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-#[cfg(test)]
-mod keymap_guard;
-#[cfg(test)]
-mod no_inline_colors;
 
 use std::borrow::Cow;
 
@@ -18,14 +13,14 @@ use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use wyck_app::appearance;
 use wyck_app::scripts;
 use wyck_app::shortcuts::ShortcutPrefs;
+use wyck_app::system::logging;
 use wyck_app::updates;
-use wyck_core::math::u32_to_f32;
-use wyck_platform::build_info::{self, BuildMode};
-use wyck_platform::logging;
+use wyck_domain::base::math::u32_to_f32;
 use wyck_storage::AppPaths;
 use wyck_storage::backup::staged::{self, Applied};
-use wyck_ui_kit::assets;
-use wyck_ui_shell::app_view::AppView;
+use wyck_storage::build_info::{self, BuildMode};
+use wyck_ui::kit::assets;
+use wyck_ui::shell::app_view::AppView;
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -35,17 +30,17 @@ const APP_ID: &str = "sh.wyck.wyck";
 
 fn main() {
     start_logging();
-    wyck_ui_kit::application()
+    wyck_ui::kit::application()
         .with_assets(assets::Assets)
         .run(|cx: &mut App| {
-            wyck_ui_kit::init(cx);
+            wyck_ui::kit::init(cx);
             // A process that exits does not wait for the log worker: write out what it holds.
             cx.on_app_quit(|_| async { logging::flush() }).detach();
             updates::init(cx);
             // The saved look is in force before a window opens, so the first frame is the right one.
             prepare_saved_data(cx);
-            wyck_ui_editor::init(cx);
-            wyck_ui_shell::keymap::apply(&ShortcutPrefs::default(), cx);
+            wyck_ui::editor::init(cx);
+            wyck_ui::shell::keymap::apply(&ShortcutPrefs::default(), cx);
             load_font(cx);
             cx.on_window_closed(|cx, _window_id| {
                 if cx.windows().is_empty() {
@@ -58,8 +53,8 @@ fn main() {
                 cx.quit();
                 return;
             }
-            updates::check(cx, Some(wyck_ui_shell::settings_hub::announce_update));
-            wyck_ui_shell::settings_hub::announce_folders(cx);
+            updates::check(cx, Some(wyck_ui::shell::settings_hub::announce_update));
+            wyck_ui::shell::settings_hub::announce_folders(cx);
             cx.activate(true);
         });
     logging::flush();
@@ -83,7 +78,7 @@ fn start_logging() {
 /// saved look and the scripts in force. Without a folder for the app, the default look is used.
 fn prepare_saved_data(cx: &mut App) {
     let Some(paths) = wyck_app::app_paths() else {
-        wyck_ui_kit::theme::apply(cx);
+        wyck_ui::kit::theme::apply(cx);
         scripts::init(None, cx);
         return;
     };
@@ -105,7 +100,7 @@ fn prepare_saved_data(cx: &mut App) {
     if !migrated.is_empty() {
         tracing::info!(?migrated, "brought the saved documents to this version");
     }
-    appearance::init(paths.documents(), wyck_ui_kit::theme::put_in_force, cx);
+    appearance::init(paths.documents(), wyck_ui::kit::theme::put_in_force, cx);
     scripts::init(Some(paths), cx);
     keep_a_daily_copy(paths, cx);
 }
@@ -155,7 +150,7 @@ fn open_main_window(cx: &mut App) -> bool {
         // The size of the interface the user chose, for what is sized in rems.
         window.set_rem_size(px(16.0 * u32_to_f32(appearance::get(cx).ui_scale) / 100.0));
         let shell = cx.new(|cx| AppView::new(window, cx));
-        cx.new(|cx| wyck_ui_kit::Root::new(shell, window, cx))
+        cx.new(|cx| wyck_ui::kit::Root::new(shell, window, cx))
     });
     if let Err(error) = &opened {
         tracing::error!(%error, "could not open the main window");

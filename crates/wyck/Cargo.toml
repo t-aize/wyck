@@ -59,15 +59,10 @@ gpui.workspace = true
 tracing.workspace = true
 wyck-app.workspace = true
 wyck-clock.workspace = true
-wyck-core.workspace = true
-wyck-platform.workspace = true
+wyck-domain.workspace = true
 wyck-storage.workspace = true
-wyck-ui-editor.workspace = true
-wyck-ui-kit.workspace = true
-wyck-ui-shell.workspace = true
+wyck-ui.workspace = true
 
-[dev-dependencies]
-tempfile.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 winresource.workspace = true

@@ -16,7 +16,7 @@
 //! | `history` | `history::fetch_bars`, `history::fetch_ticks`: whole ranges, paged |
 //!
 //! What the calls return (symbols, bars, ticks, price and depth events) is defined by the
-//! `wyck_market` crate.
+//! `wyck_domain::market` crate.
 
 mod client;
 mod history;

@@ -5,7 +5,7 @@ The one place the workspace reads the wall clock. Nothing else calls `SystemTime
 `SystemClock::now` in this crate.
 
 Depends on: nothing (std only).
-Used by: `wyck`, `wyck-app`, `wyck-ctrader`, `wyck-platform`, `wyck-storage`, `wyck-ui-shell`,
+Used by: `wyck`, `wyck-app`, `wyck-ctrader`, `wyck-storage`, `wyck-ui`,
 `xtask`.
 
 ## Module map

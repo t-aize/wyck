@@ -93,7 +93,7 @@ pub struct Alert {
     #[serde(default, skip_serializing)]
     pub(crate) repeat: bool,
     /// Whether it is watching.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub active: bool,
     /// When it last fired, in Unix milliseconds, and how many times.
     #[serde(default)]
@@ -251,7 +251,7 @@ impl Alert {
             Source::Indicator { study, .. }
                 if !matches!(
                     study.kind.spec().format,
-                    wyck_indicators::spec::ValueFormat::Price
+                    wyck_domain::indicators::spec::ValueFormat::Price
                 ) =>
             {
                 trim_number(self.price)
@@ -370,7 +370,7 @@ impl AlertBook {
                 alert.amount = 0.0;
             }
             alert.minutes = alert.minutes.min(24 * 60 * 30);
-            if wyck_market::Timeframe::from_code(&alert.timeframe).is_none() {
+            if wyck_domain::market::Timeframe::from_code(&alert.timeframe).is_none() {
                 alert.timeframe = default_timeframe();
             }
         }
@@ -520,9 +520,9 @@ impl AlertBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_core::math::count_i64;
-    use wyck_indicators::config::StudyConfig;
-    use wyck_indicators::kind::StudyKind;
+    use wyck_domain::base::math::count_i64;
+    use wyck_domain::indicators::config::StudyConfig;
+    use wyck_domain::indicators::kind::StudyKind;
 
     #[test]
     fn a_lower_alert_limit_blocks_new_alerts_without_removing_saved_ones() {

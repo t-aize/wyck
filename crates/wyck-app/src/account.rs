@@ -4,7 +4,7 @@
 //! On every (re)connection it asks what the account holds (balance, positions, orders, recent
 //! deals); after that the server's execution events keep it current. The profit of the positions
 //! is asked every two seconds while any are open, and follows the prices in between (see
-//! [`wyck_trading::profit::live_net`]).
+//! [`wyck_domain::trading::profit::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
 //! the non-idempotency notes of [`crate::broker::trading`]), so after a failed call the account is
@@ -28,17 +28,17 @@ use gpui::{Context, EventEmitter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use wyck_core::math::i64_to_f64;
-use wyck_market::PRICE_SCALE;
-use wyck_trading::book::AccountBook;
-use wyck_trading::conversion::Link;
-use wyck_trading::doubt::InDoubt;
-use wyck_trading::guard;
-use wyck_trading::guard::{
+use wyck_domain::base::math::i64_to_f64;
+use wyck_domain::market::PRICE_SCALE;
+use wyck_domain::trading::book::AccountBook;
+use wyck_domain::trading::conversion::Link;
+use wyck_domain::trading::doubt::InDoubt;
+use wyck_domain::trading::guard;
+use wyck_domain::trading::guard::{
     Blocked, Cleared, DuplicateGuard, Lock, Mode, OrderFacts, Refusal, RiskPrefs, Standing, Verdict,
 };
-use wyck_trading::summary::Summary;
-use wyck_trading::{amounts, conversion};
+use wyck_domain::trading::summary::Summary;
+use wyck_domain::trading::{amounts, conversion};
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;
@@ -104,7 +104,7 @@ pub struct Account {
     in_doubt: Vec<InDoubt>,
     /// The limits that keep the account safe, and the zone the day is counted in.
     risk: RiskPrefs,
-    zone: wyck_chart::Zone,
+    zone: wyck_domain::chart::Zone,
     duplicates: DuplicateGuard,
     /// Orders sent by this app today, as (day, count).
     sent_today: (i64, u32),
@@ -175,7 +175,7 @@ impl Account {
             placing: None,
             in_doubt: Vec::new(),
             risk: RiskPrefs::default(),
-            zone: wyck_chart::Zone::default(),
+            zone: wyck_domain::chart::Zone::default(),
             duplicates: DuplicateGuard::default(),
             sent_today: (0, 0),
             reversals: reverse::ReverseTracker::default(),
@@ -219,7 +219,12 @@ impl Account {
     }
 
     /// Sets the safety limits and the zone the day is counted in.
-    pub fn set_risk(&mut self, risk: RiskPrefs, zone: wyck_chart::Zone, cx: &mut Context<Self>) {
+    pub fn set_risk(
+        &mut self,
+        risk: RiskPrefs,
+        zone: wyck_domain::chart::Zone,
+        cx: &mut Context<Self>,
+    ) {
         if self.risk != risk || self.zone != zone {
             self.risk = risk;
             self.zone = zone;

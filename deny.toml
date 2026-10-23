@@ -34,7 +34,7 @@ ignore = [
   # Re-check on 2027-01-15, or when usvg moves to harfrust.
   { id = "RUSTSEC-2026-0206", reason = "unmaintained, no fix; shapes the app's own SVG icons" },
   # RUSTSEC-2026-0249, `smartstring` is unmaintained. Pulled by rhai 1.26.1 (the indicator
-  # scripts engine of wyck-indicators); no patched version exists. Re-check on 2027-01-15, or at
+  # scripts engine of wyck-domain); no patched version exists. Re-check on 2027-01-15, or at
   # the next rhai release.
   { id = "RUSTSEC-2026-0249", reason = "unmaintained, no fix; only through rhai" },
   # RUSTSEC-2026-0370, RUSTSEC-2026-0371 and RUSTSEC-2026-0372: `zvariant`, `zbus_names` and

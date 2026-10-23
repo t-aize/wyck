@@ -11,7 +11,7 @@
 //! A tick request may span at most one week, so a longer range is cut into windows of just under a
 //! week ([`tick_windows`]). Inside a window the server returns the **newest** ticks first, so when
 //! `hasMore` is set the next request asks for the part before the oldest tick received. Bid and ask
-//! ticks are separate requests; [`wyck_market::merge_sides`] joins them into quotes.
+//! ticks are separate requests; [`wyck_domain::market::merge_sides`] joins them into quotes.
 //!
 //! # Bars
 //!
@@ -23,8 +23,8 @@
 
 use super::client::MarketClient;
 use crate::error::{Error, Result};
-use wyck_market::{Bar, Period};
-use wyck_market::{QuoteType, Tick};
+use wyck_domain::market::{Bar, Period};
+use wyck_domain::market::{QuoteType, Tick};
 
 impl MarketClient {
     /// Every bar of `period` in `[from_ms, to_ms]`, paged. See `fetch_bars`.

@@ -8,10 +8,10 @@ use crate::lost::lost;
 use crate::system::runtime;
 use gpui::Context;
 use std::collections::HashMap;
-use wyck_trading::ExecutionType;
-use wyck_trading::PositionStatus;
-use wyck_trading::contract::Contract;
-use wyck_trading::conversion::Link;
+use wyck_domain::trading::ExecutionType;
+use wyck_domain::trading::PositionStatus;
+use wyck_domain::trading::contract::Contract;
+use wyck_domain::trading::conversion::Link;
 
 impl Account {
     /// Asks the server once how the currency of `symbol_id` converts into the deposit one, and

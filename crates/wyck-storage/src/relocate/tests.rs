@@ -3,12 +3,12 @@ use super::staging::{Staged, StagedChange};
 use super::tree::within;
 use super::*;
 use crate::DocumentStore;
+use crate::build_info::BuildMode;
 use crate::error::ConfigError;
 use crate::locations::{self, Kind, Locations};
 use crate::paths::AppPaths;
 use std::fs;
 use std::path::{Path, PathBuf};
-use wyck_platform::build_info::BuildMode;
 
 const MODE: BuildMode = BuildMode::Production;
 

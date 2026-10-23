@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="crates/wyck-ui-kit/assets/logo.png" alt="Wyck" width="120">
+  <img src="crates/wyck-ui/assets/kit/logo.png" alt="Wyck" width="120">
 </p>
 
 # wyck
@@ -25,7 +25,7 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `crates/wyck-ui-kit/assets/marks` are trademarks of their owners, shown only to
+marks bundled in `crates/wyck-ui/assets/kit/marks` are trademarks of their owners, shown only to
 identify the instrument being traded, and are used under the license of each set (see the
 `LICENSE.txt` next to it).
 
@@ -67,15 +67,10 @@ table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder sa
 | Crate | Owns |
 |---|---|
 | `wyck-clock` | The one place the wall clock is read, so tests and replays can give another |
-| `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
-| `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
-| `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
-| `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
-| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
-| `wyck-ui-kit` | The widget kit: controls, menus, dialogs, colors, the font and the symbol marks |
-| `wyck-ui-chart` | The price chart and the screen that arranges several of them |
-| `wyck-ui-trading`, `wyck-ui-editor` | The order ticket and the account panel; the indicator script editor |
-| `wyck-ui-shell` | The frame of the window: dashboard, settings, sign-in gate, keyboard shortcuts |
+| `wyck-domain` | The domain: the shared vocabulary, symbols and bars, orders and the safety guard, drawing tools, indicators and Rhai scripts, the chart model, its scene and its export |
+| `wyck-storage`, `wyck-ctrader` | Files, secrets and backups; the cTrader Open API client |
+| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates, the log and the async runtime |
+| `wyck-ui` | Every screen, one module each: the widget kit (controls, colors, the font, the symbol marks), the price chart, the order ticket and account panel, the script editor, the window frame |
 | `wyck` | The program: `src/main.rs` starts the logs, the saved data and the window |
 
 Every control, menu, dialog and color comes from the widget kit. The Open API client is described
@@ -159,9 +154,9 @@ set.
 
 ## Requirements
 
-- A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`, currently 1.98).
-  `rust-toolchain.toml` makes rustup pick stable and install it if needed; run `rustup update` if
-  your stable is older than the minimum.
+- Rust, at the exact version pinned in `rust-toolchain.toml` (it is also the `rust-version` of
+  `Cargo.toml`). rustup installs that version the first time you run a `cargo` command in the
+  folder; there is nothing to configure.
 - Linux only: the development packages of fontconfig, Wayland, OpenSSL, X11 and xkbcommon, for example on Debian and Ubuntu
   `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev`.
   The last one is for the alert sounds.

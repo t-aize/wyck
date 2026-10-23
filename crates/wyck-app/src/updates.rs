@@ -9,9 +9,9 @@ use cargo_packager_updater::{
 };
 use gpui::{App, BorrowAppContext, Global, Subscription};
 
+use crate::system::runtime;
 use crate::{appearance, scripts};
-use wyck_platform::build_info::{BuildMode, VERSION};
-use wyck_platform::runtime;
+use wyck_storage::build_info::{BuildMode, VERSION};
 use wyck_storage::scripts::ScriptStore;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";

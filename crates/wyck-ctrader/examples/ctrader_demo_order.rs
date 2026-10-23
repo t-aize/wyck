@@ -13,9 +13,9 @@
 
 use wyck_ctrader::trading::NewOrderReq;
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
-use wyck_trading::TradeSide;
-use wyck_trading::contract::Contract;
-use wyck_trading::guard::{self, Mode, OrderFacts, RiskPrefs, Standing};
+use wyck_domain::trading::TradeSide;
+use wyck_domain::trading::contract::Contract;
+use wyck_domain::trading::guard::{self, Mode, OrderFacts, RiskPrefs, Standing};
 
 fn var(name: &str) -> wyck_ctrader::Result<String> {
     // A `.env` file is optional: the variables may already be in the environment.

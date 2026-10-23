@@ -1,4 +1,4 @@
-//! What the app does for the plans it sent (see [`wyck_trading::plan`]): cancelling the other side
+//! What the app does for the plans it sent (see [`wyck_domain::trading::plan`]): cancelling the other side
 //! of an OCO pair, moving the stops to break-even, closing at a time stop, and catching up on what
 //! was missed while the app was away.
 
@@ -7,9 +7,9 @@ use super::{Account, Busy, HISTORY_DAYS, Notice, Status, TIME_STOP_RETRY, Tone};
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;
-use wyck_trading::ExecutionType;
-use wyck_trading::PositionStatus;
-use wyck_trading::contract::Contract;
+use wyck_domain::trading::ExecutionType;
+use wyck_domain::trading::PositionStatus;
+use wyck_domain::trading::contract::Contract;
 
 impl Account {
     /// What the app adds to the orders of a plan (see [`super::plan`]): an OCO pair whose one
@@ -17,11 +17,11 @@ impl Account {
     /// left to their entry.
     pub(super) fn manage(
         &mut self,
-        execution: &wyck_trading::ExecutionEvent,
+        execution: &wyck_domain::trading::ExecutionEvent,
         cx: &mut Context<Self>,
     ) {
-        use wyck_trading::plan;
-        use wyck_trading::plan::{Label, Open};
+        use wyck_domain::trading::plan;
+        use wyck_domain::trading::plan::{Label, Open};
         if execution.kind() != Some(ExecutionType::OrderFilled) {
             return;
         }
@@ -64,7 +64,7 @@ impl Account {
     /// every reading of the profit, so a time that ran out while the app was closed is caught at
     /// the next start. Closing is never held back by the safety limits: they are for new orders.
     pub(super) fn enforce_time_stops(&mut self, cx: &mut Context<Self>) {
-        use wyck_trading::plan::Label;
+        use wyck_domain::trading::plan::Label;
         // While a call is unanswered the account is not known well enough to close on its own.
         if self.status != Status::Ready || self.uncertain {
             return;
@@ -117,10 +117,10 @@ impl Account {
     /// and says so once.
     pub(super) fn catch_up(
         &mut self,
-        missed: Vec<wyck_trading::plan::Catch>,
+        missed: Vec<wyck_domain::trading::plan::Catch>,
         cx: &mut Context<Self>,
     ) {
-        use wyck_trading::plan::Catch;
+        use wyck_domain::trading::plan::Catch;
         let (mut stops, mut cancels) = (0, 0);
         for step in missed {
             match step {
@@ -169,10 +169,10 @@ impl Account {
 
 /// A position as the break-even plans see it: only one this app opened (its label says so) and
 /// that has an entry price.
-fn open_of(p: &wyck_trading::Position) -> Option<wyck_trading::plan::Open> {
-    Some(wyck_trading::plan::Open {
+fn open_of(p: &wyck_domain::trading::Position) -> Option<wyck_domain::trading::plan::Open> {
+    Some(wyck_domain::trading::plan::Open {
         position: p.position_id,
-        label: wyck_trading::plan::Label::decode(p.trade_data.label.as_deref()?)?,
+        label: wyck_domain::trading::plan::Label::decode(p.trade_data.label.as_deref()?)?,
         buy: p.trade_data.is_buy(),
         entry: p.price?,
         stop_loss: p.stop_loss,
@@ -184,14 +184,14 @@ fn open_of(p: &wyck_trading::Position) -> Option<wyck_trading::plan::Open> {
 /// gives nothing when any call fails: the next connection tries again.
 pub(super) async fn missed_exits(
     account: &crate::broker::AccountClient,
-    positions: &[wyck_trading::Position],
-    orders: &[wyck_trading::Order],
-    deals: &[wyck_trading::Deal],
+    positions: &[wyck_domain::trading::Position],
+    orders: &[wyck_domain::trading::Order],
+    deals: &[wyck_domain::trading::Deal],
     now: i64,
-) -> Vec<wyck_trading::plan::Catch> {
-    use wyck_trading::OrderStatus;
-    use wyck_trading::plan;
-    use wyck_trading::plan::{Label, Open, Past};
+) -> Vec<wyck_domain::trading::plan::Catch> {
+    use wyck_domain::trading::OrderStatus;
+    use wyck_domain::trading::plan;
+    use wyck_domain::trading::plan::{Label, Open, Past};
     let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
     let rules = positions
         .iter()

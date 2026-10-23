@@ -17,3 +17,5 @@ caf = "caf"
 # The ticker of Boeing, and the short name made from "Momentum" (the test expects five letters).
 ba = "ba"
 momen = "momen"
+# The Chande momentum oscillator, a function of the scripts (`cmo`, and CMO in its description).
+cmo = "cmo"

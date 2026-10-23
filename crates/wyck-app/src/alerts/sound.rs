@@ -7,7 +7,7 @@
 //! shows its notice in the app.
 //!
 //! The sounds are the system's own (each OS has its own), the ones built into the app (made by
-//! `scripts/make_sounds.py`), or a file of the user's.
+//! `tools/make_sounds.py`), or a file of the user's.
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};

@@ -14,11 +14,6 @@ Cargo.toml text eol=lf
 *.gitattributes text eol=lf
 *.gitignore text eol=lf
 
-# Windows scripts keep CRLF
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-
 # Lockfile: don't let Git generate diffs, and mark it as generated for GitHub
 Cargo.lock -diff linguist-generated=true
 

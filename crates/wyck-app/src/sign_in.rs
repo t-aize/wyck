@@ -2,7 +2,7 @@
 //! the choice of an account, and handing a [`Connection`] to the shell.
 //!
 //! [`SignIn`] is an entity without a view. It owns the configuration, holds the pure
-//! [`SignInState`] and runs the network steps in the background; the modal in `wyck-ui-shell` shows
+//! [`SignInState`] and runs the network steps in the background; the modal in `wyck-ui` (shell) shows
 //! its phase and calls its methods. A step that finishes after the user cancelled finds that the
 //! attempt number changed and does nothing, and cancelling aborts the wait for the redirect, so
 //! the local port is free again at once.
@@ -22,13 +22,13 @@ use tokio::task::AbortHandle;
 use crate::storage::{
     CLIENT_SECRET, OpenApiTokenStorage, OpenApiTokens, ProfileId, ProfileSecretReader, WyckConfig,
 };
+use crate::system::runtime;
 use crate::token_store::{ConfigTokenStore, to_token_set};
 use crate::workspace::Documents;
 use wyck_ctrader::auth::TokenSet;
 use wyck_ctrader::config::ClientCredentials;
 use wyck_ctrader::session::{MemoryTokenStore, TokenStore};
 use wyck_ctrader::{Client, Environment, TraderAccount};
-use wyck_platform::runtime;
 
 use self::rules::{account_label, document_scope, environment_of, saved_profile, service_tag};
 pub use self::state::{AccountChoice, Failure, Phase, SignInState};

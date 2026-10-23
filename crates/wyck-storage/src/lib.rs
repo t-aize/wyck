@@ -95,7 +95,7 @@
 //! `WYCK_KEYRING_SERVICE` names the keyring service. Set these three to run a development build
 //! on the data of the installed app, or to keep a second profile of the installed one.
 //! [`AppPaths::logs_dir`] is the folder of the log files, apart from the settings (see
-//! [`wyck_platform::logging`]).
+//! `wyck_app::system::logging`).
 //!
 //! The settings, the data of the accounts, the indicator scripts, the backups and the logs can each be
 //! kept in a folder the user chose, such as one a cloud service syncs: see [`locations`] (the rules
@@ -106,6 +106,7 @@
 
 mod app_config;
 pub mod backup;
+pub mod build_info;
 mod crypto;
 mod doctor;
 mod documents;

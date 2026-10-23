@@ -14,7 +14,7 @@ cargo xtask check --full   # the same, then cargo-machete, typos, taplo, zizmor,
 cargo xtask ci             # what the `check` job of CI runs: format, clippy, tests, cargo-deny, rustdoc
 cargo xtask deps           # layering and dependency rules only
 cargo xtask docs-check     # AGENTS.md / CLAUDE.md files only
-cargo test -p wyck-chart   # one crate (doc-tests included); `cargo test --workspace` for all of them
+cargo test -p wyck-domain  # one crate (doc-tests included); `cargo test --workspace` for all of them
 cargo run -p wyck          # the app; a debug build keeps its state apart from the installed app
 cargo run -p wyck-ctrader --example ctrader_prices   # the cTrader client against a demo account
 ```
@@ -32,37 +32,30 @@ any other.
 | Crate | Owns |
 |---|---|
 | `wyck-clock` | the one wall-clock read of the workspace |
-| `wyck-core` | tiny shared vocabulary: number formats, `ta` arithmetic, appearance, text scale |
-| `wyck-market` | symbols, bars, ticks, quotes, trading hours, `Timeframe` |
-| `wyck-trading` | orders, plans, the safety guard, margin, the account book, `atr_stop` |
-| `wyck-drawings` | drawing tools, their shapes, the drawing book and its undo |
-| `wyck-indicators` | indicators, their maths, the Rhai scripts engine |
-| `wyck-chart` | the chart as a model: series, view, scene (draw commands), export |
-| `wyck-platform` | log files, panic reports, the tokio runtime, build facts |
-| `wyck-storage` | where files live, documents, migrations, backups, secrets, encryption |
+| `wyck-domain` | the domain, one module each: `base` (shared vocabulary, `ta` arithmetic, appearance, text scale), `market` (symbols, bars, ticks, `Timeframe`), `trading` (orders, plans, the safety guard, margin, the account book, `atr_stop`), `drawings` (tools, the drawing book and its undo), `indicators` (the maths, the Rhai scripts engine), `chart` (the chart as a model: series, view, scene, export) |
+| `wyck-storage` | where files live, documents, migrations, backups, secrets, encryption, build facts |
 | `wyck-ctrader` | the cTrader Open API client (the only network code) |
-| `wyck-app` | gpui entities with no view: sign-in, account, alerts, workspace, updates |
-| `wyck-ui-kit` | the design system (the only crate that names `gpui-kit`) |
-| `wyck-ui-chart`, `wyck-ui-trading`, `wyck-ui-editor`, `wyck-ui-shell` | the screens |
-| `wyck` | the binary: `main`, packaging, the two guards that read every screen's sources |
+| `wyck-app` | gpui entities with no view: sign-in, account, alerts, workspace, updates, log files and the tokio runtime |
+| `wyck-ui` | the screens, one module each: `kit` (the design system, the only module that names `gpui-kit`), `chart`, `trading`, `editor`, `shell` |
+| `wyck` | the binary: `main` and packaging |
 | `xtask` | the developer commands above |
 
 ```
-clock, core <- market <- trading <- drawings <- indicators <- chart
-platform <- storage                  ctrader -> core, market, trading, clock
-app -> chart, indicators, drawings, trading, market, storage, platform, ctrader, clock
-ui-kit -> core ; ui-chart -> ui-kit, app, chart ; ui-trading, ui-editor -> ui-chart
-ui-shell -> every ui-* crate ; wyck -> ui-shell, ui-editor, ui-kit, app, platform, storage
+clock <- storage                     ctrader -> domain, clock
+domain: base <- market <- trading <- drawings <- indicators <- chart (modules)
+app -> domain, storage, ctrader, clock
+ui -> domain, app, clock (modules: kit < chart < trading, editor < shell)
+wyck -> ui, app, storage, domain, clock
 ```
 
 ## Rules that hold everywhere
 
-- **Layers.** The domain crates (`core` to `chart`) have no `gpui`, `tokio`, `reqwest`, `keyring` or
+- **Layers.** The domain crate (`wyck-domain`) has no `gpui`, `tokio`, `reqwest`, `keyring` or
   file access. Only `wyck-ctrader` talks to the network, only `wyck-storage` writes the user's files
-  and the keyring, only `wyck-ui-kit` names `gpui-kit`. A screen reaches the broker, the files and
+  and the keyring, only the `kit` module of `wyck-ui` names `gpui-kit`. A screen reaches the broker, the files and
   the system through the `broker`, `storage` and `system` doors of `wyck-app`.
 - **Orders.** An order goes through `Account::place_with` (or `place_batch`) in `wyck-app`: validated,
-  cleared by the guard of `wyck-trading`, never resent after a timeout. There is no way around it;
+  cleared by the guard of `wyck_domain::trading`, never resent after a timeout. There is no way around it;
   do not add one.
 - **Secrets.** No token, passphrase or account number in a log line, a panic report, a notice or an
   error message. Credentials live in the keyring or encrypted files, never in `config.toml`.
@@ -77,9 +70,9 @@ ui-shell -> every ui-* crate ; wyck -> ui-shell, ui-editor, ui-kit, app, platfor
   another crate needs it (`unreachable_pub` warns).
 - **Dependencies** are written once, in `[workspace.dependencies]` of the root `Cargo.toml`; a crate
   says `name.workspace = true` and lists its own features. Errors are `thiserror` enums in
-  libraries; `anyhow` is only in `xtask` and in `wyck-ui-editor` (its completion provider returns it).
+  libraries; `anyhow` is only in `xtask` and in the `editor` module of `wyck-ui` (its completion provider returns it).
 - **Global state** is rare and listed in the `AGENTS.md` of the crate that holds it. Tests must not
-  set `wyck_core::text_scale`: other tests read it.
+  set `wyck_domain::base::text_scale`: other tests read it.
 - **Writing.** English. Code, comments and committed text files use plain ASCII: no typographic
   dashes or quotes, no accents. A module doc (`//!`) is 1 to 3 lines (role and invariants); `///` is
   for a unit, an encoding, a panic or a reason, never for what the name already says.
@@ -101,10 +94,9 @@ ui-shell -> every ui-* crate ; wyck -> ui-shell, ui-editor, ui-kit, app, platfor
 | `SECURITY.md` | how to report a vulnerability, what is protected |
 | `SUPPORT.md` | where to ask for help |
 | `CODE_OF_CONDUCT.md` | the code of conduct |
-| `crates/wyck-clock`, `crates/wyck-core`, `crates/wyck-market`, `crates/wyck-trading` | `AGENTS.md` of each |
-| `crates/wyck-drawings`, `crates/wyck-indicators`, `crates/wyck-chart` | `AGENTS.md` of each |
-| `crates/wyck-platform`, `crates/wyck-storage`, `crates/wyck-ctrader`, `crates/wyck-app` | `AGENTS.md` of each |
-| `crates/wyck-ui-kit`, `crates/wyck-ui-chart`, `crates/wyck-ui-trading`, `crates/wyck-ui-editor`, `crates/wyck-ui-shell` | `AGENTS.md` of each |
+| `crates/wyck-clock`, `crates/wyck-domain` | `AGENTS.md` of each (the domain has one section per module) |
+| `crates/wyck-storage`, `crates/wyck-ctrader`, `crates/wyck-app` | `AGENTS.md` of each |
+| `crates/wyck-ui` | `AGENTS.md` (one section per module) |
 | `crates/wyck`, `xtask` | `AGENTS.md` of each |
 | `.claude/rules/` | rules that load when Claude Code reads files of one area |
 | `.github/workflows/` | CI (`ci.yml`), the weekly audit, the release (`release.yml`) |

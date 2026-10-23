@@ -10,10 +10,10 @@ use secrecy::ExposeSecret;
 
 use super::rules::{SIGN_IN_SCOPE, account_label};
 use super::{AccountChoice, CALLBACK_PORT, Failure, Pending, SignIn};
+use crate::system::runtime;
 use wyck_ctrader::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
 use wyck_ctrader::config::ClientCredentials;
 use wyck_ctrader::{ClientBuilder, Environment, TraderAccount};
-use wyck_platform::runtime;
 
 /// How long to wait for the user to allow access on cTrader's page.
 const CONSENT_TIMEOUT: Duration = Duration::from_secs(300);

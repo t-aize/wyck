@@ -7,16 +7,16 @@
 //! the differences one after the other, always aiming at the latest wish.
 //!
 //! Price events then come back through the session; [`LiveUpdate`] carries one to the charts with
-//! its live bars already corrected (see [`wyck_market::LiveBarTracker`]).
+//! its live bars already corrected (see [`wyck_domain::market::LiveBarTracker`]).
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::broker::session::Session;
 use tokio::sync::watch;
-use wyck_market::{Bar, Period, SpotEvent};
+use wyck_domain::market::{Bar, Period, SpotEvent};
 
-use wyck_platform::runtime;
+use crate::system::runtime;
 
 /// What one owner wants followed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

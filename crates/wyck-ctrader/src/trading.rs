@@ -7,8 +7,8 @@
 //!
 //! # The checks come first
 //!
-//! [`TradingClient::new_order`] takes a [`wyck_trading::guard::Cleared`], the proof that the safety
-//! checks (`wyck_trading::guard::clear`) passed for this very order and for this kind of account,
+//! [`TradingClient::new_order`] takes a [`wyck_domain::trading::guard::Cleared`], the proof that the safety
+//! checks (`wyck_domain::trading::guard::clear`) passed for this very order and for this kind of account,
 //! demo or live (`ConnectionConfig::mode`). Only `clear` and `clear_batch` make one, so no order
 //! reaches the broker without the checks having been made on it, and an order cleared for a demo
 //! account is refused on a live connection.
@@ -22,17 +22,17 @@
 //! position. Instead, check what the account actually holds first:
 //! `crate::account::AccountDataClient::open_positions_and_orders` (`ProtoOAReconcileReq`) for
 //! what is open now, or `crate::account::AccountDataClient::deals` for what was executed
-//! recently, using `label` or `client_order_id` (`wyck_trading::guard::client_order_id` makes
-//! one, `wyck_trading::doubt::InDoubt` reads the answer) to recognize the order you sent. This crate stays a
+//! recently, using `label` or `client_order_id` (`wyck_domain::trading::guard::client_order_id` makes
+//! one, `wyck_domain::trading::doubt::InDoubt` reads the answer) to recognize the order you sent. This crate stays a
 //! thin typed client, like Spotware's own SDKs (`OpenApiPy`, `OpenAPI.Net`): it does not add retry
 //! or idempotency machinery of its own on top of trading calls.
 //!
 //! # Units
 //!
 //! Volumes are hundredths of a unit, like the read-only account calls (see
-//! [`wyck_trading::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
-//! decimals, like the prices on [`wyck_trading::Position`] and [`wyck_trading::Order`], unlike
-//! the integer, [`wyck_market::PRICE_SCALE`] prices of ticks and bars.
+//! [`wyck_domain::trading::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
+//! decimals, like the prices on [`wyck_domain::trading::Position`] and [`wyck_domain::trading::Order`], unlike
+//! the integer, [`wyck_domain::market::PRICE_SCALE`] prices of ticks and bars.
 
 mod requests;
 

@@ -29,9 +29,7 @@ tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 wyck-clock.workspace = true
-wyck-core.workspace = true
-wyck-market.workspace = true
-wyck-trading.workspace = true
+wyck-domain.workspace = true
 
 [dev-dependencies]
 dotenvy.workspace = true

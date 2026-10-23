@@ -1,11 +1,11 @@
 //! The setups of the ticket saved under a name, and the time stop they carry.
 
 use serde::{Deserialize, Serialize};
-use wyck_core::math::{f64_to_u32, i64_to_f64};
+use wyck_domain::base::math::{f64_to_u32, i64_to_f64};
 
 use super::Span;
-use wyck_trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
-use wyck_trading::ticket::{Offset, SizeMode};
+use wyck_domain::trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
+use wyck_domain::trading::ticket::{Offset, SizeMode};
 
 /// Closing a position once it has been open for a while, as set on the ticket.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ A typed client of the cTrader Open API over its JSON WebSocket: the connection, 
 a session that reconnects and renews its tokens, and the calls for market data, accounts and
 trading. No screen, no file, no keyring: tokens come in as arguments and go out as values.
 
-Depends on: `wyck-clock`, `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungstenite`, `reqwest`,
+Depends on: `wyck-clock`, `wyck-domain`, `tokio`, `tokio-tungstenite`, `reqwest`,
 `futures-util`, `serde`, `serde_json`, `secrecy`, `uuid`, `async-trait`, `thiserror`, `tracing`
 (`dotenvy` in the examples).
 Used by: `wyck-app`.
@@ -31,7 +31,7 @@ Used by: `wyck-app`.
 - **A trading call moves money**: simulated on a demo account, real on a live one. A call is not
   idempotent: after a timeout, look at the account before sending the order again (the module docs
   of `trading` say how).
-- **An order needs its proof**: `TradingClient::new_order` takes a `wyck_trading::guard::Cleared`
+- **An order needs its proof**: `TradingClient::new_order` takes a `wyck_domain::trading::guard::Cleared`
   made by `guard::clear` for this order and this kind of account (`ConnectionConfig::mode`), and
   refuses anything else. Do not add a way to make one outside `guard`.
 - **Demo and live are separate**: `demo.ctraderapi.com` and `live.ctraderapi.com` on port 5036, one
@@ -41,8 +41,8 @@ Used by: `wyck-app`.
   wait the server asks for (`retryAfter` is in seconds), when it is refused for its rate.
 - **Heartbeat**: the connection sends one every 5 seconds by default, and `ConnectionConfig` refuses
   10 seconds or more, because the server drops a connection silent for that long.
-- **Prices are integers** scaled by `wyck_market::PRICE_SCALE`. Ticks come newest first, with their
-  times and prices as differences from the tick before (`wyck_market::decode_ticks`), at most a
+- **Prices are integers** scaled by `wyck_domain::market::PRICE_SCALE`. Ticks come newest first, with their
+  times and prices as differences from the tick before (`wyck_domain::market::decode_ticks`), at most a
   week per request, bid and ask requested separately. There is no volume per tick.
 - **A secret never appears in an error or a log**: tokens are `secrecy` values, and an HTTP error
   is stripped of its URL (`without_url`) before it is written down.
@@ -50,7 +50,7 @@ Used by: `wyck-app`.
 
 ## Global state
 
-None. The runtime that tokio-based code needs is `wyck-platform`'s; this crate assumes a live
+None. The runtime that tokio-based code needs is `wyck_app::system::runtime`; this crate assumes a live
 tokio runtime under it (`reqwest` and `tokio-tungstenite` panic without one).
 
 ## What the crate offers
@@ -80,5 +80,5 @@ automated does. Run: `cargo test -p wyck-ctrader`.
 
 - Do not use `gpui`, `keyring`, `directories` or any screen or file crate: `cargo xtask deps` fails
   on them. Storing tokens is `wyck-storage`'s job, the app wires the two.
-- Do not depend on `wyck-chart`, `wyck-storage` or anything above `wyck-trading`.
+- Do not depend on the `chart` module of `wyck-domain`, on `wyck-storage` or on anything above `trading`.
 - Do not send an order from a test or an example against a live account.

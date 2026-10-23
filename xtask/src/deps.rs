@@ -44,9 +44,9 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
     "tracing-subscriber",
 ];
 
-/// External crates a screen (a `wyck-ui-*` crate other than the kit) must not use: the network, the
-/// files, the sound and the system are reached through `wyck-app`, and only the kit names the
-/// component library.
+/// External crates a screen (and the program) must not use: the network, the
+/// files, the sound and the system are reached through `wyck-app`, and only the kit module of
+/// `wyck-ui` names the component library.
 const NOT_IN_A_SCREEN: &[&str] = &[
     "cargo-packager-updater",
     "directories",
@@ -61,23 +61,39 @@ const NOT_IN_A_SCREEN: &[&str] = &[
     "tracing-subscriber",
 ];
 
+/// What `wyck-ui` must not use: the same, but it holds the kit, which names `gpui-kit`.
+const NOT_IN_A_SCREEN_BUT_THE_KIT: &[&str] = &[
+    "cargo-packager-updater",
+    "directories",
+    "keyring",
+    "notify-rust",
+    "reqwest",
+    "rodio",
+    "tokio",
+    "tokio-tungstenite",
+    "tracing-appender",
+    "tracing-subscriber",
+];
+
 /// External crates that only some crates may use, because one crate owns the job: a second user
 /// would be a second way of doing the same thing.
 const OWNERS: &[(&str, &[&str])] = &[
-    ("ab_glyph", &["wyck-ui-chart"]),
+    ("ab_glyph", &["wyck-ui"]),
+    ("anyhow", &["wyck-ui", "xtask"]),
     ("argon2", &["wyck-storage"]),
     ("cargo-packager-updater", &["wyck-app"]),
     ("chacha20poly1305", &["wyck-storage"]),
     ("directories", &["wyck-storage"]),
+    ("gpui-kit", &["wyck-ui"]),
     ("keyring", &["wyck-storage"]),
     ("notify-rust", &["wyck-app"]),
     ("reqwest", &["wyck-ctrader"]),
-    ("rhai", &["wyck-indicators"]),
+    ("rhai", &["wyck-domain"]),
     ("rodio", &["wyck-app"]),
-    ("tiny-skia", &["wyck-ui-chart"]),
+    ("tiny-skia", &["wyck-ui"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
-    ("tracing-appender", &["wyck-platform"]),
-    ("tracing-subscriber", &["wyck-platform"]),
+    ("tracing-appender", &["wyck-app"]),
+    ("tracing-subscriber", &["wyck-app"]),
 ];
 
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
@@ -88,43 +104,13 @@ const LAYERS: &[Layer] = &[
         forbidden: NOT_IN_THE_DOMAIN,
     },
     Layer {
-        name: "wyck-core",
+        name: "wyck-domain",
         internal: &[],
         forbidden: NOT_IN_THE_DOMAIN,
     },
     Layer {
-        name: "wyck-market",
-        internal: &["wyck-core"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-trading",
-        internal: &["wyck-core", "wyck-market"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-drawings",
-        internal: &["wyck-core", "wyck-trading"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-indicators",
-        internal: &["wyck-core", "wyck-drawings", "wyck-market"],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
-        name: "wyck-chart",
-        internal: &[
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-        ],
-        forbidden: NOT_IN_THE_DOMAIN,
-    },
-    Layer {
         name: "wyck-ctrader",
-        internal: &["wyck-clock", "wyck-core", "wyck-market", "wyck-trading"],
+        internal: &["wyck-clock", "wyck-domain"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -141,26 +127,8 @@ const LAYERS: &[Layer] = &[
         ],
     },
     Layer {
-        name: "wyck-platform",
-        internal: &["wyck-clock"],
-        forbidden: &[
-            "ab_glyph",
-            "cargo-packager-updater",
-            "directories",
-            "gpui",
-            "gpui-kit",
-            "keyring",
-            "notify-rust",
-            "reqwest",
-            "rodio",
-            "rust-embed",
-            "tiny-skia",
-            "tokio-tungstenite",
-        ],
-    },
-    Layer {
         name: "wyck-storage",
-        internal: &["wyck-clock", "wyck-platform"],
+        internal: &["wyck-clock"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -177,107 +145,23 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "wyck-app",
-        internal: &[
-            "wyck-chart",
-            "wyck-clock",
-            "wyck-core",
-            "wyck-ctrader",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-platform",
-            "wyck-storage",
-            "wyck-trading",
-        ],
+        internal: &["wyck-clock", "wyck-ctrader", "wyck-domain", "wyck-storage"],
         forbidden: &["ab_glyph", "gpui-kit", "tiny-skia", "tokio-tungstenite"],
     },
     Layer {
-        name: "wyck-ui-editor",
-        internal: &[
-            "wyck-app",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-ui-chart",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-kit",
-        internal: &["wyck-core"],
-        forbidden: &[
-            "ab_glyph",
-            "cargo-packager-updater",
-            "directories",
-            "keyring",
-            "notify-rust",
-            "reqwest",
-            "rodio",
-            "tiny-skia",
-            "tokio",
-            "tokio-tungstenite",
-            "tracing-appender",
-            "tracing-subscriber",
-        ],
-    },
-    Layer {
-        name: "wyck-ui-chart",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-shell",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-clock",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-            "wyck-ui-chart",
-            "wyck-ui-editor",
-            "wyck-ui-kit",
-            "wyck-ui-trading",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-trading",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-            "wyck-ui-chart",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
+        name: "wyck-ui",
+        internal: &["wyck-app", "wyck-clock", "wyck-domain"],
+        // The screens name `gpui-kit` through the `kit` module only: `sources.rs` checks that.
+        forbidden: NOT_IN_A_SCREEN_BUT_THE_KIT,
     },
     Layer {
         name: "wyck",
         internal: &[
             "wyck-app",
             "wyck-clock",
-            "wyck-core",
-            "wyck-platform",
+            "wyck-domain",
             "wyck-storage",
-            "wyck-ui-editor",
-            "wyck-ui-kit",
-            "wyck-ui-shell",
+            "wyck-ui",
         ],
         forbidden: NOT_IN_A_SCREEN,
     },
@@ -318,9 +202,13 @@ pub(crate) fn run() -> Result<()> {
     let root = workspace_root();
     let root_table = read(&root.join("Cargo.toml"))?;
     let members = member_manifests(&root)?;
-    let problems = check_workspace(&root_table, &members, LAYERS);
+    let mut problems = check_workspace(&root_table, &members, LAYERS);
+    problems.extend(crate::sources::check_tree(&root)?);
     if problems.is_empty() {
-        println!("{} crates follow the dependency rules", members.len());
+        println!(
+            "{} crates follow the dependency rules and the source rules",
+            members.len()
+        );
         return Ok(());
     }
     for problem in &problems {
@@ -618,7 +506,7 @@ rhai.workspace = true
         )];
         let problems = check_workspace(&table(root), &members, &[layer("a", &[])]);
         assert_eq!(problems.len(), 1, "{problems:?}");
-        assert!(problems[0].contains("only wyck-indicators may use `rhai`"));
+        assert!(problems[0].contains("only wyck-domain may use `rhai`"));
     }
 
     #[test]

@@ -18,14 +18,14 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use wyck_core::math::u64_to_f64;
+use wyck_domain::base::math::u64_to_f64;
 
 use gpui::App;
 use tracing::{info, warn};
 
 use crate::prefs::indicators as indicator_prefs;
 use crate::{alerts, appearance, chart_export, drawings, workspace};
-use wyck_platform::build_info::BuildMode;
+use wyck_storage::build_info::BuildMode;
 use wyck_storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
 use wyck_storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};
 use wyck_storage::{AppPaths, ConfigError, DocumentStore};

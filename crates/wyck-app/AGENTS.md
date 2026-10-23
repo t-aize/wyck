@@ -5,12 +5,10 @@ the screens above it: sign-in, the live account and its orders, alerts, the live
 history loading, the arrangement the user saved, the look, the indicator folder, updates. These are
 gpui entities and globals with no view of their own; the screens in `wyck` read them and call them.
 
-Depends on: `wyck-chart`, `wyck-clock`, `wyck-core`, `wyck-ctrader`, `wyck-drawings`, `wyck-indicators`,
-`wyck-market`, `wyck-platform`, `wyck-storage`, `wyck-trading`, `gpui`, `tokio`, `serde`,
+Depends on: `wyck-clock`, `wyck-ctrader`, `wyck-domain`, `wyck-storage`, `gpui`, `tokio`, `serde`,
 `serde_json`, `toml`, `secrecy`, `thiserror`, `tracing`, `chrono`, `async-trait`,
-`cargo-packager-updater`, `notify-rust`, `rodio`, `rust-embed` (`tempfile` in tests only).
-Used by: `wyck`, `wyck-ui-chart`, `wyck-ui-editor`, `wyck-ui-shell`, `wyck-ui-trading`: every screen
-reads it, and reaches the broker, the files and the system only through its `broker`, `storage` and
+`cargo-packager-updater`, `notify-rust`, `rodio`, `rust-embed`, `tracing-appender`, `tracing-subscriber` (`tempfile` in tests only).
+Used by: `wyck`, `wyck-ui`: every screen reads it, and reaches the broker, the files and the system only through its `broker`, `storage` and
 `system` doors.
 
 ## Module map
@@ -24,7 +22,7 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 | `sign_in` | `SignIn`, an entity with no view: finds a saved session or walks through cTrader's consent page and the choice of an account (`consent`), keeps the pure `SignInState` (`state`), the decisions that need no window (`rules`), opens the config (`config`). |
 | `alerts` | `Alerts`, the entity that judges, saves and fires alerts. `model` is the data (`Alert`, `Source`, `Condition`, `Trigger`), `eval` the plain functions that decide, `sound` the sound and the desktop notification (on a thread of its own). |
 | `market_data` | `live::LiveHub` (what to subscribe to: the union of every owner's wish) and `load` (history in chunks within the server's limits); `now_ms`. |
-| `replay` | `Replay`, the entity of a replay (nothing in it is saved): the shared cursor (`wyck_chart::ReplayClock`), play, step and speed, a `Store` of server bars per symbol and period, and the loading that keeps them around the cursor (`plan`: what to ask next, `loading`: the requests, `store`: the bars and the range they cover, `transport`: play, step, jumps, speed and the frame loop, `ticks` and `tick_loading`: the real ticks around the cursor, one store per symbol, and the probe that finds out whether the broker has them at the start; where it has none the symbol falls back to minute bars). Charts read the stores and write what the cursor shows into their own series; the entity touches no chart, no live price, no order, no alert. `market_data::replay_load` fetches one chunk of bars at a time and finds the oldest bar of a symbol, `market_data::replay_ticks` one chunk of ticks (a stretch of time sized from the last one, not a number of ticks). |
+| `replay` | `Replay`, the entity of a replay (nothing in it is saved): the shared cursor (`wyck_domain::chart::ReplayClock`), play, step and speed, a `Store` of server bars per symbol and period, and the loading that keeps them around the cursor (`plan`: what to ask next, `loading`: the requests, `store`: the bars and the range they cover, `transport`: play, step, jumps, speed and the frame loop, `ticks` and `tick_loading`: the real ticks around the cursor, one store per symbol, and the probe that finds out whether the broker has them at the start; where it has none the symbol falls back to minute bars). Charts read the stores and write what the cursor shows into their own series; the entity touches no chart, no live price, no order, no alert. `market_data::replay_load` fetches one chunk of bars at a time and finds the oldest bar of a symbol, `market_data::replay_ticks` one chunk of ticks (a stretch of time sized from the last one, not a number of ticks). |
 | `workspace` | `Workspace`, the live copy of the saved arrangement: `Preferences` (global, one module per domain: `charts`, `timeframes`, `tools`, `limits`) and `Watchlists` (per account), and `layouts`. |
 | `saver` | `Saver`, the write of a document a moment after the last change, and on exit; every saved document of the crate (and the script drafts) uses it. |
 | `prefs` | What a feature keeps in the workspace document: `ticket`, `panel`, `indicators`. |
@@ -32,13 +30,21 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 | `scripts` | The indicator folder: `Service` keeps the list current and publishes it to the indicator registry; `folder::Library` reads it and does what a user does to files. |
 | `locations`, `migrations`, `diagnostics` | Where the data lives and the start-up move of folders (`app_paths`); bringing saved documents to this version; where the logs are. |
 | `shortcuts`, `updates` | `Chord`, a key combination as text; checking, downloading and installing signed updates. |
-| `broker`, `storage`, `system` | Doors: `pub use` of `wyck-ctrader`, `wyck-storage`, `wyck-platform`. The screens reach those crates only through here. |
+| `broker`, `storage` | Doors: `pub use` of `wyck-ctrader` and `wyck-storage`. The screens reach those crates only through here. |
+| `system`, `system::{logging, runtime}` | What the operating system gives the app, and the door to `wyck_storage::build_info` (`BuildMode`, `VERSION`). `logging`: `init` (stderr and one log file per day), `flush`, `install_panic_hook` (a report file per panic), `reports`. `runtime`: `handle` and `spawn`, one multi-thread tokio runtime on a thread of its own for the code that needs tokio (the cTrader client, the OAuth flow) in an app whose executor is gpui; it re-exports `RecvError`, `JoinError` and `try_join` so that no screen names tokio. |
 | `token_store` | Keeps a session's OAuth tokens in the credential store of `wyck-storage` (private to the crate). |
 
 ## Invariants and traps
 
+- **`system`: no secret in a log line or a panic report.** The code that logs formats ids and
+  messages, never a token or a passphrase. Log writes go through a channel to a worker thread, so a
+  slow disk never freezes a chart; when the channel is full lines are dropped, and `flush` writes
+  out what is waiting when the app quits. A panic report is written by the thread that panics, so
+  it exists even when the process dies a moment later. `runtime::handle` ends the process (a message
+  on stderr, exit code 1) if the system refuses to start the runtime: that is the only
+  `process::exit` of the workspace, and its lint expectation says why.
 - **An order goes through `Account::place_with` (or `place_batch`)**: it is validated, cleared by
-  the guard of `wyck-trading` (`Account::clear`: one-click orders are judged more strictly), and not
+  the guard of `wyck_domain::trading` (`Account::clear`: one-click orders are judged more strictly), and not
   sent again while another is in flight or when it repeats a recent one. The connection refuses a
   new order that has no `Cleared` for it and for the account's `Mode`, so there is no way around
   it; do not add one (no constructor of `Cleared` outside `guard`).
@@ -74,7 +80,11 @@ screen does not name is `pub(crate)`. The crate root only declares them and re-e
 - gpui globals: `appearance::State`, `scripts::Service`, `updates::Service`.
 - `alerts::sound`: the thread that plays sounds and shows notifications (`OnceLock`).
 - `workspace::layouts`: the catalog of layouts, built once (`OnceLock`).
-- `scripts` publishes to the registry of `wyck-indicators`, which charts read.
+- `scripts` publishes to the registry of `wyck_domain::indicators`, which charts read.
+- `system::runtime`: the runtime handle in a `OnceLock`; the `Runtime` itself is leaked on purpose,
+  so its threads live as long as the process. `system::logging`: the `WorkerGuard` of the log file
+  in a `Mutex` (dropping it stops the worker), a counter of reports written (it names them), and the
+  global `tracing` subscriber, which `init` sets once.
 
 ## Tests
 
@@ -92,12 +102,12 @@ constructors exist only for tests (`#[cfg(test)]`). Run: `cargo test -p wyck-app
   `normalized` (its rules in the module of its domain under `workspace/preferences/`); a migration step only if an existing file changes shape.
 - An alert source or condition: `alerts::model::{source, condition}`, its rule in `alerts::eval`.
 - A sentence for an order outcome or a refusal: `account::notice`.
-- An alert sound: a file in `assets/sounds`, `alerts::sound`, and `scripts/make_sounds.py`.
+- An alert sound: a file in `assets/sounds`, `alerts::sound`, and `tools/make_sounds.py`.
 - A call to the broker the screens need: add it in `wyck-ctrader`, then reach it through `broker`.
 
 ## Do not
 
-- Do not name `wyck-ctrader`, `wyck-storage` or `wyck-platform` in a screen: go through `broker`,
+- Do not name `wyck-ctrader` or `wyck-storage` in a screen: go through `broker`,
   `storage`, `system`.
 - Do not depend on `gpui-kit`, on a screen crate, or on `reqwest`/`keyring`: `cargo xtask deps`
   fails on them. Network is `wyck-ctrader`'s, files and secrets are `wyck-storage`'s.

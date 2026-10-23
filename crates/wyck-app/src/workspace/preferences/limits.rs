@@ -2,8 +2,8 @@
 
 use crate::alerts::{DEFAULT_SAVED_ALERTS, MAX_SAVED_ALERTS};
 use serde::{Deserialize, Serialize};
-use wyck_chart::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
-use wyck_drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
+use wyck_domain::chart::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
+use wyck_domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 
 /// User limits for adding new chart objects. Lowering one keeps objects already saved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

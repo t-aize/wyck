@@ -12,7 +12,7 @@ the map). If one does, put the code there.
    (see the graph in the root `AGENTS.md`).
 2. **Layering first.** Add a `Layer` for it in `LAYERS` in `xtask/src/deps.rs` (the workspace crates
    it may use, the external crates it must not). If it owns an external crate, add that to `OWNERS`.
-3. **Manifest.** Create `crates/wyck-<name>/Cargo.toml` like `crates/wyck-core/Cargo.toml`:
+3. **Manifest.** Create `crates/wyck-<name>/Cargo.toml` like `crates/wyck-clock/Cargo.toml`:
    package fields as `x.workspace = true`, a one-line `description`, dependencies as
    `name.workspace = true`, and
    ```toml

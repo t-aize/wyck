@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::Kind;
-use wyck_platform::build_info::BuildMode;
+use crate::build_info::BuildMode;
 
 /// A folder a cloud service keeps in step between computers.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -5,25 +5,15 @@
       "id": "crate",
       "type": "pickString",
       "description": "The crate",
-      "default": "wyck-chart",
+      "default": "wyck-domain",
       "options": [
         "wyck",
         "wyck-app",
-        "wyck-chart",
         "wyck-clock",
-        "wyck-core",
         "wyck-ctrader",
-        "wyck-drawings",
-        "wyck-indicators",
-        "wyck-market",
-        "wyck-platform",
+        "wyck-domain",
         "wyck-storage",
-        "wyck-trading",
-        "wyck-ui-chart",
-        "wyck-ui-editor",
-        "wyck-ui-kit",
-        "wyck-ui-shell",
-        "wyck-ui-trading",
+        "wyck-ui",
         "xtask"
       ]
     }

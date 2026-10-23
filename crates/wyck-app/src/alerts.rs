@@ -17,15 +17,15 @@ use crate::lost::lost;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
-use wyck_core::math::i64_to_f64;
+use wyck_domain::base::math::i64_to_f64;
 
 use gpui::{App, Context, Entity, EventEmitter};
-use wyck_chart::Series;
 use wyck_ctrader::session::Session;
-use wyck_indicators as study;
-use wyck_indicators::spec::ValueFormat;
-use wyck_market::Timeframe;
-use wyck_market::{Bar, PRICE_SCALE};
+use wyck_domain::chart::Series;
+use wyck_domain::indicators as study;
+use wyck_domain::indicators::spec::ValueFormat;
+use wyck_domain::market::Timeframe;
+use wyck_domain::market::{Bar, PRICE_SCALE};
 use wyck_storage::DocumentStore;
 
 use crate::drawings::Drawings;
@@ -34,7 +34,7 @@ use crate::market_data::load;
 use crate::market_data::load::Loaded;
 use crate::market_data::now_ms;
 use crate::saver::Saver;
-use wyck_platform::runtime;
+use crate::system::runtime;
 
 pub mod eval;
 pub mod model;
@@ -172,7 +172,7 @@ impl Alerts {
         self.pips
             .get(&symbol_id)
             .copied()
-            .unwrap_or_else(|| wyck_market::pip_size(4))
+            .unwrap_or_else(|| wyck_domain::market::pip_size(4))
     }
 
     /// Every symbol an alert is on, watching or not: the ones whose decimals the alerts need.
@@ -455,7 +455,10 @@ impl Alerts {
         if config.is_script() || config.kind == study::kind::StudyKind::VolumeProfile {
             return None;
         }
-        let input = wyck_chart::study_input(&Series::Bars(bars.to_vec()), wyck_chart::Zone::Utc);
+        let input = wyck_domain::chart::study_input(
+            &Series::Bars(bars.to_vec()),
+            wyck_domain::chart::Zone::Utc,
+        );
         let output = study::compute::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {

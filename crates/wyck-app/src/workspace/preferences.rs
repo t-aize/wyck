@@ -26,8 +26,8 @@ use crate::prefs::panel::PanelPrefs;
 use crate::prefs::ticket::TicketPrefs;
 use crate::shortcuts::ShortcutPrefs;
 use serde::{Deserialize, Serialize};
-use wyck_chart::ChartLook;
-use wyck_trading::guard::RiskPrefs;
+use wyck_domain::chart::ChartLook;
+use wyck_domain::trading::guard::RiskPrefs;
 
 /// The layout of the preferences document. Version 2: the account panel keeps only its open tab.
 /// Version 3: how the charts look is saved once (`chart`), not in each chart.
@@ -65,14 +65,14 @@ pub struct Preferences {
     #[serde(default)]
     pub magnet: bool,
     /// Whether a drawing tool stays picked once a drawing is finished.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub keep_drawing: bool,
     /// How the lines between the charts were dragged, per layout (`"count-variant"`): one list
     /// of weights per split of the layout.
     #[serde(default)]
     pub splits: std::collections::BTreeMap<String, Vec<Vec<f32>>>,
     /// Whether the account panel under the charts is open, and its height.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub panel_open: bool,
     #[serde(default = "default_panel_height")]
     pub panel_height: f32,
@@ -98,7 +98,7 @@ pub struct Preferences {
     #[serde(default = "default_favorite_tools")]
     pub(crate) favorite_tools: Vec<String>,
     /// Whether the bar of favorite tools shows over the charts.
-    #[serde(default = "wyck_core::defaults::yes")]
+    #[serde(default = "wyck_domain::base::defaults::yes")]
     pub favorites_bar: bool,
     /// Whether the bar writes the name of each tool beside its icon.
     #[serde(default)]
@@ -109,7 +109,7 @@ pub struct Preferences {
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
-    /// The keyboard shortcuts the user changed (see `wyck_ui_shell::keymap` for the defaults).
+    /// The keyboard shortcuts the user changed (see `wyck_ui::shell::keymap` for the defaults).
     #[serde(default)]
     pub shortcuts: ShortcutPrefs,
 }

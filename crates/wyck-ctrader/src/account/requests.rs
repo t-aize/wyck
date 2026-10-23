@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use wyck_core::flex;
-use wyck_trading::types::{Deal, Order, Position, PositionUnrealizedPnL, Trader};
+use wyck_domain::base::flex;
+use wyck_domain::trading::types::{Deal, Order, Position, PositionUnrealizedPnL, Trader};
 
 /// `ProtoOAReconcileReq`: what the account holds right now.
 #[derive(Debug, Serialize)]
