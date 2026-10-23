@@ -244,3 +244,130 @@ fn pivots_fractals_and_aroon_match_the_arithmetic() {
     same("aroon up", &drawn["a"], &aroon_up);
     same("aroon down", &drawn["b"], &aroon_down);
 }
+
+#[test]
+fn the_volume_indicators_match_the_arithmetic() {
+    let b = bars();
+    let (o, h, l, c, v) = (&b.open, &b.high, &b.low, &b.close, &b.volume);
+    same(
+        "money_flow",
+        &plot("plot(\"a\", money_flow());"),
+        &ta::money_flow_volume(h, l, c, v),
+    );
+    same(
+        "accdist",
+        &plot("plot(\"a\", accdist());"),
+        &ta::accumulation_distribution(h, l, c, v),
+    );
+    same(
+        "pvt",
+        &plot("plot(\"a\", pvt());"),
+        &ta::price_volume_trend(c, v),
+    );
+    same(
+        "nvi",
+        &plot("plot(\"a\", nvi());"),
+        &ta::negative_volume_index(c, v),
+    );
+    same(
+        "pvi",
+        &plot("plot(\"a\", pvi());"),
+        &ta::positive_volume_index(c, v),
+    );
+    same(
+        "wad",
+        &plot("plot(\"a\", wad());"),
+        &ta::williams_accumulation_distribution(h, l, c),
+    );
+    same(
+        "wvad",
+        &plot("plot(\"a\", wvad());"),
+        &ta::williams_variable_accumulation_distribution(o, h, l, c, v),
+    );
+    same(
+        "iii",
+        &plot("plot(\"a\", iii());"),
+        &ta::intraday_intensity(h, l, c, v),
+    );
+}
+
+#[test]
+fn the_channels_and_the_anchored_indicators_match_the_arithmetic() {
+    let b = bars();
+    let drawn = plots("let k = bb(close, 20, 2);\nplot(\"a\", k.upper);\nplot(\"b\", k.basis);");
+    let (basis, dev) = (ta::sma(&b.close, 20), ta::stdev(&b.close, 20));
+    let upper: Vec<f64> = basis.iter().zip(&dev).map(|(m, d)| m + 2.0 * d).collect();
+    same("bb upper", &drawn["a"], &upper);
+    same("bb basis", &drawn["b"], &basis);
+    let width: Vec<f64> = basis
+        .iter()
+        .zip(&dev)
+        .map(|(m, d)| 2.0 * 2.0 * d / m)
+        .collect();
+    same("bbw", &plot("plot(\"a\", bbw(close, 20, 2));"), &width);
+
+    let range = ta::ema(&ta::true_range(&b.high, &b.low, &b.close), 10);
+    let mid = ta::ema(&b.close, 10);
+    let kc_upper: Vec<f64> = mid.iter().zip(&range).map(|(m, r)| m + 1.5 * r).collect();
+    same(
+        "kc upper",
+        &plot("let k = kc(close, 10, 1.5);\nplot(\"a\", k.upper);"),
+        &kc_upper,
+    );
+    let kc_width: Vec<f64> = range
+        .iter()
+        .zip(&mid)
+        .map(|(r, m)| 2.0 * 1.5 * r / m)
+        .collect();
+    same("kcw", &plot("plot(\"a\", kcw(close, 10, 1.5));"), &kc_width);
+
+    let (line, spread) = ta::vwap_anchored(
+        &b.close,
+        &b.volume,
+        &b.day,
+        crate::base::calendar::Anchor::Week,
+    );
+    let drawn =
+        plots("let v = vwap(close, \"week\", 2);\nplot(\"a\", v.vwap);\nplot(\"b\", v.upper);");
+    same("anchored vwap", &drawn["a"], &line);
+    let band: Vec<f64> = line.iter().zip(&spread).map(|(v, d)| v + 2.0 * d).collect();
+    same("anchored band", &drawn["b"], &band);
+
+    let levels = levels::pivot_levels(
+        &b.open,
+        &b.high,
+        &b.low,
+        &b.close,
+        &b.day,
+        crate::base::calendar::Anchor::Day,
+        levels::PivotKind::Camarilla,
+    );
+    let drawn = plots(
+        "let l = pivot_point_levels(\"camarilla\", \"day\");\nplot(\"a\", l.r1);\nplot(\"b\", l.s3);",
+    );
+    same("pivot r1", &drawn["a"], &levels[1]);
+    same("pivot s3", &drawn["b"], &levels[6]);
+}
+
+#[test]
+fn the_variants_of_an_indicator_match_each_other_and_the_arithmetic() {
+    let b = bars();
+    let drawn = plots(
+        "let own = bars_of(\"\");\n\
+         plot(\"a\", atr(14));\n\
+         plot(\"b\", atr(own, 14));\n\
+         plot(\"c\", atr(14, \"sma\"));\n\
+         plot(\"d\", cci(hlc3, 20));\n\
+         plot(\"e\", cci(20));",
+    );
+    same("atr from a map of bars", &drawn["a"], &drawn["b"]);
+    let smoothed = ta::sma(&ta::true_range(&b.high, &b.low, &b.close), 14);
+    same("atr with a method", &drawn["c"], &smoothed);
+    same("cci of a series", &drawn["d"], &drawn["e"]);
+    let raw = plot("plot(\"a\", stoch(close, high, low, 14));");
+    let (hh, ll) = (ta::highest(&b.high, 14), ta::lowest(&b.low, 14));
+    let want: Vec<f64> = (0..N)
+        .map(|i| 100.0 * (b.close[i] - ll[i]) / (hh[i] - ll[i]))
+        .collect();
+    same("raw stochastic", &raw, &want);
+}
