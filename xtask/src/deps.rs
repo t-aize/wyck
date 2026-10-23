@@ -318,9 +318,13 @@ pub(crate) fn run() -> Result<()> {
     let root = workspace_root();
     let root_table = read(&root.join("Cargo.toml"))?;
     let members = member_manifests(&root)?;
-    let problems = check_workspace(&root_table, &members, LAYERS);
+    let mut problems = check_workspace(&root_table, &members, LAYERS);
+    problems.extend(crate::sources::check_tree(&root)?);
     if problems.is_empty() {
-        println!("{} crates follow the dependency rules", members.len());
+        println!(
+            "{} crates follow the dependency rules and the source rules",
+            members.len()
+        );
         return Ok(());
     }
     for problem in &problems {

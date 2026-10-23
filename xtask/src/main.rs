@@ -15,6 +15,7 @@ mod deps;
 mod docs;
 mod release;
 mod run;
+mod sources;
 
 use std::process::ExitCode;
 
