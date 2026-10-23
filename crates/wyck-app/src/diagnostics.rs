@@ -1,11 +1,11 @@
 //! What a user needs to report a problem: where the log files are, and how many panic reports the
-//! app has written. The files themselves are written by [`wyck_platform::logging`].
+//! app has written. The files themselves are written by [`crate::system::logging`].
 
 use std::path::{Path, PathBuf};
 
 use gpui::App;
 
-use wyck_platform::logging;
+use crate::system::logging;
 
 /// The folder of the log files and of the panic reports, `None` when the system gives the app no
 /// folder.

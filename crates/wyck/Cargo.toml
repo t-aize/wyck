@@ -60,7 +60,6 @@ tracing.workspace = true
 wyck-app.workspace = true
 wyck-clock.workspace = true
 wyck-core.workspace = true
-wyck-platform.workspace = true
 wyck-storage.workspace = true
 wyck-ui.workspace = true
 

@@ -92,8 +92,8 @@ const OWNERS: &[(&str, &[&str])] = &[
     ("rodio", &["wyck-app"]),
     ("tiny-skia", &["wyck-ui"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
-    ("tracing-appender", &["wyck-platform"]),
-    ("tracing-subscriber", &["wyck-platform"]),
+    ("tracing-appender", &["wyck-app"]),
+    ("tracing-subscriber", &["wyck-app"]),
 ];
 
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
@@ -157,26 +157,8 @@ const LAYERS: &[Layer] = &[
         ],
     },
     Layer {
-        name: "wyck-platform",
-        internal: &["wyck-clock"],
-        forbidden: &[
-            "ab_glyph",
-            "cargo-packager-updater",
-            "directories",
-            "gpui",
-            "gpui-kit",
-            "keyring",
-            "notify-rust",
-            "reqwest",
-            "rodio",
-            "rust-embed",
-            "tiny-skia",
-            "tokio-tungstenite",
-        ],
-    },
-    Layer {
         name: "wyck-storage",
-        internal: &["wyck-clock", "wyck-platform"],
+        internal: &["wyck-clock"],
         forbidden: &[
             "ab_glyph",
             "cargo-packager-updater",
@@ -201,7 +183,6 @@ const LAYERS: &[Layer] = &[
             "wyck-drawings",
             "wyck-indicators",
             "wyck-market",
-            "wyck-platform",
             "wyck-storage",
             "wyck-trading",
         ],
@@ -228,7 +209,6 @@ const LAYERS: &[Layer] = &[
             "wyck-app",
             "wyck-clock",
             "wyck-core",
-            "wyck-platform",
             "wyck-storage",
             "wyck-ui",
         ],

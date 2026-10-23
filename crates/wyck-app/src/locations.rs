@@ -25,7 +25,7 @@ use tracing::{info, warn};
 
 use crate::prefs::indicators as indicator_prefs;
 use crate::{alerts, appearance, chart_export, drawings, workspace};
-use wyck_platform::build_info::BuildMode;
+use wyck_storage::build_info::BuildMode;
 use wyck_storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
 use wyck_storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};
 use wyck_storage::{AppPaths, ConfigError, DocumentStore};

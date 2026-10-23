@@ -13,12 +13,12 @@ use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use wyck_app::appearance;
 use wyck_app::scripts;
 use wyck_app::shortcuts::ShortcutPrefs;
+use wyck_app::system::logging;
 use wyck_app::updates;
 use wyck_core::math::u32_to_f32;
-use wyck_platform::build_info::{self, BuildMode};
-use wyck_platform::logging;
 use wyck_storage::AppPaths;
 use wyck_storage::backup::staged::{self, Applied};
+use wyck_storage::build_info::{self, BuildMode};
 use wyck_ui::kit::assets;
 use wyck_ui::shell::app_view::AppView;
 

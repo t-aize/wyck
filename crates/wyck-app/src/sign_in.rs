@@ -22,13 +22,13 @@ use tokio::task::AbortHandle;
 use crate::storage::{
     CLIENT_SECRET, OpenApiTokenStorage, OpenApiTokens, ProfileId, ProfileSecretReader, WyckConfig,
 };
+use crate::system::runtime;
 use crate::token_store::{ConfigTokenStore, to_token_set};
 use crate::workspace::Documents;
 use wyck_ctrader::auth::TokenSet;
 use wyck_ctrader::config::ClientCredentials;
 use wyck_ctrader::session::{MemoryTokenStore, TokenStore};
 use wyck_ctrader::{Client, Environment, TraderAccount};
-use wyck_platform::runtime;
 
 use self::rules::{account_label, document_scope, environment_of, saved_profile, service_tag};
 pub use self::state::{AccountChoice, Failure, Phase, SignInState};

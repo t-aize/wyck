@@ -38,20 +38,19 @@ any other.
 | `wyck-drawings` | drawing tools, their shapes, the drawing book and its undo |
 | `wyck-indicators` | indicators, their maths, the Rhai scripts engine |
 | `wyck-chart` | the chart as a model: series, view, scene (draw commands), export |
-| `wyck-platform` | log files, panic reports, the tokio runtime, build facts |
-| `wyck-storage` | where files live, documents, migrations, backups, secrets, encryption |
+| `wyck-storage` | where files live, documents, migrations, backups, secrets, encryption, build facts |
 | `wyck-ctrader` | the cTrader Open API client (the only network code) |
-| `wyck-app` | gpui entities with no view: sign-in, account, alerts, workspace, updates |
+| `wyck-app` | gpui entities with no view: sign-in, account, alerts, workspace, updates, log files and the tokio runtime |
 | `wyck-ui` | the screens, one module each: `kit` (the design system, the only module that names `gpui-kit`), `chart`, `trading`, `editor`, `shell` |
 | `wyck` | the binary: `main` and packaging |
 | `xtask` | the developer commands above |
 
 ```
 clock, core <- market <- trading <- drawings <- indicators <- chart
-platform <- storage                  ctrader -> core, market, trading, clock
-app -> chart, indicators, drawings, trading, market, storage, platform, ctrader, clock
+clock <- storage                     ctrader -> core, market, trading, clock
+app -> chart, indicators, drawings, trading, market, storage, ctrader, clock
 ui -> core, clock, market, trading, drawings, indicators, chart, app (modules: kit < chart < trading, editor < shell)
-wyck -> ui, app, platform, storage, core, clock
+wyck -> ui, app, storage, core, clock
 ```
 
 ## Rules that hold everywhere
@@ -102,7 +101,7 @@ wyck -> ui, app, platform, storage, core, clock
 | `CODE_OF_CONDUCT.md` | the code of conduct |
 | `crates/wyck-clock`, `crates/wyck-core`, `crates/wyck-market`, `crates/wyck-trading` | `AGENTS.md` of each |
 | `crates/wyck-drawings`, `crates/wyck-indicators`, `crates/wyck-chart` | `AGENTS.md` of each |
-| `crates/wyck-platform`, `crates/wyck-storage`, `crates/wyck-ctrader`, `crates/wyck-app` | `AGENTS.md` of each |
+| `crates/wyck-storage`, `crates/wyck-ctrader`, `crates/wyck-app` | `AGENTS.md` of each |
 | `crates/wyck-ui` | `AGENTS.md` (one section per module) |
 | `crates/wyck`, `xtask` | `AGENTS.md` of each |
 | `.claude/rules/` | rules that load when Claude Code reads files of one area |

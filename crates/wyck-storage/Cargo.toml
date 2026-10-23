@@ -23,7 +23,6 @@ toml.workspace = true
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 wyck-clock.workspace = true
-wyck-platform.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

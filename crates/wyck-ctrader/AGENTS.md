@@ -50,7 +50,7 @@ Used by: `wyck-app`.
 
 ## Global state
 
-None. The runtime that tokio-based code needs is `wyck-platform`'s; this crate assumes a live
+None. The runtime that tokio-based code needs is `wyck_app::system::runtime`; this crate assumes a live
 tokio runtime under it (`reqwest` and `tokio-tungstenite` panic without one).
 
 ## What the crate offers

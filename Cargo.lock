@@ -9845,7 +9845,6 @@ dependencies = [
  "wyck-app",
  "wyck-clock",
  "wyck-core",
- "wyck-platform",
  "wyck-storage",
  "wyck-ui",
 ]
@@ -9869,6 +9868,8 @@ dependencies = [
  "tokio",
  "toml 1.1.8+spec-1.1.0",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "wyck-chart",
  "wyck-clock",
  "wyck-core",
@@ -9876,7 +9877,6 @@ dependencies = [
  "wyck-drawings",
  "wyck-indicators",
  "wyck-market",
- "wyck-platform",
  "wyck-storage",
  "wyck-trading",
 ]
@@ -9967,20 +9967,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wyck-platform"
-version = "0.2.2"
-dependencies = [
- "chrono",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "wyck-clock",
-]
-
-[[package]]
 name = "wyck-storage"
 version = "0.2.2"
 dependencies = [
@@ -9999,7 +9985,6 @@ dependencies = [
  "tracing",
  "uuid",
  "wyck-clock",
- "wyck-platform",
  "zeroize",
 ]
 

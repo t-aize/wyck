@@ -1,11 +1,11 @@
 use super::cloud::cloud_folders_with;
 use super::folder::{resolve, write_marker};
 use super::*;
+use crate::build_info::BuildMode;
 use crate::error::ConfigError;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use wyck_platform::build_info::BuildMode;
 
 fn dir() -> tempfile::TempDir {
     tempfile::tempdir().unwrap()

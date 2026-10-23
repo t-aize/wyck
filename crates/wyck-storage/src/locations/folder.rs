@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use super::{Kind, Locations, MARKER};
+use crate::build_info::BuildMode;
 use crate::error::{ConfigError, Result};
 use crate::fs_util::{atomic_write, read_text};
-use wyck_platform::build_info::BuildMode;
 
 const MARKER_FORMAT: &str = "wyck-location";
 /// The layout of the marker file.

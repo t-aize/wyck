@@ -70,8 +70,8 @@ table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder sa
 | `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
 | `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
 | `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
-| `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
-| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
+| `wyck-storage`, `wyck-ctrader` | Files, secrets and backups; the cTrader Open API client |
+| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates, the log and the async runtime |
 | `wyck-ui` | Every screen, one module each: the widget kit (controls, colors, the font, the symbol marks), the price chart, the order ticket and account panel, the script editor, the window frame |
 | `wyck` | The program: `src/main.rs` starts the logs, the saved data and the window |
 

@@ -34,7 +34,6 @@ wyck-ctrader = { path = "crates/wyck-ctrader" }
 wyck-drawings = { path = "crates/wyck-drawings" }
 wyck-indicators = { path = "crates/wyck-indicators" }
 wyck-market = { path = "crates/wyck-market" }
-wyck-platform = { path = "crates/wyck-platform" }
 wyck-storage = { path = "crates/wyck-storage" }
 wyck-trading = { path = "crates/wyck-trading" }
 wyck-ui = { path = "crates/wyck-ui" }
