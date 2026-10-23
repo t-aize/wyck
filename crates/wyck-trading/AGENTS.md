@@ -4,8 +4,7 @@ The trading model: what an account holds, how an order is sized and protected, a
 order goes through before it is sent. Pure code: no socket, no file, no window.
 
 Depends on: `wyck-core`, `wyck-market`, `serde`, `serde_json`, `tracing`.
-Used by: `wyck-app`, `wyck-ctrader`, `wyck-drawings`, `wyck-ui-chart`, `wyck-ui-shell`,
-`wyck-ui-trading`.
+Used by: `wyck-app`, `wyck-ctrader`, `wyck-drawings`, `wyck-ui`.
 
 ## Module map
 

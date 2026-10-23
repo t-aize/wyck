@@ -34,19 +34,49 @@ struct Owner {
 
 /// The layering inside the crates that hold several modules. A crate that is merged from several
 /// ones adds its modules here, in the order of its old dependency chain.
-const MODULES: &[ModuleLayer] = &[];
+const MODULES: &[ModuleLayer] = &[
+    ModuleLayer {
+        src: "crates/wyck-ui/src",
+        module: "kit",
+        may_use: &[],
+    },
+    ModuleLayer {
+        src: "crates/wyck-ui/src",
+        module: "chart",
+        may_use: &["kit"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-ui/src",
+        module: "trading",
+        may_use: &["kit", "chart"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-ui/src",
+        module: "editor",
+        may_use: &["kit", "chart"],
+    },
+    ModuleLayer {
+        src: "crates/wyck-ui/src",
+        module: "shell",
+        may_use: &["kit", "chart", "trading", "editor"],
+    },
+];
 
 const OWNERS: &[Owner] = &[
     Owner {
+        ident: "anyhow",
+        only_under: &["crates/wyck-ui/src/editor/"],
+    },
+    Owner {
         ident: "ab_glyph",
         only_under: &[
-            "crates/wyck-ui-chart/src/chart/paint.rs",
-            "crates/wyck-ui-chart/src/chart/raster.rs",
+            "crates/wyck-ui/src/chart/chart/paint.rs",
+            "crates/wyck-ui/src/chart/chart/raster.rs",
         ],
     },
     Owner {
         ident: "gpui_kit",
-        only_under: &["crates/wyck-ui-kit/src/"],
+        only_under: &["crates/wyck-ui/src/kit/"],
     },
     Owner {
         ident: "rhai",
@@ -55,8 +85,8 @@ const OWNERS: &[Owner] = &[
     Owner {
         ident: "tiny_skia",
         only_under: &[
-            "crates/wyck-ui-chart/src/chart/paint.rs",
-            "crates/wyck-ui-chart/src/chart/raster.rs",
+            "crates/wyck-ui/src/chart/chart/paint.rs",
+            "crates/wyck-ui/src/chart/chart/raster.rs",
         ],
     },
 ];

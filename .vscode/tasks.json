@@ -19,11 +19,7 @@
         "wyck-platform",
         "wyck-storage",
         "wyck-trading",
-        "wyck-ui-chart",
-        "wyck-ui-editor",
-        "wyck-ui-kit",
-        "wyck-ui-shell",
-        "wyck-ui-trading",
+        "wyck-ui",
         "xtask"
       ]
     }

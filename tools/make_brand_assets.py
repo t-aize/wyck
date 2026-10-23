@@ -4,7 +4,7 @@
     crates/wyck/assets/brand/source-icon.png   the mark on a black square (the app icon)
     crates/wyck/assets/brand/source-logo.png   the mark with its outline on a transparent background
 
-Writes crates/wyck/assets/app-icon.{png,ico,icns} and crates/wyck-ui-kit/assets/logo.png (what the app
+Writes crates/wyck/assets/app-icon.{png,ico,icns} and crates/wyck-ui/assets/kit/logo.png (what the app
 shows, 256 px high).
 Needs Pillow. Run it again when a source image changes, and commit the results.
 """
@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "crates" / "wyck" / "assets"
-LOGO = ROOT / "crates" / "wyck-ui-kit" / "assets" / "logo.png"
+LOGO = ROOT / "crates" / "wyck-ui" / "assets" / "kit" / "logo.png"
 
 
 def rounded(image: Image.Image, size: int, radius_share: float = 0.22) -> Image.Image:

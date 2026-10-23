@@ -44,9 +44,9 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
     "tracing-subscriber",
 ];
 
-/// External crates a screen (a `wyck-ui-*` crate other than the kit) must not use: the network, the
-/// files, the sound and the system are reached through `wyck-app`, and only the kit names the
-/// component library.
+/// External crates a screen (and the program) must not use: the network, the
+/// files, the sound and the system are reached through `wyck-app`, and only the kit module of
+/// `wyck-ui` names the component library.
 const NOT_IN_A_SCREEN: &[&str] = &[
     "cargo-packager-updater",
     "directories",
@@ -61,20 +61,36 @@ const NOT_IN_A_SCREEN: &[&str] = &[
     "tracing-subscriber",
 ];
 
+/// What `wyck-ui` must not use: the same, but it holds the kit, which names `gpui-kit`.
+const NOT_IN_A_SCREEN_BUT_THE_KIT: &[&str] = &[
+    "cargo-packager-updater",
+    "directories",
+    "keyring",
+    "notify-rust",
+    "reqwest",
+    "rodio",
+    "tokio",
+    "tokio-tungstenite",
+    "tracing-appender",
+    "tracing-subscriber",
+];
+
 /// External crates that only some crates may use, because one crate owns the job: a second user
 /// would be a second way of doing the same thing.
 const OWNERS: &[(&str, &[&str])] = &[
-    ("ab_glyph", &["wyck-ui-chart"]),
+    ("ab_glyph", &["wyck-ui"]),
+    ("anyhow", &["wyck-ui", "xtask"]),
     ("argon2", &["wyck-storage"]),
     ("cargo-packager-updater", &["wyck-app"]),
     ("chacha20poly1305", &["wyck-storage"]),
     ("directories", &["wyck-storage"]),
+    ("gpui-kit", &["wyck-ui"]),
     ("keyring", &["wyck-storage"]),
     ("notify-rust", &["wyck-app"]),
     ("reqwest", &["wyck-ctrader"]),
     ("rhai", &["wyck-indicators"]),
     ("rodio", &["wyck-app"]),
-    ("tiny-skia", &["wyck-ui-chart"]),
+    ("tiny-skia", &["wyck-ui"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
     ("tracing-appender", &["wyck-platform"]),
     ("tracing-subscriber", &["wyck-platform"]),
@@ -192,50 +208,7 @@ const LAYERS: &[Layer] = &[
         forbidden: &["ab_glyph", "gpui-kit", "tiny-skia", "tokio-tungstenite"],
     },
     Layer {
-        name: "wyck-ui-editor",
-        internal: &[
-            "wyck-app",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-ui-chart",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-kit",
-        internal: &["wyck-core"],
-        forbidden: &[
-            "ab_glyph",
-            "cargo-packager-updater",
-            "directories",
-            "keyring",
-            "notify-rust",
-            "reqwest",
-            "rodio",
-            "tiny-skia",
-            "tokio",
-            "tokio-tungstenite",
-            "tracing-appender",
-            "tracing-subscriber",
-        ],
-    },
-    Layer {
-        name: "wyck-ui-chart",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-shell",
+        name: "wyck-ui",
         internal: &[
             "wyck-app",
             "wyck-chart",
@@ -245,27 +218,9 @@ const LAYERS: &[Layer] = &[
             "wyck-indicators",
             "wyck-market",
             "wyck-trading",
-            "wyck-ui-chart",
-            "wyck-ui-editor",
-            "wyck-ui-kit",
-            "wyck-ui-trading",
         ],
-        forbidden: NOT_IN_A_SCREEN,
-    },
-    Layer {
-        name: "wyck-ui-trading",
-        internal: &[
-            "wyck-app",
-            "wyck-chart",
-            "wyck-core",
-            "wyck-drawings",
-            "wyck-indicators",
-            "wyck-market",
-            "wyck-trading",
-            "wyck-ui-chart",
-            "wyck-ui-kit",
-        ],
-        forbidden: NOT_IN_A_SCREEN,
+        // The screens name `gpui-kit` through the `kit` module only: `sources.rs` checks that.
+        forbidden: NOT_IN_A_SCREEN_BUT_THE_KIT,
     },
     Layer {
         name: "wyck",
@@ -275,9 +230,7 @@ const LAYERS: &[Layer] = &[
             "wyck-core",
             "wyck-platform",
             "wyck-storage",
-            "wyck-ui-editor",
-            "wyck-ui-kit",
-            "wyck-ui-shell",
+            "wyck-ui",
         ],
         forbidden: NOT_IN_A_SCREEN,
     },

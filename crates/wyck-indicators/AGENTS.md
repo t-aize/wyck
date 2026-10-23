@@ -7,8 +7,7 @@ which hands the sources to `custom::library`.
 
 Depends on: `wyck-core`, `wyck-market`, `wyck-drawings`, `rhai`, `chrono`, `serde`, `serde_json`,
 `toml`.
-Used by: `wyck-app`, `wyck-chart`, `wyck-ui-chart`, `wyck-ui-editor`, `wyck-ui-shell`,
-`wyck-ui-trading`.
+Used by: `wyck-app`, `wyck-chart`, `wyck-ui`.
 
 ## Module map
 

@@ -6,7 +6,7 @@ window, no file, no socket. The painters that turn commands into pixels live in 
 
 Depends on: `wyck-core`, `wyck-market`, `wyck-drawings`, `wyck-indicators`, `chrono`, `chrono-tz`,
 `serde`, `serde_json` (`toml` in tests only).
-Used by: `wyck-app`, `wyck-ui-chart`, `wyck-ui-shell`, `wyck-ui-trading`.
+Used by: `wyck-app`, `wyck-ui`.
 
 ## Public API
 

@@ -5,7 +5,7 @@ Pure code: no file, no socket, no window.
 
 Depends on: `wyck-core`, `serde`, `chrono`, `chrono-tz`.
 Used by: `wyck-app`, `wyck-chart`, `wyck-ctrader`, `wyck-indicators`, `wyck-trading`,
-`wyck-ui-chart`, `wyck-ui-shell`, `wyck-ui-trading`.
+`wyck-ui`.
 
 ## What lives here and what does not
 

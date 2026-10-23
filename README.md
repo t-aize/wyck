@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="crates/wyck-ui-kit/assets/logo.png" alt="Wyck" width="120">
+  <img src="crates/wyck-ui/assets/kit/logo.png" alt="Wyck" width="120">
 </p>
 
 # wyck
@@ -25,7 +25,7 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `crates/wyck-ui-kit/assets/marks` are trademarks of their owners, shown only to
+marks bundled in `crates/wyck-ui/assets/kit/marks` are trademarks of their owners, shown only to
 identify the instrument being traded, and are used under the license of each set (see the
 `LICENSE.txt` next to it).
 
@@ -72,10 +72,7 @@ table, and `cargo xtask deps` checks it (the `AGENTS.md` in each crate folder sa
 | `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
 | `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
 | `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
-| `wyck-ui-kit` | The widget kit: controls, menus, dialogs, colors, the font and the symbol marks |
-| `wyck-ui-chart` | The price chart and the screen that arranges several of them |
-| `wyck-ui-trading`, `wyck-ui-editor` | The order ticket and the account panel; the indicator script editor |
-| `wyck-ui-shell` | The frame of the window: dashboard, settings, sign-in gate, keyboard shortcuts |
+| `wyck-ui` | Every screen, one module each: the widget kit (controls, colors, the font, the symbol marks), the price chart, the order ticket and account panel, the script editor, the window frame |
 | `wyck` | The program: `src/main.rs` starts the logs, the saved data and the window |
 
 Every control, menu, dialog and color comes from the widget kit. The Open API client is described

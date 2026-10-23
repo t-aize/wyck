@@ -9840,7 +9840,6 @@ version = "0.2.2"
 dependencies = [
  "chrono",
  "gpui-pre",
- "tempfile",
  "tracing",
  "winresource",
  "wyck-app",
@@ -9848,9 +9847,7 @@ dependencies = [
  "wyck-core",
  "wyck-platform",
  "wyck-storage",
- "wyck-ui-editor",
- "wyck-ui-kit",
- "wyck-ui-shell",
+ "wyck-ui",
 ]
 
 [[package]]
@@ -10019,62 +10016,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "wyck-ui-chart"
+name = "wyck-ui"
 version = "0.2.2"
 dependencies = [
  "ab_glyph",
- "gpui-pre",
- "thiserror 2.0.21",
- "tiny-skia 0.12.0",
- "tracing",
- "wyck-app",
- "wyck-chart",
- "wyck-core",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
- "wyck-trading",
- "wyck-ui-kit",
-]
-
-[[package]]
-name = "wyck-ui-editor"
-version = "0.2.2"
-dependencies = [
  "anyhow",
- "gpui-pre",
- "lsp-types",
- "serde",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "wyck-app",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-ui-chart",
- "wyck-ui-kit",
-]
-
-[[package]]
-name = "wyck-ui-kit"
-version = "0.2.2"
-dependencies = [
+ "chrono",
  "gpui-kit",
  "gpui-pre",
+ "lsp-types",
  "rust-embed",
- "tracing",
- "unicode-segmentation",
- "wyck-core",
-]
-
-[[package]]
-name = "wyck-ui-shell"
-version = "0.2.2"
-dependencies = [
- "chrono",
- "gpui-pre",
  "serde",
  "serde_json",
+ "thiserror 2.0.21",
+ "tiny-skia 0.12.0",
+ "toml 1.1.8+spec-1.1.0",
  "tracing",
+ "unicode-segmentation",
  "wyck-app",
  "wyck-chart",
  "wyck-clock",
@@ -10083,29 +10041,6 @@ dependencies = [
  "wyck-indicators",
  "wyck-market",
  "wyck-trading",
- "wyck-ui-chart",
- "wyck-ui-editor",
- "wyck-ui-kit",
- "wyck-ui-trading",
-]
-
-[[package]]
-name = "wyck-ui-trading"
-version = "0.2.2"
-dependencies = [
- "chrono",
- "gpui-pre",
- "serde_json",
- "toml 1.1.8+spec-1.1.0",
- "wyck-app",
- "wyck-chart",
- "wyck-core",
- "wyck-drawings",
- "wyck-indicators",
- "wyck-market",
- "wyck-trading",
- "wyck-ui-chart",
- "wyck-ui-kit",
 ]
 
 [[package]]

@@ -9,8 +9,7 @@ Depends on: `wyck-chart`, `wyck-clock`, `wyck-core`, `wyck-ctrader`, `wyck-drawi
 `wyck-market`, `wyck-platform`, `wyck-storage`, `wyck-trading`, `gpui`, `tokio`, `serde`,
 `serde_json`, `toml`, `secrecy`, `thiserror`, `tracing`, `chrono`, `async-trait`,
 `cargo-packager-updater`, `notify-rust`, `rodio`, `rust-embed` (`tempfile` in tests only).
-Used by: `wyck`, `wyck-ui-chart`, `wyck-ui-editor`, `wyck-ui-shell`, `wyck-ui-trading`: every screen
-reads it, and reaches the broker, the files and the system only through its `broker`, `storage` and
+Used by: `wyck`, `wyck-ui`: every screen reads it, and reaches the broker, the files and the system only through its `broker`, `storage` and
 `system` doors.
 
 ## Module map
