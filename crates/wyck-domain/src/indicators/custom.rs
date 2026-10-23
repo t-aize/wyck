@@ -28,6 +28,8 @@ pub mod templates;
 mod behavior;
 #[cfg(test)]
 mod hostile;
+#[cfg(test)]
+mod parity;
 
 use super::spec::Spec;
 

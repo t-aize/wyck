@@ -10,6 +10,7 @@ pub(crate) mod describe;
 pub(crate) mod indicators;
 pub(crate) mod inputs;
 pub(crate) mod plots;
+mod stats;
 pub(crate) mod symbols;
 
 use super::context::with_run;
@@ -26,6 +27,7 @@ pub(crate) fn register(engine: &mut Engine) {
     super::series::register(engine);
     elementwise(engine);
     windows(engine);
+    stats::statistics(engine);
     logic(engine);
     indicators::indicators(engine);
     describe::describing(engine);
