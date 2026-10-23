@@ -396,10 +396,14 @@ fn output_of(run: &Run) -> StudyOutput {
             color: fill.color,
             alpha: fill.alpha,
             other: fill.other,
+            follows: fill.follows,
         });
     }
     output.levels.clone_from(&run.levels);
     output.band = run.band;
+    output.band_style = run.band_style;
+    output.level_styles.clone_from(&run.level_styles);
+    output.format = run.format;
     output.drawings.clone_from(&run.drawings);
     output
 }

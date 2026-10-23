@@ -5,7 +5,9 @@
 use super::decl;
 use super::meter::{self, Meter};
 use super::other;
-use crate::indicators::data::{ScriptDrawing, StudyContext};
+use crate::indicators::data::{BandStyle, ScriptDrawing, StudyContext};
+use crate::indicators::spec::ValueFormat;
+use crate::indicators::style::LevelStyle;
 use rhai::{Dynamic, EvalAltResult, Position};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -37,6 +39,7 @@ pub(crate) struct FillResult {
     pub color: u32,
     pub alpha: f32,
     pub other: Option<u32>,
+    pub follows: bool,
 }
 
 /// The state of the run that is going on: what the functions of the script read (the bars, the
@@ -58,7 +61,12 @@ pub(crate) struct Run {
     pub fills: Vec<FillResult>,
     pub drawings: Vec<ScriptDrawing>,
     pub levels: Vec<f64>,
+    /// The look the script gave each level, parallel to `levels`.
+    pub level_styles: Vec<LevelStyle>,
     pub band: Option<(f64, f64)>,
+    pub band_style: BandStyle,
+    /// The way the values read, when the script said so with `set_format`.
+    pub format: Option<ValueFormat>,
     pub log: Vec<String>,
     /// Things worth knowing that do not stop the run.
     pub warnings: Vec<decl::Problem>,
@@ -111,7 +119,10 @@ impl Run {
             fills: Vec::new(),
             drawings: Vec::new(),
             levels: Vec::new(),
+            level_styles: Vec::new(),
             band: None,
+            band_style: BandStyle::default(),
+            format: None,
             log: Vec::new(),
             warnings: Vec::new(),
             declared: false,

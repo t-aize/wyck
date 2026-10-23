@@ -235,7 +235,7 @@ pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> Result<(Spec, Info
             color: p.color,
             width: p.width,
             dash: p.dash,
-            visible: true,
+            visible: p.visible,
         })
         .collect();
     let spec = Spec {

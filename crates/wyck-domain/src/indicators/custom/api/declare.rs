@@ -184,3 +184,23 @@ pub(super) fn base_input(options: &Options<'_>, key: &str, kind: InputType) -> F
         tooltip: options.text("tooltip")?,
     })
 }
+
+/// A format of values by its name: `"price"`, `"plain"`, `"percent"` or `"count"`, the decimals
+/// counting for the plain and the percent ones. `None` is the plain one.
+pub(super) fn format_of(
+    call: &str,
+    name: Option<&str>,
+    decimals: u32,
+) -> Fallible<crate::indicators::spec::ValueFormat> {
+    use crate::indicators::spec::ValueFormat;
+    match name {
+        None | Some("plain") => Ok(ValueFormat::Plain(decimals)),
+        Some("price") => Ok(ValueFormat::Price),
+        Some("percent") => Ok(ValueFormat::Percent(decimals)),
+        Some("count") => Ok(ValueFormat::Count),
+        Some(other) => Err(format!(
+            "{call}: the format \"{other}\" is not one of price, plain, percent and count"
+        )
+        .into()),
+    }
+}

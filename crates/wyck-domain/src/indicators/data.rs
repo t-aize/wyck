@@ -1,7 +1,8 @@
 //! What an indicator reads and what it gives back: the bars as columns of numbers
 //! ([`StudyInput`]) and the lines, fills and drawings it makes ([`StudyOutput`]).
 
-use super::spec::{DOWN, PlotKind, UP};
+use super::spec::{DOWN, PlotKind, UP, ValueFormat};
+use super::style::LevelStyle;
 use crate::base::math::f64_to_usize;
 use crate::base::ta::Series as _;
 
@@ -93,6 +94,9 @@ pub struct FillOut {
     pub alpha: f32,
     /// Colored by which plot is on top: `color` when `a` is above, this one otherwise.
     pub other: Option<u32>,
+    /// Whether the color is the one the user gave the plot `a`, whatever it is now: the fill of a
+    /// script that chose no color of its own.
+    pub follows: bool,
 }
 
 /// What an indicator draws.
@@ -106,6 +110,20 @@ pub struct StudyOutput {
     pub levels: Vec<f64>,
     /// A shaded band between two levels.
     pub band: Option<(f64, f64)>,
+    /// The look the script gave each level, by position (colors, width, dash).
+    pub level_styles: Vec<LevelStyle>,
+    /// The look the script gave the band.
+    pub band_style: BandStyle,
+    /// How the values read on the axis, when the script said so while computing (the unit of an
+    /// indicator that can show a price or a percentage).
+    pub format: Option<ValueFormat>,
+}
+
+/// The look a script gave its band: what it did not say is left to the defaults.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct BandStyle {
+    pub color: Option<u32>,
+    pub opacity: Option<f32>,
 }
 
 /// A named drawing owned by one script instance.

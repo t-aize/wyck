@@ -540,6 +540,7 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             color: config.plot_style("upper").color,
             alpha: 0.06,
             other: None,
+            follows: false,
         });
     }
     output

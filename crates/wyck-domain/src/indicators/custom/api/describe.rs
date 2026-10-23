@@ -1,14 +1,13 @@
 //! The calls that describe an indicator.
 
-use super::declare::Options;
+use super::declare::{Options, format_of};
 use super::inputs::{input_choice, input_color, input_number, input_source, input_text};
-use super::plots::{band, fill, hline, plot, plot_number};
+use super::plots::{band, fill, hline, plot, plot_number, set_format};
 use crate::base::math::{f64_to_i64, f64_to_u32, i64_to_f64};
 
 use crate::indicators::custom::context::with_run;
 use crate::indicators::custom::decl::{InputType, Meta};
 use crate::indicators::custom::series::{Fallible, Series, number_of, truth};
-use crate::indicators::spec::ValueFormat;
 use rhai::{Array, Engine, Map};
 
 pub(super) fn describing(engine: &mut Engine) {
@@ -101,11 +100,25 @@ pub(super) fn describing(engine: &mut Engine) {
     engine.register_fn("plot", |key: &str, value: i64, opts: Map| {
         plot_number(key, i64_to_f64(value), opts)
     });
-    engine.register_fn("hline", |value: f64| hline(value));
-    engine.register_fn("hline", |value: i64| hline(i64_to_f64(value)));
-    engine.register_fn("band", |low: f64, high: f64| band(low, high));
+    engine.register_fn("hline", |value: f64| hline(value, Map::new()));
+    engine.register_fn("hline", |value: i64| hline(i64_to_f64(value), Map::new()));
+    engine.register_fn("hline", |value: f64, opts: Map| hline(value, opts));
+    engine.register_fn("hline", |value: i64, opts: Map| {
+        hline(i64_to_f64(value), opts)
+    });
+    engine.register_fn("band", |low: f64, high: f64| band(low, high, Map::new()));
     engine.register_fn("band", |low: i64, high: i64| {
-        band(i64_to_f64(low), i64_to_f64(high))
+        band(i64_to_f64(low), i64_to_f64(high), Map::new())
+    });
+    engine.register_fn("band", |low: f64, high: f64, opts: Map| {
+        band(low, high, opts)
+    });
+    engine.register_fn("band", |low: i64, high: i64, opts: Map| {
+        band(i64_to_f64(low), i64_to_f64(high), opts)
+    });
+    engine.register_fn("set_format", |kind: &str| set_format(kind, 2));
+    engine.register_fn("set_format", |kind: &str, decimals: i64| {
+        set_format(kind, decimals)
     });
     engine.register_fn("fill", |a: &str, b: &str| fill(a, b, Map::new()));
     engine.register_fn("fill", |a: &str, b: &str, opts: Map| fill(a, b, opts));
@@ -141,17 +154,7 @@ pub(super) fn indicator(opts: Map) -> Fallible<()> {
     let decimals = options
         .number("decimals")?
         .map_or(2, |d| f64_to_u32(d.clamp(0.0, 8.0)));
-    meta.format = match options.text("format")?.as_deref() {
-        None | Some("plain") => ValueFormat::Plain(decimals),
-        Some("price") => ValueFormat::Price,
-        Some("count") => ValueFormat::Count,
-        Some(other) => {
-            return Err(format!(
-                "indicator: the format \"{other}\" is not one of price, plain and count"
-            )
-            .into());
-        }
-    };
+    meta.format = format_of("indicator", options.text("format")?.as_deref(), decimals)?;
     if let Some(range) = options.map.get("range") {
         let pair = range.clone().into_array().ok().filter(|a| a.len() == 2);
         let number = number_of;

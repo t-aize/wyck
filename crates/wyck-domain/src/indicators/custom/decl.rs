@@ -4,8 +4,9 @@ use crate::base::math::{count_f64, i64_to_f64};
 use crate::drawings::model::style::Dash;
 use crate::indicators::custom::series::Series;
 use crate::indicators::custom::slices::{TablesFull, choices};
-use crate::indicators::data::StudyInput;
+use crate::indicators::data::{BandStyle, StudyInput};
 use crate::indicators::spec::{InputKind, PlotKind, ValueFormat};
+use crate::indicators::style::LevelStyle;
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;
@@ -182,6 +183,20 @@ pub struct PlotDecl {
     pub color: u32,
     pub width: f32,
     pub dash: Dash,
+    /// Whether the plot shows until the user turns it on: false for a line that is there to be
+    /// read by another plot or by the legend.
+    pub visible: bool,
+}
+
+/// The area between two plots, as the script declared it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FillDecl {
+    pub a: String,
+    pub b: String,
+    /// The color the script chose, or `None` to follow the color of the plot `a`.
+    pub color: Option<u32>,
+    pub alpha: f32,
+    pub other: Option<u32>,
 }
 
 /// What the script says the indicator is.
@@ -222,6 +237,12 @@ pub struct Declaration {
     pub meta: Meta,
     pub inputs: Vec<InputDecl>,
     pub plots: Vec<PlotDecl>,
+    /// The horizontal levels the script drew, in order, as they were with the default inputs.
+    pub levels: Vec<(f64, LevelStyle)>,
+    /// The band, with the look the script gave it.
+    pub band: Option<(f64, f64, BandStyle)>,
+    /// The areas between two plots.
+    pub fills: Vec<FillDecl>,
 }
 
 /// The most inputs and plots one indicator may have.

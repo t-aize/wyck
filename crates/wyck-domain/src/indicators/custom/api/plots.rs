@@ -1,13 +1,15 @@
 //! The calls that put something on the chart.
 
-use super::declare::{Options, check_key, title_of};
-use crate::base::math::{f32_of, f64_to_i64};
+use super::declare::{Options, check_key, format_of, title_of};
+use crate::base::math::{f32_of, f64_to_i64, f64_to_u32, i64_to_f64};
 
 use crate::drawings::model::style::Dash;
 use crate::indicators::custom::context::{FillResult, Mode, PlotResult, with_run};
-use crate::indicators::custom::decl::{MAX_PLOTS, PlotDecl};
+use crate::indicators::custom::decl::{FillDecl, MAX_PLOTS, PlotDecl};
 use crate::indicators::custom::series::{Fallible, Series, is_true};
+use crate::indicators::data::BandStyle;
 use crate::indicators::spec::PlotKind;
+use crate::indicators::style::LevelStyle;
 use rhai::Map;
 
 pub(super) fn plot_number(key: &str, value: f64, opts: Map) -> Fallible<()> {
@@ -20,7 +22,9 @@ pub(super) fn plot(key: &str, series: Series, opts: Map) -> Fallible<()> {
     let options = Options::new(
         "plot",
         opts,
-        &["title", "color", "width", "style", "dash", "offset", "up"],
+        &[
+            "title", "color", "width", "style", "dash", "offset", "up", "visible",
+        ],
     )?;
     let kind = match options.text("style")?.as_deref() {
         None | Some("line") => PlotKind::Line,
@@ -33,17 +37,7 @@ pub(super) fn plot(key: &str, series: Series, opts: Map) -> Fallible<()> {
             .into());
         }
     };
-    let dash = match options.text("dash")?.as_deref() {
-        None | Some("solid") => Dash::Solid,
-        Some("dashed") => Dash::Dashed,
-        Some("dotted") => Dash::Dotted,
-        Some(other) => {
-            return Err(format!(
-                "plot: the dash \"{other}\" is not one of solid, dashed and dotted"
-            )
-            .into());
-        }
-    };
+    let dash = dash_of(&options)?.unwrap_or(Dash::Solid);
     let width = f32_of(options.number("width")?.unwrap_or(1.5).clamp(0.5, 20.0));
     let color = options.color("color")?;
     let label = options.text("title")?.unwrap_or_else(|| title_of(key));
@@ -54,6 +48,7 @@ pub(super) fn plot(key: &str, series: Series, opts: Map) -> Fallible<()> {
             .clamp(-500.0, 500.0),
     );
     let up = options.series("up")?;
+    let visible = options.flag("visible")?.unwrap_or(true);
     with_run(|run| {
         if run.declaration.plots.iter().any(|p| p.key == key) {
             return Err(format!("the plot \"{key}\" is drawn twice").into());
@@ -94,6 +89,7 @@ pub(super) fn plot(key: &str, series: Series, opts: Map) -> Fallible<()> {
             color,
             width,
             dash,
+            visible,
         });
         run.plots.push(PlotResult {
             key: key.to_owned(),
@@ -113,28 +109,70 @@ pub(super) const PALETTE: [u32; 8] = [
 /// The most horizontal levels an indicator may draw.
 pub(crate) const MAX_LEVELS: usize = 16;
 
-pub(super) fn hline(value: f64) -> Fallible<()> {
+/// The dash a call asked for, if it did.
+fn dash_of(options: &Options<'_>) -> Fallible<Option<Dash>> {
+    Ok(match options.text("dash")?.as_deref() {
+        None => None,
+        Some("solid") => Some(Dash::Solid),
+        Some("dashed") => Some(Dash::Dashed),
+        Some("dotted") => Some(Dash::Dotted),
+        Some(other) => {
+            return Err(format!(
+                "{}: the dash \"{other}\" is not one of solid, dashed and dotted",
+                options.call
+            )
+            .into());
+        }
+    })
+}
+
+pub(super) fn hline(value: f64, opts: Map) -> Fallible<()> {
     if !value.is_finite() {
         return Err("hline: the level must be a number, not na".into());
+    }
+    let options = Options::new("hline", opts, &["color", "width", "dash", "opacity"])?;
+    let mut style = LevelStyle::default();
+    if let Some(color) = options.color("color")? {
+        style.color = color;
+    }
+    if let Some(width) = options.number("width")? {
+        style.width = f32_of(width.clamp(0.5, 20.0));
+    }
+    if let Some(dash) = dash_of(&options)? {
+        style.dash = dash;
+    }
+    if let Some(opacity) = options.number("opacity")? {
+        style.opacity = f32_of(opacity.clamp(0.0, 1.0));
     }
     with_run(|run| {
         if run.levels.len() >= MAX_LEVELS {
             return Err(format!("an indicator draws at most {MAX_LEVELS} levels").into());
         }
         run.levels.push(value);
+        run.level_styles.push(style);
+        run.declaration.levels.push((value, style));
         Ok(())
     })?
 }
 
-pub(super) fn band(low: f64, high: f64) -> Fallible<()> {
+pub(super) fn band(low: f64, high: f64, opts: Map) -> Fallible<()> {
     if !(low.is_finite() && high.is_finite() && low < high) {
         return Err("band: give the lower level first, under the higher".into());
     }
+    let options = Options::new("band", opts, &["color", "alpha"])?;
+    let style = BandStyle {
+        color: options.color("color")?,
+        opacity: options
+            .number("alpha")?
+            .map(|alpha| f32_of(alpha.clamp(0.0, 1.0))),
+    };
     with_run(|run| {
         if run.band.is_some() {
             run.warn("band: called twice, only the last one is drawn");
         }
         run.band = Some((low, high));
+        run.band_style = style;
+        run.declaration.band = Some((low, high, style));
     })
 }
 
@@ -150,6 +188,9 @@ pub(super) fn fill(a: &str, b: &str, opts: Map) -> Fallible<()> {
             })
         };
         let (index_a, index_b) = (find(a)?, find(b)?);
+        // A fill with no color of its own takes the color of the plot above it, and keeps
+        // following it when the user changes that one.
+        let follows = color.is_none();
         let color = color.unwrap_or_else(|| {
             run.declaration
                 .plots
@@ -163,7 +204,27 @@ pub(super) fn fill(a: &str, b: &str, opts: Map) -> Fallible<()> {
             color,
             alpha,
             other,
+            follows,
+        });
+        run.declaration.fills.push(FillDecl {
+            a: a.to_owned(),
+            b: b.to_owned(),
+            color: (!follows).then_some(color),
+            alpha,
+            other,
         });
         Ok(())
     })?
+}
+
+/// How the values of the indicator read from now on: `"price"`, `"plain"`, `"percent"` or
+/// `"count"`, with the decimals of the last two. It overrides the format of `indicator`, and may
+/// depend on an input.
+pub(super) fn set_format(kind: &str, decimals: i64) -> Fallible<()> {
+    let format = format_of(
+        "set_format",
+        Some(kind),
+        f64_to_u32(i64_to_f64(decimals).clamp(0.0, 8.0)),
+    )?;
+    with_run(|run| run.format = Some(format))
 }

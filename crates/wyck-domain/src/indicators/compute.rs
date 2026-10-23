@@ -176,6 +176,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: config.plot_style("upper_1").color,
                 alpha: 0.06,
                 other: None,
+                follows: false,
             });
             out.fills.push(FillOut {
                 a: 3,
@@ -183,6 +184,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: config.plot_style("upper_2").color,
                 alpha: 0.04,
                 other: None,
+                follows: false,
             });
         }
         StudyKind::Bollinger => {
@@ -202,6 +204,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: config.plot_style("upper").color,
                 alpha: 0.08,
                 other: None,
+                follows: false,
             });
         }
         StudyKind::Keltner => {
@@ -228,6 +231,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: config.plot_style("upper").color,
                 alpha: 0.06,
                 other: None,
+                follows: false,
             });
         }
         StudyKind::Donchian => {
@@ -248,6 +252,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: config.plot_style("upper").color,
                 alpha: 0.06,
                 other: None,
+                follows: false,
             });
         }
         StudyKind::Ichimoku => {
@@ -287,6 +292,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 color: 0x43_a047,
                 alpha: 0.12,
                 other: Some(0xf4_4336),
+                follows: false,
             });
         }
         StudyKind::ParabolicSar => {

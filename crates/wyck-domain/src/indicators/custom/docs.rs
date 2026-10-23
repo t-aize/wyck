@@ -116,7 +116,7 @@ pub const FUNCTIONS: &[Doc] = &[
         Declare,
         "indicator",
         "indicator(options)",
-        "Says what the indicator is. Options: name, short, overlay (drawn on the prices), format (\"price\", \"plain\", \"count\"), decimals, range ([low, high] for a pane with a fixed scale), category, description, author, version. Call it once, at the top.",
+        "Says what the indicator is. Options: name, short, overlay (drawn on the prices), format (\"price\", \"plain\", \"percent\", \"count\"), decimals, range ([low, high] for a pane with a fixed scale), category, description, author, version. Call it once, at the top.",
         "indicator(#{ name: \"My average\", short: \"MA\", overlay: true });",
     ),
     doc(
@@ -193,21 +193,21 @@ pub const FUNCTIONS: &[Doc] = &[
         Declare,
         "plot",
         "plot(key, series, options?)",
-        "Draws a series. The key names it in the settings. Options: title, color, width, style (\"line\", \"histogram\", \"dots\"), dash (\"solid\", \"dashed\", \"dotted\"), offset (bars to move it), up (a condition: for a histogram, columns where it holds are drawn up).",
+        "Draws a series. The key names it in the settings. Options: title, color, width, style (\"line\", \"histogram\", \"dots\"), dash (\"solid\", \"dashed\", \"dotted\"), offset (bars to move it), up (a condition: for a histogram, columns where it holds are drawn up), visible (false for a plot that is hidden until the user turns it on).",
         "plot(\"ma\", sma(close, 20), #{ color: \"orange\", width: 2 });",
     ),
     doc(
         Declare,
         "hline",
-        "hline(value)",
-        "A horizontal line at a value, in the pane of the indicator.",
+        "hline(value, options?)",
+        "A horizontal line at a value, in the pane of the indicator. Options: color, width, dash and opacity give its look until the user changes it.",
         "hline(70);",
     ),
     doc(
         Declare,
         "band",
-        "band(low, high)",
-        "A shaded band between two values, in the pane of the indicator.",
+        "band(low, high, options?)",
+        "A shaded band between two values, in the pane of the indicator. Options: color and alpha.",
         "band(30, 70);",
     ),
     doc(
@@ -1350,6 +1350,13 @@ pub const FUNCTIONS: &[Doc] = &[
         "sar(start, step, max) -> series",
         "The name of Pine for psar: the parabolic SAR.",
         "let s = sar(0.02, 0.02, 0.2);",
+    ),
+    doc(
+        Declare,
+        "set_format",
+        "set_format(kind, decimals?)",
+        "Says how the values of the indicator read on its axis and in its legend while it is being computed: \"price\", \"plain\", \"percent\" or \"count\", with decimals for the plain and the percent ones. It replaces the format given to indicator, and may depend on an input: an ATR that shows a price or a percentage calls set_format(\"percent\", 2) when the user chose the percentage.",
+        "if unit == \"% of close\" { set_format(\"percent\", 2); }",
     ),
 ];
 

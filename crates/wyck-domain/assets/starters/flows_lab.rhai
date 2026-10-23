@@ -44,3 +44,7 @@ let line = switch kind {
     _ => aroon(length).down,
 };
 plot("line", line);
+
+// The values read with three decimals, whatever indicator() said: a script may decide this from an
+// input, as an indicator that shows a price or a percentage does.
+set_format("plain", 3);
