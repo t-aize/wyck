@@ -3,7 +3,7 @@
 use super::config::StudyConfig;
 use super::data::plot;
 pub use super::data::{
-    DOWN_COLOR, FillOut, PlotOut, ScriptDrawing, StudyInput, StudyOutput, UP_COLOR,
+    DOWN_COLOR, FillOut, PlotOut, ScriptDrawing, StudyContext, StudyInput, StudyOutput, UP_COLOR,
 };
 use super::kind::StudyKind;
 use super::spec::PlotKind;

@@ -6,7 +6,7 @@
 //! only reads it. The chart owns the prices; [`Display`] owns what is derived from them.
 
 use crate::base::math::{f64_to_i64, i64_to_f64};
-use crate::market::{Bar, Tick};
+use crate::market::{Bar, Tick, Timeframe};
 
 use super::data::Series;
 use super::order_flow::tpo;
@@ -15,7 +15,7 @@ use super::settings::{ChartKind, ChartSettings};
 use super::transform::{self, KagiLine, PnfColumn};
 use super::zone::Zone;
 use crate::indicators as study;
-use crate::indicators::compute::{StudyInput, StudyOutput};
+use crate::indicators::compute::{StudyContext, StudyInput, StudyOutput};
 use crate::indicators::kind::StudyKind;
 
 /// What is drawn when it is not the prices as they are.
@@ -194,6 +194,29 @@ pub fn study_input(series: &Series, zone: Zone) -> StudyInput {
         input.day.push(zone.day(bar.time_ms));
     }
     input
+}
+
+/// What a script may read about the chart besides its bars: the offset of the zone at each bar,
+/// the timeframe, the symbol and whether the last bar is still forming.
+pub fn study_context(
+    series: &Series,
+    zone: Zone,
+    timeframe: Option<Timeframe>,
+    symbol: &str,
+    digits: u32,
+    live: bool,
+) -> StudyContext {
+    let offsets = as_bars(series)
+        .iter()
+        .map(|bar| zone.offset_ms(bar.time_ms))
+        .collect();
+    StudyContext {
+        offsets: std::sync::Arc::new(offsets),
+        timeframe,
+        symbol: symbol.to_owned(),
+        digits,
+        live,
+    }
 }
 
 fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<StudyOutput>> {

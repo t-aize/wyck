@@ -118,6 +118,10 @@ impl PivotKind {
 
     /// The seven levels `[p, r1, s1, r2, s2, r3, s3]` from the high, low, open and close of the
     /// previous period. Levels a kind does not have are `NaN`.
+    #[expect(
+        clippy::many_single_char_names,
+        reason = "the pivot formulas are written with H, L, O, C and P, as everywhere"
+    )]
     fn levels(self, h: f64, l: f64, o: f64, c: f64) -> [f64; 7] {
         let range = h - l;
         let p = (h + l + c) / 3.0;

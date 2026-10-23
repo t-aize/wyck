@@ -53,6 +53,21 @@ const FIELDS: &[(&str, &str)] = &[
     ("adx", "ADX."),
     ("line", "The line."),
     ("direction", "1 while the trend is up, -1 while it is down."),
+    ("vwap", "The volume weighted average price."),
+    ("up", "The up line, or Aroon up."),
+    ("down", "The down line, or Aroon down."),
+    ("high", "The high, or the fractals high."),
+    ("low", "The low, or the fractals low."),
+    ("open", "The open."),
+    ("close", "The close."),
+    ("volume", "The volume."),
+    ("p", "The pivot point."),
+    ("r1", "The first resistance."),
+    ("r2", "The second resistance."),
+    ("r3", "The third resistance."),
+    ("s1", "The first support."),
+    ("s2", "The second support."),
+    ("s3", "The third support."),
 ];
 
 /// The methods a series has, that are also functions.
@@ -330,7 +345,7 @@ mod tests {
 
     #[test]
     fn after_a_dot_the_fields_and_the_methods_of_a_series_are_offered() {
-        let found = labels("let bb = bollinger(close, 20, 2.0);\nplot(\"u\", bb.up");
+        let found = labels("let bb = bollinger(close, 20, 2.0);\nplot(\"u\", bb.upp");
         assert_eq!(found[0], "upper");
         assert!(!found.contains(&"sma".to_owned()));
         let methods = labels("close.la");

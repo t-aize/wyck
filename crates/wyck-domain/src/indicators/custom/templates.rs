@@ -1,4 +1,4 @@
-//! The scripts a new indicator can start from: ten examples that between them use every call and
+//! The scripts a new indicator can start from: examples that between them use every call and
 //! every option of the language, from the settings to drawings and loops.
 //! The files are in `assets/starters` of the crate and are compiled into it.
 
@@ -60,6 +60,31 @@ pub const TEMPLATES: &[Template] = &[
         name: "Session range",
         description: "The high and low of a daily session, from a session setting and the time of the bars.",
         source: include_str!("../../../assets/starters/session_range.rhai"),
+    },
+    Template {
+        name: "Statistics lab",
+        description: "Variance, deviation, median, mode, percentiles, correlation, ALMA, CMO, TSI and the other statistics of Pine, one at a time.",
+        source: include_str!("../../../assets/starters/statistics_lab.rhai"),
+    },
+    Template {
+        name: "Channels and levels",
+        description: "Bollinger, Keltner and Donchian channels, pivot point levels of the previous period, fractals and pivots.",
+        source: include_str!("../../../assets/starters/channels_and_levels.rhai"),
+    },
+    Template {
+        name: "Flows lab",
+        description: "Money flow, accumulation/distribution, volume indices, the Williams indices, band widths and Aroon.",
+        source: include_str!("../../../assets/starters/flows_lab.rhai"),
+    },
+    Template {
+        name: "Chart and calendar",
+        description: "The calendar of each bar, periods, sessions, the timeframe, the symbol and where a bar is in the chart.",
+        source: include_str!("../../../assets/starters/chart_and_calendar.rhai"),
+    },
+    Template {
+        name: "Math and colors",
+        description: "Trigonometry, constants, arrays of numbers, text and colors, and the Pine names of crossings, momentum and SAR.",
+        source: include_str!("../../../assets/starters/math_and_colors.rhai"),
     },
 ];
 
@@ -335,5 +360,43 @@ mod tests {
         let at = top.get(40).copied().unwrap();
         assert!(at >= input.high[40] && bottom[40] <= input.low[40]);
         assert!(top.iter().zip(bottom).all(|(h, l)| h.is_nan() || h >= l));
+    }
+
+    /// The names a starter calls: a word followed by an opening bracket, outside comments and
+    /// strings.
+    fn called_names() -> std::collections::BTreeSet<String> {
+        let mut names = std::collections::BTreeSet::new();
+        for template in TEMPLATES {
+            let source = template.source;
+            let tokens = crate::indicators::custom::lexer::lex(source);
+            for pair in tokens.windows(2) {
+                let [word, open] = pair else {
+                    continue;
+                };
+                if source.get(open.range.clone()) == Some("(") {
+                    names.insert(
+                        source
+                            .get(word.range.clone())
+                            .unwrap_or_default()
+                            .to_owned(),
+                    );
+                }
+            }
+        }
+        names
+    }
+
+    /// A function nobody shows in use is a function nobody finds: every one of the reference is
+    /// called by at least one starter, which the other tests compile and run.
+    #[test]
+    fn every_function_of_the_language_is_used_by_a_starter() {
+        use crate::indicators::custom::docs::FUNCTIONS;
+        let called = called_names();
+        let missing: Vec<&str> = FUNCTIONS
+            .iter()
+            .map(|doc| doc.name)
+            .filter(|name| !called.contains(*name))
+            .collect();
+        assert!(missing.is_empty(), "no starter calls: {missing:?}");
     }
 }

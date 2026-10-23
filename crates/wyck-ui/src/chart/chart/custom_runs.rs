@@ -19,17 +19,19 @@ use std::time::Duration;
 use gpui::{Context, Task};
 
 use super::Chart;
+use super::study::compute::StudyContext;
 use super::study::compute::StudyOutput;
 use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
 use super::study::custom::other::{OtherBars, OtherSymbols};
+use super::study::custom::run::Setup;
 use super::study::custom::{self, Problem, Severity};
 use wyck_app::lost::lost;
 use wyck_app::market_data::load::{self, Loaded};
 use wyck_app::market_data::now_ms;
 use wyck_app::scripts as indicators;
 use wyck_app::system::runtime;
-use wyck_domain::chart::study_input;
+use wyck_domain::chart::{study_context, study_input};
 
 /// What a run was made from, to know whether another is wanted.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,6 +42,8 @@ struct Fingerprint {
     texts: BTreeMap<String, String>,
     /// Which state of the data and the settings.
     wanted: u64,
+    /// The zone, timeframe and symbol the script saw.
+    frame: String,
 }
 
 /// A run in flight. Dropping it stops the script.
@@ -258,6 +262,22 @@ impl Chart {
         }
         let limits = indicators::limits(cx);
         let mut input = None;
+        let mut context: Option<Arc<StudyContext>> = None;
+        let symbol_name = self
+            .symbol
+            .as_ref()
+            .map(|s| s.name.clone())
+            .unwrap_or_default();
+        let digits = self.symbol.as_ref().map_or(0, |s| s.digits);
+        let live = self.replay.is_none();
+        let frame = format!(
+            "{}|{}|{}|{}|{}",
+            self.settings.zone.code(),
+            self.timeframe.code(),
+            symbol_name,
+            digits,
+            live
+        );
         for (index, config) in self.settings.studies.clone().into_iter().enumerate() {
             if !config.is_script() {
                 continue;
@@ -291,6 +311,7 @@ impl Chart {
                 inputs: config.inputs.clone(),
                 texts: config.texts.clone(),
                 wanted: self.custom.wanted,
+                frame: frame.clone(),
             };
             if slot.running.is_some() {
                 slot.dirty = true;
@@ -303,6 +324,16 @@ impl Chart {
                 Arc::new(study_input(
                     self.display.shown(&self.series),
                     self.settings.zone,
+                ))
+            }));
+            let context = Arc::clone(context.get_or_insert_with(|| {
+                Arc::new(study_context(
+                    self.display.shown(&self.series),
+                    self.settings.zone,
+                    Some(self.timeframe),
+                    &symbol_name,
+                    digits,
+                    live,
                 ))
             }));
             let wanted = script.symbols_wanted(&config.texts);
@@ -341,14 +372,13 @@ impl Chart {
                     let result = cx
                         .background_executor()
                         .spawn(async move {
-                            script.compute_with_others(
-                                &bars,
-                                &values,
-                                &texts,
-                                &others,
-                                limits,
-                                Some(flag),
-                            )
+                            let setup = Setup {
+                                values: &values,
+                                texts: &texts,
+                                others: &others,
+                                context: &context,
+                            };
+                            script.compute_in(&bars, &setup, limits, Some(flag))
                         })
                         .await;
                     lost(
@@ -611,6 +641,7 @@ mod tests {
             inputs: BTreeMap::new(),
             texts: BTreeMap::new(),
             wanted: custom.wanted,
+            frame: String::new(),
         });
 
         // More bars at the end: the first is the same, the output stays (and a new run is wanted).

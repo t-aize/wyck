@@ -5,10 +5,12 @@
 //! and wraps the answer. The description of every function, for the editor, is in
 //! [`super::docs`], and a test checks that the two lists agree.
 
+mod chart;
 mod declare;
 pub(crate) mod describe;
 pub(crate) mod indicators;
 pub(crate) mod inputs;
+mod math;
 pub(crate) mod plots;
 mod stats;
 pub(crate) mod symbols;
@@ -28,6 +30,8 @@ pub(crate) fn register(engine: &mut Engine) {
     elementwise(engine);
     windows(engine);
     stats::statistics(engine);
+    chart::chart(engine);
+    math::math(engine);
     logic(engine);
     indicators::indicators(engine);
     describe::describing(engine);
@@ -207,6 +211,7 @@ fn windows(engine: &mut Engine) {
     window!("rsi", ta::rsi);
     window!("roc", ta::roc);
     window!("momentum", ta::momentum);
+    window!("mom", ta::momentum);
 
     engine.register_fn("vwma", |s: Series, n: i64| -> Fallible<Series> {
         let volume = columns()?.volume;
@@ -280,6 +285,10 @@ fn logic(engine: &mut Engine) {
     crossing!("cross_over", |before: f64, now: f64| before <= 0.0
         && now > 0.0);
     crossing!("cross_under", |before: f64, now: f64| before >= 0.0
+        && now < 0.0);
+    crossing!("crossover", |before: f64, now: f64| before <= 0.0
+        && now > 0.0);
+    crossing!("crossunder", |before: f64, now: f64| before >= 0.0
         && now < 0.0);
     crossing!("cross", |before: f64, now: f64| {
         before <= 0.0 && now > 0.0 || before >= 0.0 && now < 0.0

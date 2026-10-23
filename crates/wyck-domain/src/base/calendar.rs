@@ -122,12 +122,10 @@ impl Session {
     /// Whether the minute of the day (0 to 1439) is in the session. The end is not in it: a
     /// session `0930-1600` stops at 15:59.
     pub fn contains(self, minute_of_day: u32) -> bool {
-        if self.from == self.to {
-            true
-        } else if self.from < self.to {
-            (self.from..self.to).contains(&minute_of_day)
-        } else {
-            minute_of_day >= self.from || minute_of_day < self.to
+        match self.from.cmp(&self.to) {
+            std::cmp::Ordering::Equal => true,
+            std::cmp::Ordering::Less => (self.from..self.to).contains(&minute_of_day),
+            std::cmp::Ordering::Greater => minute_of_day >= self.from || minute_of_day < self.to,
         }
     }
 }

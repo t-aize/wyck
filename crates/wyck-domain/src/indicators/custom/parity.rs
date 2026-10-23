@@ -1,6 +1,12 @@
 //! Each function of the language computes what the arithmetic of `base` computes: a script that
 //! calls it gives the same numbers as calling that arithmetic on the same bars.
 
+#![expect(
+    clippy::many_single_char_names,
+    clippy::float_cmp,
+    reason = "the tests name the columns o, h, l, c, v and compare exact small numbers"
+)]
+
 use super::decl::Limits;
 use super::run::Script;
 use crate::base::levels;
@@ -370,4 +376,200 @@ fn the_variants_of_an_indicator_match_each_other_and_the_arithmetic() {
         .map(|i| 100.0 * (b.close[i] - ll[i]) / (hh[i] - ll[i]))
         .collect();
     same("raw stochastic", &raw, &want);
+}
+
+/// The plots of a script run in the context of a chart: two hours east of UTC, hourly bars, a
+/// symbol of 5 digits, the last bar still forming.
+fn in_chart(source: &str, digits: u32) -> BTreeMap<String, Vec<f64>> {
+    use super::run::Setup;
+    use crate::indicators::data::StudyContext;
+    use crate::market::{Period, Timeframe};
+    let context = StudyContext {
+        offsets: std::sync::Arc::new(vec![7_200_000; N]),
+        timeframe: Some(Timeframe::Bars(Period::H1)),
+        symbol: "EURUSD".to_owned(),
+        digits,
+        live: true,
+    };
+    let (values, texts, others) = (BTreeMap::new(), BTreeMap::new(), BTreeMap::new());
+    let setup = Setup {
+        values: &values,
+        texts: &texts,
+        others: &others,
+        context: &context,
+    };
+    let script = Script::compile(source).unwrap_or_else(|p| panic!("{source}: {p:?}"));
+    let done = script
+        .compute_in(&bars(), &setup, Limits::default(), None)
+        .unwrap_or_else(|p| panic!("{source}: {p:?}"));
+    done.output
+        .plots
+        .into_iter()
+        .map(|p| (p.key.to_owned(), p.values))
+        .collect()
+}
+
+#[test]
+fn the_calendar_is_read_in_the_zone_of_the_chart() {
+    let drawn = in_chart(
+        "plot(\"a\", hour());\nplot(\"b\", dayofweek());\nplot(\"c\", year());\nplot(\"d\", month());\n\
+         plot(\"e\", in_session(\"0200-0400\"));\nplot(\"f\", utc_offset());\nplot(\"g\", is_new_period(\"day\"));",
+        5,
+    );
+    // Bar 0 is 1970-01-01 00:00 UTC, so 02:00 there, and a Thursday.
+    assert_eq!(&drawn["a"][..4], &[2.0, 3.0, 4.0, 5.0]);
+    assert_eq!(drawn["b"][0], 5.0);
+    assert_eq!((drawn["c"][0], drawn["d"][0]), (1970.0, 1.0));
+    assert_eq!(&drawn["e"][..4], &[1.0, 1.0, 0.0, 0.0]);
+    assert!(drawn["f"].iter().all(|m| *m == 120.0));
+    let first: Vec<usize> = (0..N).filter(|i| drawn["g"][*i] == 1.0).collect();
+    assert_eq!(first, vec![0, 24, 48, 72, 96]);
+}
+
+#[test]
+fn the_timeframe_the_symbol_and_the_bar_are_known_to_the_script() {
+    let drawn = in_chart(
+        "plot(\"a\", timeframe_seconds());\nplot(\"b\", timeframe_multiplier());\n\
+         plot(\"c\", if timeframe_is_intraday() && !timeframe_is_daily() { 1 } else { 0 });\n\
+         plot(\"d\", syminfo_mintick());\nplot(\"e\", price_scale());\nplot(\"f\", to_raw(1.1));\n\
+         plot(\"g\", barstate_islast());\nplot(\"h\", barstate_isrealtime());\nplot(\"i\", barstate_isconfirmed());\n\
+         plot(\"j\", last_bar_index());",
+        5,
+    );
+    let first = |key: &str| drawn[key][0];
+    assert_eq!((first("a"), first("b"), first("c")), (3600.0, 60.0, 1.0));
+    assert_eq!((first("d"), first("e")), (1.0, 100_000.0));
+    assert!((first("f") - 110_000.0).abs() < 1e-6);
+    assert_eq!((drawn["g"][N - 1], drawn["g"][0]), (1.0, 0.0));
+    assert_eq!(
+        (drawn["h"][N - 1], drawn["i"][N - 1], drawn["i"][0]),
+        (1.0, 0.0, 1.0)
+    );
+    assert_eq!(first("j"), count_f64(N - 1));
+    // Three digits: a step of 100.
+    assert_eq!(
+        in_chart("plot(\"a\", syminfo_mintick());", 3)["a"][0],
+        100.0
+    );
+}
+
+fn logged(source: &str) -> Vec<String> {
+    Script::compile(source)
+        .unwrap_or_else(|p| panic!("{source}: {p:?}"))
+        .compute(&bars(), &BTreeMap::new(), Limits::default(), None)
+        .unwrap_or_else(|p| panic!("{source}: {p:?}"))
+        .log
+}
+
+#[test]
+fn the_trigonometry_and_rounding_match_the_standard_functions() {
+    let ratio: Vec<f64> = bars().close.iter().map(|c| c / 200.0).collect();
+    same(
+        "asin",
+        &plot("plot(\"a\", asin(close / 200));"),
+        &ratio.iter().map(|x| x.asin()).collect::<Vec<_>>(),
+    );
+    same(
+        "atan",
+        &plot("plot(\"a\", atan(close / 200));"),
+        &ratio.iter().map(|x| x.atan()).collect::<Vec<_>>(),
+    );
+    same(
+        "tan",
+        &plot("plot(\"a\", tan(close / 200));"),
+        &ratio.iter().map(|x| x.tan()).collect::<Vec<_>>(),
+    );
+    same(
+        "todegrees",
+        &plot("plot(\"a\", todegrees(close / 200));"),
+        &ratio.iter().map(|x| x.to_degrees()).collect::<Vec<_>>(),
+    );
+    // acos is not a number outside -1 to 1: no value, not an error.
+    assert!(plot("plot(\"a\", acos(close));").iter().all(|v| v.is_nan()));
+    let rounded = plot("plot(\"a\", round(close / 7, 2));");
+    assert!(
+        rounded
+            .iter()
+            .filter(|v| v.is_finite())
+            .all(|v| (v * 100.0 - (v * 100.0).round()).abs() < 1e-9)
+    );
+    same(
+        "log is ln",
+        &plot("plot(\"a\", log(close));"),
+        &plot("plot(\"a\", ln(close));"),
+    );
+}
+
+#[test]
+fn several_values_at_once_and_arrays_of_numbers() {
+    let b = bars();
+    let three: Vec<f64> = (0..N)
+        .map(|i| b.close[i].min(b.open[i]).min(100.0))
+        .collect();
+    same(
+        "min of three",
+        &plot("plot(\"a\", min(close, open, 100));"),
+        &three
+            .iter()
+            .enumerate()
+            .map(|(i, v)| if b.close[i].is_nan() { f64::NAN } else { *v })
+            .collect::<Vec<_>>(),
+    );
+    let mid: Vec<f64> = (0..N).map(|i| f64::midpoint(b.high[i], b.low[i])).collect();
+    same("avg of two", &plot("plot(\"a\", avg(high, low));"), &mid);
+    let log = logged(
+        "let a = [4, 8, 6, 2];\n\
+         print(`${sum(a)} ${avg(a)} ${min(a)} ${max(a)} ${median(a)} ${percentile(a, 50)}`);\n\
+         plot(\"p\", close);",
+    );
+    assert_eq!(log, vec!["20.0 5.0 2.0 8.0 5.0 5.0".to_owned()]);
+    // An array of series gives the largest bar by bar.
+    same(
+        "max of an array of series",
+        &plot("plot(\"a\", max([close, open, low]));"),
+        &(0..N)
+            .map(|i| b.close[i].max(b.open[i]).max(b.low[i]))
+            .collect::<Vec<_>>(),
+    );
+}
+
+#[test]
+fn text_and_colors_are_made_from_numbers() {
+    let log = logged(
+        "print(fmt(3.14159, 2));\nprint(fmt(7, 0));\nprint(tostring(2.5));\n\
+         print(color_mix(\"black\", \"white\", 0.5));\n\
+         print(from_gradient(50, 0, 100, \"black\", \"white\"));\n\
+         print(`${color_r(\"#102030\")} ${color_g(\"#102030\")} ${color_b(\"#102030\")}`);\n\
+         plot(\"p\", close);",
+    );
+    assert_eq!(log, ["3.14", "7", "2.5", "#808080", "#808080", "16 32 48"]);
+}
+
+#[test]
+fn the_names_of_pine_are_the_same_functions() {
+    same(
+        "crossover",
+        &plot("plot(\"a\", crossover(close, sma(close, 8)));"),
+        &plot("plot(\"a\", cross_over(close, sma(close, 8)));"),
+    );
+    same(
+        "crossunder",
+        &plot("plot(\"a\", crossunder(close, sma(close, 8)));"),
+        &plot("plot(\"a\", cross_under(close, sma(close, 8)));"),
+    );
+    same(
+        "mom",
+        &plot("plot(\"a\", mom(close, 6));"),
+        &plot("plot(\"a\", momentum(close, 6));"),
+    );
+    same(
+        "wpr",
+        &plot("plot(\"a\", wpr(14));"),
+        &plot("plot(\"a\", williams_r(14));"),
+    );
+    same(
+        "sar",
+        &plot("plot(\"a\", sar(0.02, 0.02, 0.2));"),
+        &plot("plot(\"a\", psar(0.02, 0.02, 0.2));"),
+    );
 }

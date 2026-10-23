@@ -5,7 +5,7 @@
 use super::decl;
 use super::meter::{self, Meter};
 use super::other;
-use crate::indicators::data::ScriptDrawing;
+use crate::indicators::data::{ScriptDrawing, StudyContext};
 use rhai::{Dynamic, EvalAltResult, Position};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -51,6 +51,8 @@ pub(crate) struct Run {
     /// The prices of the other symbols the script may read with `bars_of`, on the bars of the
     /// chart, by [`other::key_of`] their names.
     pub others: BTreeMap<String, other::Aligned>,
+    /// What the chart is: its time zone, timeframe and symbol.
+    pub context: StudyContext,
     pub declaration: decl::Declaration,
     pub plots: Vec<PlotResult>,
     pub fills: Vec<FillResult>,
@@ -103,6 +105,7 @@ impl Run {
             values,
             texts: BTreeMap::new(),
             others: BTreeMap::new(),
+            context: StudyContext::default(),
             declaration: decl::Declaration::default(),
             plots: Vec::new(),
             fills: Vec::new(),

@@ -20,7 +20,7 @@ use super::lexer::{self, Kind};
 use super::other::{self, OtherSymbols};
 use crate::base::intern;
 use crate::base::math::count_i64;
-use crate::indicators::data::{StudyInput, StudyOutput};
+use crate::indicators::data::{StudyContext, StudyInput, StudyOutput};
 use crate::indicators::spec::PlotKind;
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::collections::BTreeMap;
@@ -173,6 +173,15 @@ fn declaration_changed(first: &decl::Declaration, now: &decl::Declaration) -> Op
     })
 }
 
+/// What a run reads besides the bars: the values the user chose for the inputs, the bars of the
+/// other symbols, and what the chart is.
+pub struct Setup<'a> {
+    pub values: &'a BTreeMap<String, f64>,
+    pub texts: &'a BTreeMap<String, String>,
+    pub others: &'a OtherSymbols,
+    pub context: &'a StudyContext,
+}
+
 /// A script that compiles and whose declaration ran.
 #[derive(Debug, Clone)]
 pub struct Script {
@@ -313,11 +322,35 @@ impl Script {
         limits: decl::Limits,
         cancel: Option<Arc<AtomicBool>>,
     ) -> Result<Computed, Vec<decl::Problem>> {
+        let context = StudyContext::default();
+        let setup = Setup {
+            values,
+            texts,
+            others,
+            context: &context,
+        };
+        self.compute_in(input, &setup, limits, cancel)
+    }
+
+    /// Computes the script over `input` with everything a run may read besides the bars.
+    ///
+    /// # Errors
+    ///
+    /// The problem that stopped it: a mistake of the script, or the limits.
+    pub fn compute_in(
+        &self,
+        input: &StudyInput,
+        setup: &Setup<'_>,
+        limits: decl::Limits,
+        cancel: Option<Arc<AtomicBool>>,
+    ) -> Result<Computed, Vec<decl::Problem>> {
         let columns = decl::Columns::from_input(input);
         let mut scope = globals(&columns, true);
-        let mut run = Run::new(Mode::Compute, columns, values.clone(), limits);
-        run.texts = texts.clone();
-        run.others = others
+        let mut run = Run::new(Mode::Compute, columns, setup.values.clone(), limits);
+        run.texts = setup.texts.clone();
+        run.context = setup.context.clone();
+        run.others = setup
+            .others
             .iter()
             .map(|(name, bars)| (name.clone(), other::Aligned::on(&input.time, bars)))
             .collect();

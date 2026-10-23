@@ -23,10 +23,6 @@ pub(super) fn statistics(engine: &mut Engine) {
             engine.register_fn($name, |s: Series, n: i64| -> Fallible<Series> {
                 let p = period($name, n)?;
                 charge_window(s.len(), p)?;
-                #[expect(
-                    clippy::redundant_closure_call,
-                    reason = "the macro takes a function or a closure alike"
-                )]
                 Ok(Series::new(($f)(s.values(), p)))
             });
         };

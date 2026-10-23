@@ -19,6 +19,23 @@ pub struct StudyInput {
     pub day: Vec<i64>,
 }
 
+/// What a script may read about the chart besides its bars: where it is, what it shows, what time
+/// it is there.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StudyContext {
+    /// The offset of the chart's time zone from UTC at each bar, in milliseconds. Empty means
+    /// UTC.
+    pub offsets: std::sync::Arc<Vec<i64>>,
+    /// The timeframe of the bars, when it is known.
+    pub timeframe: Option<crate::market::Timeframe>,
+    /// The name of the symbol, empty when it is not known.
+    pub symbol: String,
+    /// The digits of its prices (5 for EURUSD, 3 for USDJPY), 0 when it is not known.
+    pub digits: u32,
+    /// Whether the last bar is still forming.
+    pub live: bool,
+}
+
 impl StudyInput {
     pub fn len(&self) -> usize {
         self.close.len()

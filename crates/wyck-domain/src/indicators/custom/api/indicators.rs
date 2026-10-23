@@ -133,6 +133,19 @@ fn ranges(engine: &mut Engine) {
         );
         Ok(Series::new(ta::parabolic_sar(b.high.values(), b.low.values(), start, step, max)))
     });
+    // `wpr(length)` and `sar(start, step, max)`: the names of Pine for williams_r and psar.
+    indicator!(engine, "wpr", (n: i64) -> Series, |b| {
+        let p = period("wpr", n)?;
+        Ok(Series::new(ta::williams_r(b.high.values(), b.low.values(), b.close.values(), p)))
+    });
+    indicator!(engine, "sar", (start: Dynamic, step: Dynamic, max: Dynamic) -> Series, |b| {
+        let (start, step, max) = (
+            scalar("sar", &start)?,
+            scalar("sar", &step)?,
+            scalar("sar", &max)?,
+        );
+        Ok(Series::new(ta::parabolic_sar(b.high.values(), b.low.values(), start, step, max)))
+    });
     indicator!(engine, "stoch", (n: i64, smooth: i64, d: i64) -> Map, |b| {
         let (n, smooth, d) = (
             period("stoch", n)?,

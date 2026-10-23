@@ -28,7 +28,7 @@ pub use data::{
     fold_tick, group_bars, last_group, merge_bars, prepend_bars, prepend_ticks, splice_ticks,
     touch_last_bar, trim_front,
 };
-pub use display::{Display, study_input};
+pub use display::{Display, study_context, study_input};
 pub use export::PREVIEW_ROWS;
 pub use export::choices::{
     Content, Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, Order,

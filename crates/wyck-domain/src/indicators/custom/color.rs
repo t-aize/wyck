@@ -1,7 +1,7 @@
 //! The colors of a script: a name, `#rrggbb` or `rrggbb` in, a number out, and back to text.
 
 /// Colors by name, for `color: "orange"` in the options of a plot.
-const NAMED: [(&str, u32); 14] = [
+const NAMED: [(&str, u32); 18] = [
     ("white", 0xff_ffff),
     ("black", 0x00_0000),
     ("gray", 0x78_7b86),
@@ -16,6 +16,10 @@ const NAMED: [(&str, u32); 14] = [
     ("lime", 0x9c_cc65),
     ("aqua", 0x00_e5ff),
     ("silver", 0xb2_b5be),
+    ("fuchsia", 0xe0_40fb),
+    ("maroon", 0x88_0e4f),
+    ("navy", 0x31_1b92),
+    ("olive", 0x80_8000),
 ];
 
 /// A color: `"#2962ff"`, `"2962ff"` or a name.
