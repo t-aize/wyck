@@ -275,7 +275,7 @@ fn inputs_of_every_kind_are_declared_and_read() {
         .declaration
         .inputs
         .iter()
-        .map(super::decl::InputDecl::input_kind)
+        .map(|input| input.input_kind().unwrap())
         .collect();
     assert!(matches!(kinds[0], InputKind::Int));
     assert!(matches!(kinds[1], InputKind::Float));
@@ -440,7 +440,7 @@ fn text_inputs_are_declared_read_and_checked() {
         .declaration
         .inputs
         .iter()
-        .map(super::decl::InputDecl::input_kind)
+        .map(|input| input.input_kind().unwrap())
         .collect();
     assert!(matches!(
         kinds[..],

@@ -47,11 +47,13 @@ impl Budget {
             Self::Light => Limits {
                 operations: 5_000_000,
                 time: Duration::from_secs(2),
+                memory: Limits::DEFAULT_MEMORY / 2,
             },
             Self::Normal => Limits::default(),
             Self::Heavy => Limits {
                 operations: 100_000_000,
                 time: Duration::from_secs(10),
+                memory: Limits::DEFAULT_MEMORY * 2,
             },
         }
     }

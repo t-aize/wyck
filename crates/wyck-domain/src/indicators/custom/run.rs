@@ -15,6 +15,8 @@
 use super::api;
 use super::context::{Installed, Mode, Run, Stop, budget, with_run};
 use super::decl;
+use super::docs;
+use super::lexer::{self, Kind};
 use super::other::{self, OtherSymbols};
 use crate::base::intern;
 use crate::base::math::count_i64;
@@ -22,6 +24,7 @@ use crate::indicators::data::{StudyInput, StudyOutput};
 use crate::indicators::spec::PlotKind;
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::collections::BTreeMap;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -100,7 +103,74 @@ pub struct Computed {
     pub output: StudyOutput,
     /// What the script printed.
     pub log: Vec<String>,
+    /// Things worth knowing that did not stop the run.
+    pub warnings: Vec<decl::Problem>,
     pub elapsed: Duration,
+}
+
+/// Runs `ast` on the engine. A function of the script that panics is a bug of Wyck, not a reason
+/// to take the app down: it ends the run with an error.
+fn run_ast(scope: &mut Scope<'_>, ast: &AST) -> Result<(), Box<EvalAltResult>> {
+    catch_unwind(AssertUnwindSafe(|| engine().run_ast_with_scope(scope, ast))).unwrap_or_else(
+        |_| {
+            Err(
+                "a function of the script failed in a way it should not: this is a bug in Wyck"
+                    .into(),
+            )
+        },
+    )
+}
+
+/// Whether `source` calls the function `name`, outside comments and strings.
+fn calls(source: &str, name: &str) -> bool {
+    lexer::lex(source).windows(2).any(|pair| {
+        let [word, open] = pair else {
+            return false;
+        };
+        !matches!(word.kind, Kind::Comment | Kind::String)
+            && source.get(word.range.clone()) == Some(name)
+            && source.get(open.range.clone()) == Some("(")
+    })
+}
+
+/// The first difference between what a script declared on no bars and what it declares on the
+/// bars of a chart. The panels are built from the first, so the second must be the same: an input
+/// or a plot behind an `if` on the bars would be drawn without being known.
+fn declaration_changed(first: &decl::Declaration, now: &decl::Declaration) -> Option<String> {
+    for (position, declared) in first.inputs.iter().enumerate() {
+        match now.inputs.get(position) {
+            Some(found) if found.key == declared.key && found.kind == declared.kind => {}
+            _ => {
+                return Some(format!(
+                    "the input \"{}\" is not declared the same way when the script runs on bars",
+                    declared.key
+                ));
+            }
+        }
+    }
+    if let Some(extra) = now.inputs.get(first.inputs.len()) {
+        return Some(format!(
+            "the input \"{}\" is only declared when the script runs on bars",
+            extra.key
+        ));
+    }
+    for (position, declared) in first.plots.iter().enumerate() {
+        match now.plots.get(position) {
+            Some(found) if found.key == declared.key && found.kind == declared.kind => {}
+            _ => {
+                return Some(format!(
+                    "the plot \"{}\" is not drawn the same way when the script runs on bars",
+                    declared.key
+                ));
+            }
+        }
+    }
+    now.plots.get(first.plots.len()).map(|extra| {
+        format!(
+            "the plot \"{}\" is only drawn when the script runs on bars",
+            extra.key
+        )
+    })
 }
 
 /// A script that compiles and whose declaration ran.
@@ -143,28 +213,15 @@ impl Script {
         );
         let installed = Installed::new(run);
         let mut scope = globals(&decl::Columns::default(), true);
-        let result = engine().run_ast_with_scope(&mut scope, &ast);
+        let result = run_ast(&mut scope, &ast);
         let Some(run) = installed.finish() else {
             return Err(vec![lost_run()]);
         };
         if let Err(error) = result {
             return Err(vec![runtime_problem(&error, &run)]);
         }
-        let mut warnings = Vec::new();
-        let has_draw_call = source.match_indices("draw").any(|(at, _)| {
-            source
-                .get(at + 4..)
-                .unwrap_or_default()
-                .trim_start()
-                .starts_with('(')
-                && source
-                    .get(..at)
-                    .unwrap_or_default()
-                    .chars()
-                    .next_back()
-                    .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_')
-        });
-        if run.declaration.plots.is_empty() && !has_draw_call {
+        let mut warnings = run.warnings.clone();
+        if run.declaration.plots.is_empty() && !calls(source, "draw") {
             warnings.push(decl::Problem::warning(
                 0,
                 0,
@@ -193,7 +250,7 @@ impl Script {
             .declaration
             .inputs
             .iter()
-            .filter(|input| input.input_kind() == crate::indicators::spec::InputKind::Symbol)
+            .filter(|input| input.kind == decl::InputType::Symbol)
             .map(|input| {
                 texts
                     .get(&input.key)
@@ -267,7 +324,7 @@ impl Script {
         run.cancel = cancel;
         let started = Instant::now();
         let installed = Installed::new(run);
-        let result = engine().run_ast_with_scope(&mut scope, &self.ast);
+        let result = run_ast(&mut scope, &self.ast);
         let Some(run) = installed.finish() else {
             return Err(vec![lost_run()]);
         };
@@ -275,9 +332,13 @@ impl Script {
         if let Err(error) = result {
             return Err(vec![runtime_problem(&error, &run)]);
         }
+        if let Some(message) = declaration_changed(&self.declaration, &run.declaration) {
+            return Err(vec![decl::Problem::error(0, 0, message)]);
+        }
         Ok(Computed {
             output: output_of(&run),
             log: run.log,
+            warnings: run.warnings,
             elapsed,
         })
     }
@@ -329,6 +390,14 @@ fn message_of(error: &EvalAltResult) -> (String, Position) {
     match error {
         EvalAltResult::ErrorInFunctionCall(_, _, inner, _) => message_of(inner),
         EvalAltResult::ErrorRuntime(value, position) => (value.to_string(), *position),
+        // The usual cause is the wrong kind of argument: say how the function is called.
+        EvalAltResult::ErrorFunctionNotFound(signature, position) => {
+            let name = signature.split([' ', '(']).next().unwrap_or_default();
+            let usage = docs::function(name)
+                .map(|doc| format!(". Usage: {}", doc.signature))
+                .unwrap_or_default();
+            (format!("function not found: {signature}{usage}"), *position)
+        }
         other => {
             let text = other.to_string();
             let cut = text.rfind(" (line ").unwrap_or(text.len());
@@ -350,6 +419,10 @@ fn runtime_problem(error: &EvalAltResult, run: &Run) -> decl::Problem {
             Some(Stop::Time) => format!(
                 "the script ran for more than {:.0} seconds and was stopped",
                 run.limits.time.as_secs_f32()
+            ),
+            Some(Stop::Memory) => format!(
+                "the script held more than {} MiB of series at once and was stopped: a series takes 8 bytes a bar, so keep fewer of them",
+                run.meter.limit() / (1024 * 1024)
             ),
             _ => "the script was stopped".to_owned(),
         };

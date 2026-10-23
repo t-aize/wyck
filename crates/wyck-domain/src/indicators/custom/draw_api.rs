@@ -1,13 +1,12 @@
 //! Script-owned chart drawings. The drawing model and geometry are shared with manual tools.
 
-use crate::base::math::i64_to_f64;
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 use serde_json::{Map as JsonMap, Number, Value};
 
 use super::color::parse_color;
 use super::context::{Mode, with_run};
 use super::decl::MAX_SCRIPT_DRAWINGS;
-use super::series::Fallible;
+use super::series::{Fallible, number_of};
 use crate::drawings::model::style::{Level, Style};
 use crate::drawings::model::tool::Tool;
 use crate::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
@@ -39,11 +38,7 @@ pub(super) fn register(engine: &mut Engine) {
 }
 
 fn number(value: &Dynamic) -> Option<f64> {
-    value
-        .as_float()
-        .ok()
-        .or_else(|| value.as_int().ok().map(i64_to_f64))
-        .filter(|n| n.is_finite())
+    number_of(value).filter(|n| n.is_finite())
 }
 
 fn point_map(time: i64, price: &Dynamic) -> Fallible<Map> {

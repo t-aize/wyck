@@ -1,11 +1,10 @@
 //! What the calls that describe an indicator share: the rules for a key, the options of a call
 //! and the declaration of an input.
 
-use crate::base::math::i64_to_f64;
 use crate::indicators::custom::color::parse_color;
-use crate::indicators::custom::context::{Mode, with_run};
-use crate::indicators::custom::decl::{InputDecl, InputType, MAX_INPUTS};
-use crate::indicators::custom::series::{Fallible, Series};
+use crate::indicators::custom::context::{Mode, Run, with_run};
+use crate::indicators::custom::decl::{InputDecl, InputSection, InputType, MAX_INPUTS};
+use crate::indicators::custom::series::{Fallible, Series, number_of};
 use rhai::Map;
 
 pub(super) fn valid_key(key: &str) -> bool {
@@ -44,16 +43,22 @@ impl<'a> Options<'a> {
                 .into());
             }
         }
+        if map.contains_key("inline") {
+            // Accepted so that a script written for another platform runs, and said not to work.
+            with_run(|run| {
+                run.warn(format!(
+                    "{call}: the option \"inline\" has no effect, every input has its own row"
+                ));
+            })
+            .ok();
+        }
         Ok(Self { call, map })
     }
 
     pub(super) fn number(&self, key: &str) -> Fallible<Option<f64>> {
         match self.map.get(key) {
             None => Ok(None),
-            Some(v) => v
-                .as_float()
-                .ok()
-                .or_else(|| v.as_int().ok().map(i64_to_f64))
+            Some(v) => number_of(v)
                 .filter(|x| x.is_finite())
                 .map(Some)
                 .ok_or_else(|| {
@@ -105,8 +110,13 @@ impl<'a> Options<'a> {
     }
 }
 
-/// Registers an input, and gives the value the user chose (or the default).
-pub(super) fn declare_input(mut input: InputDecl) -> Fallible<f64> {
+/// Adds `input` to the declaration of the run and gives back what `chosen` reads for it: the
+/// value of the run for the input, or its default. Every kind of input goes through here, so the
+/// rules (a valid key, declared once, at most [`MAX_INPUTS`]) are in one place.
+pub(super) fn register<R>(
+    input: InputDecl,
+    chosen: impl FnOnce(&Run, &InputDecl) -> R,
+) -> Fallible<R> {
     check_key("input", &input.key)?;
     with_run(|run| {
         if run.declaration.inputs.iter().any(|i| i.key == input.key) {
@@ -115,20 +125,27 @@ pub(super) fn declare_input(mut input: InputDecl) -> Fallible<f64> {
         if run.declaration.inputs.len() >= MAX_INPUTS {
             return Err(format!("an indicator has at most {MAX_INPUTS} inputs").into());
         }
+        let value = chosen(run, &input);
+        run.declaration.inputs.push(input);
+        Ok(value)
+    })?
+}
+
+/// Registers an input of a number, and gives the value the user chose (or the default).
+pub(super) fn declare_input(mut input: InputDecl) -> Fallible<f64> {
+    input.default = input.default.clamp(input.min, input.max);
+    register(input, |run, input| {
         let chosen = match run.mode {
             Mode::Compute => run.values.get(&input.key).copied(),
             Mode::Declare => None,
         }
         .filter(|v| v.is_finite())
         .unwrap_or(input.default);
-        let value = match input.kind {
+        match input.kind {
             InputType::Float => chosen.clamp(input.min, input.max),
             _ => chosen.clamp(input.min, input.max).round(),
-        };
-        input.default = input.default.clamp(input.min, input.max);
-        run.declaration.inputs.push(input);
-        Ok(value)
-    })?
+        }
+    })
 }
 
 pub(super) fn title_of(key: &str) -> String {
@@ -137,4 +154,33 @@ pub(super) fn title_of(key: &str) -> String {
         first.make_ascii_uppercase();
     }
     text
+}
+
+/// The tab an input is shown on, when the script chose one.
+pub(super) fn input_section(options: &Options<'_>) -> Fallible<Option<InputSection>> {
+    match options.text("section")?.as_deref() {
+        None => Ok(None),
+        Some("inputs") => Ok(Some(InputSection::Inputs)),
+        Some("style") => Ok(Some(InputSection::Style)),
+        Some(_) => Err("input section must be \"inputs\" or \"style\"".into()),
+    }
+}
+
+/// An input as every `input_*` call starts it: the label, the tab, the heading and the tooltip
+/// come from the options, and the call fills in the rest.
+pub(super) fn base_input(options: &Options<'_>, key: &str, kind: InputType) -> Fallible<InputDecl> {
+    Ok(InputDecl {
+        key: key.to_owned(),
+        label: options.text("label")?.unwrap_or_else(|| title_of(key)),
+        kind,
+        default: 0.0,
+        min: 0.0,
+        max: 0.0,
+        step: 1.0,
+        options: Vec::new(),
+        section: input_section(options)?,
+        text: String::new(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
+    })
 }

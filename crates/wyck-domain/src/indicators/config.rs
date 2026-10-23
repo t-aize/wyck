@@ -353,8 +353,7 @@ impl StudyConfig {
     /// An input's value (its default if it is somehow missing).
     pub fn input(&self, key: &str) -> f64 {
         self.inputs.get(key).copied().unwrap_or_else(|| {
-            self.kind
-                .spec()
+            self.spec()
                 .inputs
                 .iter()
                 .find(|i| i.key == key)

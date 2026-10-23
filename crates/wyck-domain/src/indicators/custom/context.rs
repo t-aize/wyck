@@ -3,9 +3,10 @@
 //! [`with_run`]; it is put in place for the length of a script and taken back at the end.
 
 use super::decl;
+use super::meter::{self, Meter};
 use super::other;
 use crate::indicators::data::ScriptDrawing;
-use rhai::{Dynamic, EvalAltResult};
+use rhai::{Dynamic, EvalAltResult, Position};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -57,12 +58,20 @@ pub(crate) struct Run {
     pub levels: Vec<f64>,
     pub band: Option<(f64, f64)>,
     pub log: Vec<String>,
+    /// Things worth knowing that do not stop the run.
+    pub warnings: Vec<decl::Problem>,
     /// Whether `indicator` was called.
     pub declared: bool,
     pub(super) limits: decl::Limits,
     pub(super) started: Instant,
     pub(super) cancel: Option<Arc<AtomicBool>>,
     pub(super) stopped: Option<Stop>,
+    /// What the series of the run cost, in memory and in work.
+    pub(super) meter: Arc<Meter>,
+    /// The operations the interpreter counted, as of its last report.
+    operations_seen: u64,
+    /// The work native functions announced beyond the series they make (see [`Run::charge`]).
+    charged: u64,
 }
 
 /// Why a run was stopped from outside.
@@ -71,6 +80,7 @@ pub(super) enum Stop {
     Operations,
     Time,
     Cancelled,
+    Memory,
 }
 
 thread_local! {
@@ -100,12 +110,68 @@ impl Run {
             levels: Vec::new(),
             band: None,
             log: Vec::new(),
+            warnings: Vec::new(),
             declared: false,
+            meter: Meter::new(limits.memory),
             limits,
             started: Instant::now(),
             cancel: None,
             stopped: None,
+            operations_seen: 0,
+            charged: 0,
         }
+    }
+
+    /// The work done so far, in operations of the interpreter: what it counted, the series made
+    /// and what native functions announced.
+    fn work(&self) -> u64 {
+        self.operations_seen
+            .saturating_add(self.meter.work())
+            .saturating_add(self.charged)
+    }
+
+    /// Announces that a native function is about to do the work of `operations`. Refuses, ending
+    /// the run, when that is over the budget or the time: a function that goes over every bar for
+    /// every bar of its window is one operation to the interpreter, so it says what it costs.
+    pub(crate) fn charge(&mut self, operations: u64) -> Result<(), Box<EvalAltResult>> {
+        self.charged = self.charged.saturating_add(operations);
+        let stop = if self.work() > self.limits.operations {
+            Some(Stop::Operations)
+        } else {
+            self.stop_from_outside()
+        };
+        match stop {
+            Some(stop) => {
+                self.stopped = Some(stop);
+                Err(Box::new(EvalAltResult::ErrorTerminated(
+                    Dynamic::UNIT,
+                    Position::NONE,
+                )))
+            }
+            None => Ok(()),
+        }
+    }
+
+    /// Whether the run was cancelled, is out of time or holds too much memory.
+    fn stop_from_outside(&self) -> Option<Stop> {
+        if self.meter.exceeded() {
+            Some(Stop::Memory)
+        } else if self
+            .cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Relaxed))
+        {
+            Some(Stop::Cancelled)
+        } else if self.started.elapsed() > self.limits.time {
+            Some(Stop::Time)
+        } else {
+            None
+        }
+    }
+
+    /// Adds a warning that does not stop the run.
+    pub(crate) fn warn(&mut self, message: impl Into<String>) {
+        self.warnings.push(decl::Problem::warning(0, 0, message));
     }
 
     /// Adds a line to the log, up to a limit.
@@ -135,6 +201,7 @@ pub(super) struct Installed;
 
 impl Installed {
     pub(super) fn new(run: Run) -> Self {
+        meter::set_current(Some(Arc::clone(&run.meter)));
         RUN.with(|cell| *cell.borrow_mut() = Some(run));
         Self
     }
@@ -143,6 +210,7 @@ impl Installed {
     /// this call, so that would be a bug).
     pub(super) fn finish(self) -> Option<Run> {
         let run = RUN.with(|cell| cell.borrow_mut().take());
+        meter::set_current(None);
         // The run is out: the destructor, which clears the slot, must not run.
         let _kept = std::mem::ManuallyDrop::new(self);
         run
@@ -153,31 +221,26 @@ impl Drop for Installed {
     fn drop(&mut self) {
         // Only reached when the run was not taken back (a panic in a function of the script).
         RUN.with(|cell| *cell.borrow_mut() = None);
+        meter::set_current(None);
     }
 }
 
-/// Asks whether the run that is going on must stop: past its budget of operations, cancelled from
-/// outside, or out of time. Called by the engine at every operation.
+/// Asks whether the run that is going on must stop: past its budget of operations, over its memory,
+/// cancelled from outside, or out of time. Called by the engine at every operation; the clock and
+/// the cancel flag are read once in a thousand.
 pub(super) fn budget(operations: u64) -> Option<Dynamic> {
     RUN.with(|cell| {
         let Ok(mut slot) = cell.try_borrow_mut() else {
             return None;
         };
         let run = slot.as_mut()?;
-        let stop = if operations > run.limits.operations {
+        run.operations_seen = operations;
+        let stop = if run.work() > run.limits.operations {
             Some(Stop::Operations)
+        } else if run.meter.exceeded() {
+            Some(Stop::Memory)
         } else if operations.is_multiple_of(1024) {
-            if run
-                .cancel
-                .as_ref()
-                .is_some_and(|c| c.load(Ordering::Relaxed))
-            {
-                Some(Stop::Cancelled)
-            } else if run.started.elapsed() > run.limits.time {
-                Some(Stop::Time)
-            } else {
-                None
-            }
+            run.stop_from_outside()
         } else {
             None
         };

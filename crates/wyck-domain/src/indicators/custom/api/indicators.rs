@@ -1,10 +1,10 @@
 //! The ready made indicators a script can call, and the colors it can name.
 
-use super::{columns, map_of, period};
+use super::{charge_window, columns, map_of, period, scalar};
 
 use crate::base::ta;
 use crate::indicators::custom::series::{Fallible, Series};
-use rhai::{Engine, Map};
+use rhai::{Dynamic, Engine, Map};
 
 pub(super) fn indicators(engine: &mut Engine) {
     engine.register_fn("tr", || -> Fallible<Series> {
@@ -26,6 +26,7 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn("cci", |n: i64| -> Fallible<Series> {
         let (c, p) = (columns()?, period("cci", n)?);
+        charge_window(c.len, p)?;
         Ok(Series::new(ta::cci(c.hlc3.values(), p)))
     });
     engine.register_fn("williams_r", |n: i64| -> Fallible<Series> {
@@ -62,8 +63,13 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn(
         "psar",
-        |start: f64, step: f64, max: f64| -> Fallible<Series> {
+        |start: Dynamic, step: Dynamic, max: Dynamic| -> Fallible<Series> {
             let c = columns()?;
+            let (start, step, max) = (
+                scalar("psar", &start)?,
+                scalar("psar", &step)?,
+                scalar("psar", &max)?,
+            );
             Ok(Series::new(ta::parabolic_sar(
                 c.high.values(),
                 c.low.values(),
@@ -93,8 +99,10 @@ pub(super) fn indicators(engine: &mut Engine) {
     );
     engine.register_fn(
         "bollinger",
-        |s: Series, n: i64, mult: f64| -> Fallible<Map> {
+        |s: Series, n: i64, mult: Dynamic| -> Fallible<Map> {
             let p = period("bollinger", n)?;
+            let mult = scalar("bollinger", &mult)?;
+            charge_window(s.len(), p)?;
             let (basis, dev) = (ta::sma(s.values(), p), ta::stdev(s.values(), p));
             let band = |sign: f64| -> Series {
                 Series::new(
@@ -148,8 +156,9 @@ pub(super) fn indicators(engine: &mut Engine) {
             ("adx", Series::new(adx)),
         ]))
     });
-    engine.register_fn("supertrend", |n: i64, mult: f64| -> Fallible<Map> {
+    engine.register_fn("supertrend", |n: i64, mult: Dynamic| -> Fallible<Map> {
         let (c, p) = (columns()?, period("supertrend", n)?);
+        let mult = scalar("supertrend", &mult)?;
         let (line, direction) =
             ta::supertrend(c.high.values(), c.low.values(), c.close.values(), p, mult);
         Ok(map_of(vec![
@@ -174,9 +183,10 @@ pub(super) fn indicators(engine: &mut Engine) {
     });
     engine.register_fn(
         "keltner",
-        |n: i64, mult: f64, atr_n: i64| -> Fallible<Map> {
+        |n: i64, mult: Dynamic, atr_n: i64| -> Fallible<Map> {
             let c = columns()?;
             let (p, a) = (period("keltner", n)?, period("keltner", atr_n)?);
+            let mult = scalar("keltner", &mult)?;
             let basis = ta::ema(c.close.values(), p);
             let range = ta::atr(c.high.values(), c.low.values(), c.close.values(), a);
             let band = |sign: f64| -> Series {

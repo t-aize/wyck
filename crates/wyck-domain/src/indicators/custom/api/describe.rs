@@ -7,9 +7,9 @@ use crate::base::math::{f64_to_i64, f64_to_u32, i64_to_f64};
 
 use crate::indicators::custom::context::with_run;
 use crate::indicators::custom::decl::{InputType, Meta};
-use crate::indicators::custom::series::{Fallible, Series, truth};
+use crate::indicators::custom::series::{Fallible, Series, number_of, truth};
 use crate::indicators::spec::ValueFormat;
-use rhai::{Array, Dynamic, Engine, Map};
+use rhai::{Array, Engine, Map};
 
 pub(super) fn describing(engine: &mut Engine) {
     engine.register_fn("indicator", |opts: Map| -> Fallible<()> { indicator(opts) });
@@ -154,11 +154,7 @@ pub(super) fn indicator(opts: Map) -> Fallible<()> {
     };
     if let Some(range) = options.map.get("range") {
         let pair = range.clone().into_array().ok().filter(|a| a.len() == 2);
-        let number = |d: &Dynamic| {
-            d.as_float()
-                .ok()
-                .or_else(|| d.as_int().ok().map(i64_to_f64))
-        };
+        let number = number_of;
         match pair.as_deref() {
             Some([low, high]) => match (number(low), number(high)) {
                 (Some(low), Some(high)) if low < high => meta.range = Some((low, high)),

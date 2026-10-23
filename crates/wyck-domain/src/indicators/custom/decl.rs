@@ -3,7 +3,7 @@
 use crate::base::math::{count_f64, i64_to_f64};
 use crate::drawings::model::style::Dash;
 use crate::indicators::custom::series::Series;
-use crate::indicators::custom::slices::choices;
+use crate::indicators::custom::slices::{TablesFull, choices};
 use crate::indicators::data::StudyInput;
 use crate::indicators::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
@@ -17,13 +17,29 @@ pub struct Limits {
     pub operations: u64,
     /// Wall time.
     pub time: Duration,
+    /// Bytes of series a run may hold at once.
+    pub memory: usize,
 }
+
+impl Limits {
+    /// What a run may hold at once unless told otherwise: room for a few hundred series of the
+    /// longest chart.
+    pub const DEFAULT_MEMORY: usize = 256 * 1024 * 1024;
+}
+
+/// The wall time of a run. A test gets a long one: the operations budget is what stops a runaway
+/// script there, and the wall clock would make a test on a loaded machine fail by chance.
+#[cfg(not(test))]
+const DEFAULT_TIME: Duration = Duration::from_secs(4);
+#[cfg(test)]
+const DEFAULT_TIME: Duration = Duration::from_secs(600);
 
 impl Default for Limits {
     fn default() -> Self {
         Self {
             operations: 20_000_000,
-            time: Duration::from_secs(4),
+            time: DEFAULT_TIME,
+            memory: Self::DEFAULT_MEMORY,
         }
     }
 }
@@ -141,19 +157,19 @@ impl InputDecl {
         }
     }
     /// The kind of input the panels know.
-    pub(crate) fn input_kind(&self) -> InputKind {
-        match self.kind {
+    pub(crate) fn input_kind(&self) -> Result<InputKind, TablesFull> {
+        Ok(match self.kind {
             InputType::Int => InputKind::Int,
             InputType::Float => InputKind::Float,
             InputType::Bool => InputKind::Toggle,
             InputType::Source => InputKind::Source,
-            InputType::Choice => InputKind::Choice(choices(&self.options)),
+            InputType::Choice => InputKind::Choice(choices(&self.options)?),
             InputType::Color => InputKind::Color,
             InputType::Symbol => InputKind::Symbol,
             InputType::Timeframe => InputKind::Timeframe,
             InputType::Session => InputKind::Session,
             InputType::Text => InputKind::Text,
-        }
+        })
     }
 }
 
@@ -393,6 +409,7 @@ mod tests {
         let limits = Limits {
             operations: 50_000,
             time: Duration::from_secs(5),
+            memory: Limits::DEFAULT_MEMORY,
         };
         let problems = script
             .compute(&bars(10), &BTreeMap::new(), limits, None)
@@ -411,6 +428,7 @@ mod tests {
         let limits = Limits {
             operations: u64::MAX,
             time: Duration::from_secs(60),
+            memory: Limits::DEFAULT_MEMORY,
         };
         let started = Instant::now();
         let problems = script

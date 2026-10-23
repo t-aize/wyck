@@ -13,7 +13,7 @@ pub(crate) mod plots;
 pub(crate) mod symbols;
 
 use super::context::with_run;
-use super::series::{Fallible, Series, is_true, truth};
+use super::series::{Fallible, Series, finite_or_na, is_true, number_of, truth};
 use crate::base::math::{count_i64, i64_to_f64};
 use crate::base::ta;
 use crate::base::ta::Series as _;
@@ -45,18 +45,21 @@ fn period(name: &str, value: i64) -> Fallible<usize> {
     }
 }
 
+/// A number given as a whole number or a decimal. Both work wherever a number is taken, so that
+/// `bollinger(close, 20, 2)` is as good as `bollinger(close, 20, 2.0)`.
+pub(super) fn scalar(name: &str, value: &Dynamic) -> Fallible<f64> {
+    number_of(value)
+        .ok_or_else(|| format!("{name}: expected a number, found {}", value.type_name()).into())
+}
+
 /// A series, or a number made into a series as long as `len`.
 fn series_of(len: usize, value: &Dynamic) -> Fallible<Series> {
     if let Some(series) = value.clone().try_cast::<Series>() {
         return Ok(series);
     }
-    if let Ok(x) = value.as_float() {
-        return Ok(Series::constant(len, x));
-    }
-    if let Ok(x) = value.as_int() {
-        return Ok(Series::constant(len, i64_to_f64(x)));
-    }
-    Err(format!("expected a series or a number, found {}", value.type_name()).into())
+    number_of(value)
+        .map(|x| Series::constant(len, x))
+        .ok_or_else(|| format!("expected a series or a number, found {}", value.type_name()).into())
 }
 
 fn map_of(pairs: Vec<(&str, Series)>) -> Map {
@@ -74,7 +77,7 @@ fn columns() -> Fallible<super::decl::Columns> {
 fn elementwise(engine: &mut Engine) {
     macro_rules! unary {
         ($name:literal, $f:expr) => {
-            engine.register_fn($name, |s: Series| s.map($f));
+            engine.register_fn($name, |s: Series| s.map(|x| finite_or_na($f(x))));
         };
     }
     unary!("abs", f64::abs);
@@ -99,45 +102,50 @@ fn elementwise(engine: &mut Engine) {
         }
     });
 
-    // Smallest and largest of two, with a number or a series on either side.
+    // Smallest and largest of two, with a number (whole or decimal) or a series on either side.
     engine.register_fn("min", |a: Series, b: Series| a.zip(&b, nan_min));
     engine.register_fn("max", |a: Series, b: Series| a.zip(&b, nan_max));
-    engine.register_fn("min", |a: Series, b: f64| -> Fallible<Series> {
+    engine.register_fn("min", |a: Series, b: Dynamic| -> Fallible<Series> {
+        let b = scalar("min", &b)?;
         Ok(a.map(|x| nan_min(x, b)))
     });
-    engine.register_fn("max", |a: Series, b: f64| -> Fallible<Series> {
+    engine.register_fn("max", |a: Series, b: Dynamic| -> Fallible<Series> {
+        let b = scalar("max", &b)?;
         Ok(a.map(|x| nan_max(x, b)))
     });
-    engine.register_fn("min", |a: f64, b: Series| -> Fallible<Series> {
+    engine.register_fn("min", |a: Dynamic, b: Series| -> Fallible<Series> {
+        let a = scalar("min", &a)?;
         Ok(b.map(|x| nan_min(a, x)))
     });
-    engine.register_fn("max", |a: f64, b: Series| -> Fallible<Series> {
+    engine.register_fn("max", |a: Dynamic, b: Series| -> Fallible<Series> {
+        let a = scalar("max", &a)?;
         Ok(b.map(|x| nan_max(a, x)))
     });
-    engine.register_fn("min", |a: Series, b: i64| -> Fallible<Series> {
-        Ok(a.map(|x| nan_min(x, i64_to_f64(b))))
+    engine.register_fn("pow", |a: Series, b: Dynamic| -> Fallible<Series> {
+        let b = scalar("pow", &b)?;
+        Ok(a.map(|x| finite_or_na(x.powf(b))))
     });
-    engine.register_fn("max", |a: Series, b: i64| -> Fallible<Series> {
-        Ok(a.map(|x| nan_max(x, i64_to_f64(b))))
-    });
-    engine.register_fn("pow", |a: Series, b: f64| a.map(|x| x.powf(b)));
-    engine.register_fn("pow", |a: Series, b: i64| a.map(|x| x.powf(i64_to_f64(b))));
-    engine.register_fn("clamp", |s: Series, low: f64, high: f64| {
-        s.map(|x| {
-            if x.is_nan() {
-                x
-            } else {
-                x.clamp(low.min(high), high.max(low))
-            }
-        })
-    });
+    engine.register_fn(
+        "clamp",
+        |s: Series, low: Dynamic, high: Dynamic| -> Fallible<Series> {
+            let (low, high) = (scalar("clamp", &low)?, scalar("clamp", &high)?);
+            Ok(s.map(|x| {
+                if x.is_nan() {
+                    x
+                } else {
+                    x.clamp(low.min(high), high.max(low))
+                }
+            }))
+        },
+    );
 
     // A value where there is none, and which bars have none.
     engine.register_fn("nz", |s: Series| {
         s.map(|x| if x.is_nan() { 0.0 } else { x })
     });
-    engine.register_fn("nz", |s: Series, fallback: f64| {
-        s.map(|x| if x.is_nan() { fallback } else { x })
+    engine.register_fn("nz", |s: Series, fallback: Dynamic| -> Fallible<Series> {
+        let fallback = scalar("nz", &fallback)?;
+        Ok(s.map(|x| if x.is_nan() { fallback } else { x }))
     });
     engine.register_fn("is_na", |s: Series| s.map(|x| truth(x.is_nan())));
 }
@@ -158,20 +166,39 @@ fn nan_max(a: f64, b: f64) -> f64 {
     }
 }
 
+/// Announces the work of a function that looks back over `period` bars for every one of `len`
+/// bars. It is one call to the interpreter however long the period, so it says what it costs, and
+/// is refused, ending the run, when that is more than the run has left.
+pub(super) fn charge_window(len: usize, period: usize) -> Fallible<()> {
+    let visits = len.saturating_mul(period.min(len));
+    with_run(|run| run.charge(u64::try_from(visits / VISITS_PER_OPERATION).unwrap_or(u64::MAX)))?
+}
+
+/// Bars a function goes over in the time of one operation of the interpreter.
+const VISITS_PER_OPERATION: usize = 256;
+
 fn windows(engine: &mut Engine) {
+    // A window whose cost grows with its period announces it first.
     macro_rules! window {
         ($name:literal, $f:path) => {
             engine.register_fn($name, |s: Series, n: i64| -> Fallible<Series> {
                 Ok(Series::new($f(s.values(), period($name, n)?)))
             });
         };
+        ($name:literal, $f:path, looks_back) => {
+            engine.register_fn($name, |s: Series, n: i64| -> Fallible<Series> {
+                let p = period($name, n)?;
+                charge_window(s.len(), p)?;
+                Ok(Series::new($f(s.values(), p)))
+            });
+        };
     }
     window!("sma", ta::sma);
     window!("ema", ta::ema);
-    window!("wma", ta::wma);
-    window!("hma", ta::hma);
+    window!("wma", ta::wma, looks_back);
+    window!("hma", ta::hma, looks_back);
     window!("rma", ta::rma);
-    window!("stdev", ta::stdev);
+    window!("stdev", ta::stdev, looks_back);
     window!("highest", ta::highest);
     window!("lowest", ta::lowest);
     window!("sum", ta::sum);
@@ -189,10 +216,12 @@ fn windows(engine: &mut Engine) {
     });
     engine.register_fn("linreg", |s: Series, n: i64| -> Fallible<Series> {
         let p = period("linreg", n)?;
+        charge_window(s.len(), p)?;
         Ok(Series::new(ta::linear_regression(s.values(), p).0))
     });
     engine.register_fn("slope", |s: Series, n: i64| -> Fallible<Series> {
         let p = period("slope", n)?;
+        charge_window(s.len(), p)?;
         Ok(Series::new(ta::linear_regression(s.values(), p).1))
     });
     engine.register_fn("change", |s: Series| s.zip(&s.shifted(1), |a, b| a - b));

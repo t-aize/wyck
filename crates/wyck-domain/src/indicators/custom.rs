@@ -17,6 +17,7 @@ pub mod docs;
 mod draw_api;
 pub mod lexer;
 pub mod library;
+mod meter;
 pub mod other;
 pub mod run;
 pub(crate) mod series;
@@ -25,6 +26,8 @@ pub mod templates;
 
 #[cfg(test)]
 mod behavior;
+#[cfg(test)]
+mod hostile;
 
 use super::spec::Spec;
 

@@ -110,19 +110,32 @@ pub(super) const PALETTE: [u32; 8] = [
     0x29_62ff, 0xff_9800, 0x26_a69a, 0xef_5350, 0x7e_57c2, 0x00_bcd4, 0xe9_1e63, 0x9c_cc65,
 ];
 
+/// The most horizontal levels an indicator may draw.
+pub(crate) const MAX_LEVELS: usize = 16;
+
 pub(super) fn hline(value: f64) -> Fallible<()> {
+    if !value.is_finite() {
+        return Err("hline: the level must be a number, not na".into());
+    }
     with_run(|run| {
-        if run.levels.len() < 16 && value.is_finite() {
-            run.levels.push(value);
+        if run.levels.len() >= MAX_LEVELS {
+            return Err(format!("an indicator draws at most {MAX_LEVELS} levels").into());
         }
-    })
+        run.levels.push(value);
+        Ok(())
+    })?
 }
 
 pub(super) fn band(low: f64, high: f64) -> Fallible<()> {
     if !(low.is_finite() && high.is_finite() && low < high) {
         return Err("band: give the lower level first, under the higher".into());
     }
-    with_run(|run| run.band = Some((low, high)))
+    with_run(|run| {
+        if run.band.is_some() {
+            run.warn("band: called twice, only the last one is drawn");
+        }
+        run.band = Some((low, high));
+    })
 }
 
 pub(super) fn fill(a: &str, b: &str, opts: Map) -> Fallible<()> {

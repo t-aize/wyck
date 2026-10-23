@@ -12,7 +12,7 @@
 //!
 //! This file is over 600 lines on purpose: it is a catalogue, one function per formula, and the
 //! functions do not lean on each other beyond the two helpers at the top (`smoothed`,
-//! `window_fold`). Cutting it by family would put a formula far from the reference it follows.
+//! `window_extreme`). Cutting it by family would put a formula far from the reference it follows.
 
 use crate::base::math::count_f64;
 
@@ -172,22 +172,43 @@ pub fn stdev(values: &[f64], period: usize) -> Vec<f64> {
 
 /// The highest value over the last `period` points.
 pub fn highest(values: &[f64], period: usize) -> Vec<f64> {
-    window_fold(values, period, f64::max)
+    window_extreme(values, period, |new, old| new >= old)
 }
 
 /// The lowest value over the last `period` points.
 pub fn lowest(values: &[f64], period: usize) -> Vec<f64> {
-    window_fold(values, period, f64::min)
+    window_extreme(values, period, |new, old| new <= old)
 }
 
-fn window_fold(values: &[f64], period: usize, fold: fn(f64, f64) -> f64) -> Vec<f64> {
+/// The extreme of each window of `period` points, in one pass: `beats(new, old)` says whether a
+/// newer value makes an older one useless. A window with a value that is not finite has no value.
+fn window_extreme(values: &[f64], period: usize, beats: fn(f64, f64) -> bool) -> Vec<f64> {
+    use std::collections::VecDeque;
     let mut out = vec![f64::NAN; values.len()];
     if period == 0 {
         return out;
     }
-    for (slot, window) in out.iter_mut().skip(period - 1).zip(values.windows(period)) {
-        if window.iter().all(|v| v.is_finite()) {
-            *slot = window.iter().copied().reduce(fold).unwrap_or(f64::NAN);
+    // The indexes of the values that can still be the extreme of a window, best first.
+    let mut candidates: VecDeque<usize> = VecDeque::new();
+    let mut last_gap: Option<usize> = None;
+    for (i, (&value, slot)) in values.iter().zip(&mut out).enumerate() {
+        if value.is_finite() {
+            while candidates
+                .back()
+                .is_some_and(|&back| beats(value, at(values, back)))
+            {
+                candidates.pop_back();
+            }
+            candidates.push_back(i);
+        } else {
+            last_gap = Some(i);
+        }
+        while candidates.front().is_some_and(|&front| front + period <= i) {
+            candidates.pop_front();
+        }
+        let whole = i + 1 >= period && last_gap.is_none_or(|gap| gap + period <= i);
+        if whole && let Some(&front) = candidates.front() {
+            *slot = at(values, front);
         }
     }
     out
@@ -897,5 +918,55 @@ mod tests {
         assert_eq!(direction[25], 1.0);
         assert_eq!(direction[59], -1.0);
         assert!(line[25] < close[25] && line[59] > close[59]);
+    }
+
+    /// Each window scanned plainly: the oracle of the one-pass extremes.
+    fn plain_extreme(values: &[f64], period: usize, high: bool) -> Vec<f64> {
+        (0..values.len())
+            .map(|i| {
+                if i + 1 < period {
+                    return f64::NAN;
+                }
+                let window = &values[i + 1 - period..=i];
+                if !window.iter().all(|v| v.is_finite()) {
+                    return f64::NAN;
+                }
+                window
+                    .iter()
+                    .copied()
+                    .reduce(if high { f64::max } else { f64::min })
+                    .unwrap_or(f64::NAN)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_running_extremes_match_a_plain_scan_over_every_window_gaps_included() {
+        let values: Vec<f64> = (0..300)
+            .map(|i| {
+                if i % 37 == 5 || i == 120 || i == 121 {
+                    f64::NAN
+                } else {
+                    f64::from((i * 7919) % 101) - 40.0
+                }
+            })
+            .collect();
+        for period in [1, 2, 3, 10, 36, 50, 299, 300, 400] {
+            for high in [true, false] {
+                let fast = if high {
+                    highest(&values, period)
+                } else {
+                    lowest(&values, period)
+                };
+                let plain = plain_extreme(&values, period, high);
+                assert_eq!(fast.len(), plain.len());
+                for (i, (a, b)) in fast.iter().zip(&plain).enumerate() {
+                    assert!(
+                        (a.is_nan() && b.is_nan()) || a.to_bits() == b.to_bits(),
+                        "period {period} high {high} bar {i}: {a} against {b}"
+                    );
+                }
+            }
+        }
     }
 }

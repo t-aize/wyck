@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use super::decl::{Declaration, Limits, Problem};
 use super::run::Script;
-use super::slices::{INPUTS, PLOTS};
+use super::slices::{INPUTS, PLOTS, TablesFull};
 use crate::base::intern;
 use crate::indicators::spec::{InputSpec, Placement, PlotSpec, Spec};
 
@@ -22,6 +22,7 @@ use crate::indicators::spec::{InputSpec, Placement, PlotSpec, Spec};
 const DECLARE_LIMITS: Limits = Limits {
     operations: 2_000_000,
     time: DECLARE_TIME,
+    memory: 64 * 1024 * 1024,
 };
 
 /// The wall time of a declaration. A test gets a long one: the operations budget is what stops a
@@ -67,7 +68,8 @@ impl Entry {
     /// An entry for a file that cannot be used: it keeps its place in the list, listed under
     /// "Broken" with the reasons.
     pub fn broken(id: &str, path: &Path, source: Arc<str>, problems: Vec<Problem>) -> Self {
-        let (spec, mut info) = spec_of(id, &Declaration::default());
+        let (spec, mut info) = spec_of(id, &Declaration::default())
+            .unwrap_or_else(|_| (missing_spec(id), placeholder_info(id)));
         "Broken".clone_into(&mut info.category);
         Self {
             id: id.to_owned(),
@@ -84,9 +86,8 @@ impl Entry {
     /// Compiles `source`, the text of the file at `path`.
     pub fn compile(id: &str, path: &Path, source: String) -> Self {
         match Script::compile_with(&source, DECLARE_LIMITS) {
-            Ok(script) => {
-                let (spec, info) = spec_of(id, &script.declaration);
-                Self {
+            Ok(script) => match spec_of(id, &script.declaration) {
+                Ok((spec, info)) => Self {
                     id: id.to_owned(),
                     path: path.to_path_buf(),
                     stamp: stamp_of(&source),
@@ -95,56 +96,68 @@ impl Entry {
                     script: Some(Arc::new(script)),
                     spec,
                     info,
-                }
-            }
+                },
+                Err(TablesFull) => Self::broken(
+                    id,
+                    path,
+                    Arc::from(source),
+                    vec![Problem::error(0, 0, TablesFull::MESSAGE)],
+                ),
+            },
             Err(problems) => Self::broken(id, path, Arc::from(source), problems),
         }
     }
 }
 
-#[derive(Default)]
 struct Registry {
     entries: BTreeMap<String, Arc<Entry>>,
 }
 
-static REGISTRY: RwLock<Option<Registry>> = RwLock::new(None);
+static REGISTRY: RwLock<Registry> = RwLock::new(Registry {
+    entries: BTreeMap::new(),
+});
 
-fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
-    let mut guard = REGISTRY.write().unwrap_or_else(PoisonError::into_inner);
-    f(guard.get_or_insert_with(Registry::default))
+/// Reading the registry: many readers at once, which is what every frame does through
+/// `StudyConfig::spec`.
+fn read<R>(f: impl FnOnce(&Registry) -> R) -> R {
+    f(&REGISTRY.read().unwrap_or_else(PoisonError::into_inner))
+}
+
+fn write<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
+    f(&mut REGISTRY.write().unwrap_or_else(PoisonError::into_inner))
 }
 
 /// What every chart looks the indicators it holds up in.
 pub mod registry {
-    use super::{Arc, BTreeMap, Entry, with_registry};
+    use super::{Arc, BTreeMap, Entry, read, write};
 
     /// The indicator called `id`.
     pub fn get(id: &str) -> Option<Arc<Entry>> {
-        with_registry(|r| r.entries.get(id).cloned())
+        read(|r| r.entries.get(id).cloned())
     }
 
     /// Whether there is an indicator called `id`.
     pub fn contains(id: &str) -> bool {
-        with_registry(|r| r.entries.contains_key(id))
+        read(|r| r.entries.contains_key(id))
     }
 
     /// Every indicator, by id.
     pub fn all() -> Vec<Arc<Entry>> {
-        with_registry(|r| r.entries.values().cloned().collect())
+        read(|r| r.entries.values().cloned().collect())
     }
 
     /// Adds one indicator, or replaces the one with the same id. Tests use it so that they do not
     /// wipe each other's indicators the way [`install`] would.
     #[cfg(test)]
     pub fn insert(entry: Arc<Entry>) {
-        with_registry(|r| {
+        write(|r| {
             r.entries.insert(entry.id.clone(), entry);
         });
     }
 
     /// Publishes `entries` as the whole list. Returns whether it differs from what was there.
     pub fn install(entries: Vec<Arc<Entry>>) -> bool {
-        with_registry(|r| {
+        write(|r| {
             let next: BTreeMap<String, Arc<Entry>> =
                 entries.into_iter().map(|e| (e.id.clone(), e)).collect();
             let same = next.len() == r.entries.len()
@@ -182,7 +195,7 @@ pub(crate) fn short_of(name: &str) -> String {
 }
 
 /// The spec the panels use, from what a script declared.
-pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
+pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> Result<(Spec, Info), TablesFull> {
     let meta = &declaration.meta;
     let stem = id.rsplit('/').next().unwrap_or(id);
     let name = meta.name.clone().unwrap_or_else(|| stem.to_owned());
@@ -197,19 +210,21 @@ pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
     let inputs: Vec<InputSpec> = declaration
         .inputs
         .iter()
-        .map(|i| InputSpec {
-            key: intern::name(&i.key),
-            label: intern::name(&i.label),
-            kind: i.input_kind(),
-            default: i.default,
-            min: i.min,
-            max: i.max,
-            step: i.step,
-            group: i.group.as_deref().map_or("", intern::name),
-            tooltip: i.tooltip.as_deref().map_or("", intern::name),
-            text: intern::name(&i.text),
+        .map(|i| {
+            Ok(InputSpec {
+                key: intern::name(&i.key),
+                label: intern::name(&i.label),
+                kind: i.input_kind()?,
+                default: i.default,
+                min: i.min,
+                max: i.max,
+                step: i.step,
+                group: i.group.as_deref().map_or("", intern::name),
+                tooltip: i.tooltip.as_deref().map_or("", intern::name),
+                text: intern::name(&i.text),
+            })
         })
-        .collect();
+        .collect::<Result<_, TablesFull>>()?;
     let plots: Vec<PlotSpec> = declaration
         .plots
         .iter()
@@ -232,8 +247,8 @@ pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
             Placement::Pane
         },
         format: meta.format,
-        inputs: INPUTS.get(&inputs),
-        plots: PLOTS.get(&plots),
+        inputs: INPUTS.get(&inputs)?,
+        plots: PLOTS.get(&plots)?,
         range: meta.range,
     };
     let info = Info {
@@ -244,7 +259,20 @@ pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
         author: meta.author.clone(),
         version: meta.version.clone(),
     };
-    (spec, info)
+    Ok((spec, info))
+}
+
+/// What the menus show for an indicator that has nothing but its id.
+fn placeholder_info(id: &str) -> Info {
+    let stem = id.rsplit('/').next().unwrap_or(id);
+    Info {
+        name: stem.to_owned(),
+        short: short_of(stem),
+        category: "Custom".to_owned(),
+        description: String::new(),
+        author: String::new(),
+        version: String::new(),
+    }
 }
 
 /// What a chart shows for an indicator whose script is gone or does not work.
@@ -290,10 +318,10 @@ mod tests {
 
     #[test]
     fn the_same_options_are_stored_once() {
-        let a = choices(&["Fast".to_owned(), "Slow".to_owned()]);
-        let b = choices(&["Fast".to_owned(), "Slow".to_owned()]);
+        let a = choices(&["Fast".to_owned(), "Slow".to_owned()]).unwrap();
+        let b = choices(&["Fast".to_owned(), "Slow".to_owned()]).unwrap();
         assert!(std::ptr::eq(a, b));
         assert_eq!(a, &["Fast", "Slow"]);
-        assert!(!std::ptr::eq(a, choices(&["Fast".to_owned()])));
+        assert!(!std::ptr::eq(a, choices(&["Fast".to_owned()]).unwrap()));
     }
 }
