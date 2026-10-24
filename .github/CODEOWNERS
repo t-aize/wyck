@@ -1,1 +1,44 @@
-* @t-aize
+# Code owners are requested for review automatically and can be required by branch protection.
+# Patterns follow .gitignore rules; the last matching pattern takes precedence.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below
+*                        @t-aize
+
+# Application source
+/src/                    @t-aize
+
+# CI/CD, automation, issue forms, and ownership rules
+/.github/                @t-aize
+/.github/workflows/      @t-aize
+/.github/ISSUE_TEMPLATE/ @t-aize
+/.github/CODEOWNERS      @t-aize
+/.github/dependabot.yml  @t-aize
+
+# Dependencies and supply chain
+/package.json            @t-aize
+/bun.lock                @t-aize
+/.node-version           @t-aize
+
+# Build, language, and tooling configuration
+/next.config.ts          @t-aize
+/tsconfig.json           @t-aize
+/biome.json              @t-aize
+/.editorconfig           @t-aize
+/.gitattributes          @t-aize
+/.gitignore              @t-aize
+/.env.example            @t-aize
+
+# Editor configuration
+/.vscode/                @t-aize
+/.zed/                   @t-aize
+
+# Legal and security
+/LICENSE                 @t-aize
+/SECURITY.md             @t-aize
+
+# Documentation and agent instructions
+/README.md               @t-aize
+/CONTRIBUTING.md         @t-aize
+/AGENTS.md               @t-aize
+/CLAUDE.md               @t-aize

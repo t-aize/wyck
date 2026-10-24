@@ -1,13 +1,11 @@
-name: Audit
-
-# Checks the dependency graph against the RustSec advisory database and the rules in deny.toml
-# (licenses, banned or duplicate crates, allowed registries) once a week, because a new advisory
-# can appear for a dependency that has not changed. Every push and pull request is checked by
-# `cargo xtask ci` in ci.yml.
+name: Dependency audit
 
 on:
+  push:
+    branches: [main]
+    paths: [bun.lock, package.json]
   schedule:
-    - cron: "17 5 * * 1"
+    - cron: "7 5 * * 1" # Mondays, 05:07 UTC: new advisories appear without any code change
   workflow_dispatch:
 
 permissions: {}
@@ -16,27 +14,26 @@ concurrency:
   group: audit-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
-  deny:
-    name: cargo-deny
+  audit:
+    name: bun audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: read # check out the repository
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          tool: cargo-deny
+          bun-version-file: package.json
 
-      - name: Check advisories, bans, licenses and sources
-        run: cargo deny check
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Audit
+        run: bun audit --audit-level=moderate

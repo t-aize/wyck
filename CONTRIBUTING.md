@@ -1,71 +1,57 @@
-# Contributing
+# Contributing to Wyck
 
-Thanks for your interest in the project.
+Wyck is developed by a single maintainer. **Pull requests are not accepted.**
 
-## Current status: issues only
+Issues are welcome: bug reports, feature requests, and questions. Please use the issue templates
+and search existing issues first.
 
-The project **does not accept pull requests yet**. This will change later, and this file will
-be updated when it does. Until then:
+Never post API keys, tokens, or account credentials in an issue. For security problems, see
+[SECURITY.md](SECURITY.md).
 
-- Pull requests opened by people other than the maintainer may be closed without review.
-  This is not a judgment on the change itself.
-- **Issues are welcome**: bug reports, feature requests, questions about behavior, and
-  documentation problems.
-- If you have a fix in mind, describe it in an issue. A clear description, a reproduction, or a
-  small snippet in the issue is often as useful as a patch.
+## Using AI to write issues
 
-Automated dependency updates from Dependabot are the only exception.
+Using AI is fine, but every issue form asks you to say so: whether AI was involved, which tool and
+model, and how you verified its output yourself. You must reproduce and check everything you
+report. AI output can be confident and wrong.
 
-## Before opening an issue
+A workflow reads those fields and labels the issue `ai-assisted` or `ai-generated`. If AI is
+mentioned but the tool or the verification is missing, the issue gets `ai-unverified`. Issues
+labeled `ai-unverified` or `needs-info` are closed after about three weeks without a reply.
 
-1. Search the existing issues, open and closed. Add a comment or a reaction instead of
-   opening a duplicate.
-2. Check that you are on the latest release or the latest commit of the default branch.
-3. Use the issue form that fits: bug report or feature request. Questions and usage help
-   belong in the channels described in [SUPPORT.md](SUPPORT.md).
-4. Do not report security problems in a public issue. Follow [SECURITY.md](SECURITY.md).
+## Local setup (maintainer)
 
-## Writing a good bug report
+Requirements: Bun 1.4+ and Node.js 22.10+ (see `.node-version`).
 
-- What you did, what you expected, and what happened instead.
-- The smallest steps or input that reproduce it.
-- Version or commit, operating system, and Rust toolchain version (`rustc --version`).
-- Logs or error output, as text and not as a screenshot. The app keeps a log of each day and a
-  report after a crash (README, "Logs and crashes").
-- Remove secrets first: tokens, API keys, account identifiers, and anything else private.
+```bash
+bun install
+bun run dev
+```
 
-## Writing a good feature request
+| Script                                  | Purpose                                              |
+| --------------------------------------- | ---------------------------------------------------- |
+| `bun run dev`                           | Start the dev server on <http://localhost:3000>      |
+| `bun run build`                         | Create a production build                            |
+| `bun run start`                         | Serve the production build                           |
+| `bun run check`                         | Biome lint, format and import sorting                |
+| `bun run check:fix`                     | Same as `check`, applying safe fixes                 |
+| `bun run typecheck`                     | Generate Next.js types, then run `tsc --noEmit`      |
+| `bun run verify`                        | `check`, `typecheck` and `build`: everything CI runs |
+| `bun run clean`                         | Remove build output (`.next`, `out`, `coverage`)     |
+| `bun run deps:outdated` / `deps:update` | List / upgrade dependencies to the latest            |
 
-Start from the problem you are trying to solve, then the change you propose. Requests that
-describe a real use case are easier to weigh than requests that only name a solution. Small,
-focused requests are easier to act on than large ones.
+## Editor setup
 
-## Use of AI tools
+Biome is the only linter and formatter, so keep Prettier and ESLint out of your editor for this
+project.
 
-AI assistants are allowed, for code, for text, and for issue reports. They must be disclosed,
-so that the work gets the extra check it needs.
+- **VS Code**: install the recommended extensions (`.vscode/extensions.json`). The TypeScript 7
+  extension (`TypeScriptTeam.native-preview`) is required for TypeScript IntelliSense, because
+  `.vscode/settings.json` turns the built-in language service off in its favor.
+- **Zed**: install the Biome extension and the TypeScript 7 extension
+  ([`zed-extensions/tsgo`](https://github.com/zed-extensions/tsgo), shown as "TypeScript Language
+  Server"). `.zed/settings.json` falls back to `vtsls` if the latter is missing. Tasks are in
+  `.zed/tasks.json`.
 
-- Say so in the issue (the forms have a field for it) and, once pull requests are open, in
-  the pull request: which tool, and what it was used for.
-- You are responsible for everything you submit. Read it, run it, and understand it. Do not
-  submit output you have not verified.
-- Do not paste unreviewed model output as a bug report. Reports must describe something you
-  actually observed.
-- Undisclosed AI-generated contributions may be closed. Disclosed ones are welcome and get
-  the same review as any other, with extra attention to correctness and licensing.
+## License
 
-## Licensing
-
-The project is licensed under the [Apache License 2.0](LICENSE). Unless you state
-otherwise, anything you intentionally submit for inclusion is licensed under the same terms
-(section 5 of that license). Only submit work you have the right to license this way.
-
-## Conduct
-
-Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## When pull requests open
-
-This section will be filled in with the workflow, code style, checks that must pass, and how
-review works. Expect the usual: format with `cargo fmt`, no clippy warnings, tests passing,
-and one focused change per pull request.
+Licensed under the [Apache License 2.0](LICENSE).

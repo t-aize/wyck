@@ -1,92 +1,141 @@
 name: Bug report
-description: Something does not work as expected
-labels: [ bug ]
+description: Something on the website, the download, or the connection to the app is broken
+title: "[Bug]: "
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time. Please search existing issues first, and never paste
-        secrets, tokens, or account identifiers. Security problems go through the private
-        form described in the security policy, not here.
+        Thanks for taking the time to report this. Please search [existing issues](https://github.com/t-aize/wyck/issues?q=is%3Aissue) first.
 
-  - type: textarea
-    id: what-happened
+        **Never paste API keys, tokens, passwords, or account numbers.** Report security problems [privately](https://github.com/t-aize/wyck/security/advisories/new).
+
+  - type: dropdown
+    id: area
     attributes:
-      label: What happened?
-      description: What you did, what you expected, and what happened instead.
+      label: Where did it happen?
+      options:
+        - Website (pages, layout, content)
+        - Download
+        - Connecting to the app
+        - Wyck app
+        - Other
     validations:
       required: true
 
   - type: textarea
-    id: reproduce
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Describe the problem. Include the exact error message if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
     attributes:
       label: Steps to reproduce
-      description: The smallest set of steps or input that shows the problem.
+      description: The smallest set of steps that triggers the problem.
       placeholder: |
-        1. ...
-        2. ...
-        3. ...
+        1. Go to ...
+        2. Click ...
+        3. See the error
     validations:
       required: true
 
   - type: input
-    id: version
+    id: url
     attributes:
-      label: Version or commit
-      placeholder: "The version shown in Settings, or a commit hash"
-    validations:
-      required: true
+      label: Page URL
+      description: The address of the page where it happened, if any.
+      placeholder: https://
 
   - type: dropdown
     id: os
     attributes:
       label: Operating system
       options:
-        - Windows
-        - Linux
+        - Windows 11
+        - Windows 10
         - macOS
+        - Linux
         - Other
     validations:
       required: true
 
-  - type: input
-    id: toolchain
+  - type: dropdown
+    id: browser
     attributes:
-      label: Rust toolchain
-      description: Output of `rustc --version`, if you built from source.
+      label: Browser
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Safari
+        - Brave
+        - Other
+        - Not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Wyck app version
+      description: Only if the problem involves the app.
+      placeholder: "0.1.0"
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs or error output
-      description: |
-        Paste as text. It is rendered as code automatically. In the installed app, Settings >
-        About > "Open the log folder" shows the log of each day (wyck.YYYY-MM-DD.log) and, after
-        a crash, a panic-*.txt report. Paste the end of the log of the day, and the report if
-        there is one. Read them first and remove anything private.
-      render: shell
+      label: Logs and screenshots
+      description: Drag and drop screenshots here. Paste text output inside triple backticks and remove anything sensitive.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## AI assistance
+
+        Using AI is fine, but I need to know about it. AI output can be confident and wrong, so whatever it told you must be checked by you before you report it.
 
   - type: dropdown
-    id: ai
+    id: ai_usage
     attributes:
-      label: AI assistance
-      description: AI tools are allowed but must be disclosed, so the report gets an extra check.
+      label: Was AI involved in this report?
       options:
-        - No AI tools were used
-        - AI helped write this report
-        - AI helped find the problem
-        - Both
+        - No, I wrote and investigated this myself
+        - AI helped me write or translate the text
+        - AI helped me investigate or diagnose the problem
+        - AI wrote most of this report
     validations:
       required: true
 
-  - type: checkboxes
-    id: checks
+  - type: input
+    id: ai_tool
     attributes:
-      label: Checklist
+      label: AI tool and model
+      description: Which tool and model, if any. Leave empty if no AI was involved.
+      placeholder: "e.g. Claude Sonnet 5.5, ChatGPT, GitHub Copilot"
+
+  - type: textarea
+    id: ai_verification
+    attributes:
+      label: How did you verify it?
+      description: Required if AI was involved. What did you run, click, or observe yourself to confirm the problem is real? Leave empty if no AI was involved.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
       options:
-        - label: I searched the open and closed issues and found no duplicate.
+        - label: I reproduced this myself, and I checked that everything in this report is accurate.
           required: true
-        - label: I removed all secrets and private data from this report.
-          required: true
-        - label: I confirmed what is described here myself.
+        - label: I removed all secrets, tokens, and personal or account data from this report.
           required: true

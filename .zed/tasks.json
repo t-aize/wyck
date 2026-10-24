@@ -1,66 +1,40 @@
 [
   {
-    "label": "xtask check",
-    "command": "cargo",
-    "args": ["xtask", "check"],
-    "use_new_terminal": false,
+    "label": "dev",
+    "command": "bun",
+    "args": ["run", "dev"],
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
     "reveal": "always"
   },
   {
-    "label": "xtask check --full",
-    "command": "cargo",
-    "args": ["xtask", "check", "--full"],
-    "use_new_terminal": false,
-    "reveal": "always"
+    "label": "build",
+    "command": "bun",
+    "args": ["run", "build"],
+    "save": "all"
   },
   {
-    "label": "cargo run wyck",
-    "command": "cargo",
-    "args": ["run", "-p", "wyck"],
-    "use_new_terminal": false,
-    "reveal": "always"
+    "label": "check",
+    "command": "bun",
+    "args": ["run", "check"],
+    "save": "all"
   },
   {
-    "label": "cargo test (workspace)",
-    "command": "cargo",
-    "args": ["test", "--workspace"],
-    "use_new_terminal": false,
-    "reveal": "always"
+    "label": "check:fix",
+    "command": "bun",
+    "args": ["run", "check:fix"],
+    "save": "all"
   },
   {
-    "label": "cargo clippy (workspace)",
-    "command": "cargo",
-    "args": ["clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"],
-    "use_new_terminal": false,
-    "reveal": "always"
+    "label": "typecheck",
+    "command": "bun",
+    "args": ["run", "typecheck"],
+    "save": "all"
   },
   {
-    "label": "cargo doc (workspace)",
-    "command": "cargo",
-    "args": ["doc", "--workspace", "--no-deps", "--locked"],
-    "env": { "RUSTDOCFLAGS": "-D warnings" },
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "cargo deny",
-    "command": "cargo",
-    "args": ["deny", "check"],
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "xtask deps",
-    "command": "cargo",
-    "args": ["xtask", "deps"],
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "xtask docs-check",
-    "command": "cargo",
-    "args": ["xtask", "docs-check"],
-    "use_new_terminal": false,
-    "reveal": "always"
+    "label": "verify",
+    "command": "bun",
+    "args": ["run", "verify"],
+    "save": "all"
   }
 ]

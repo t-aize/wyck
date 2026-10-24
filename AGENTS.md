@@ -1,102 +1,42 @@
 # Wyck
 
-A desktop trading app for cTrader accounts, written in Rust on gpui: charts, drawing tools,
-indicators written as scripts, an order ticket with a safety guard, alerts, backups. This file is
-the map; the `AGENTS.md` of each crate says what is inside it, and is loaded when you work there.
+Wyck is a terminal trading panel for cTrader, built for speed, not for staring at it.
+
+This repository is only the **website**: it lets people download the app and connect to it. The
+trading terminal itself lives elsewhere. Do not build terminal or trading UI here.
+
+Stack: Next.js 16 (App Router, Cache Components, React Compiler), React 19, TypeScript 7 (strict,
+ES2025), Tailwind CSS 4, Biome, Bun.
 
 ## Commands
 
-Run them from the root. `cargo xtask` is plain Rust, so it works the same on Windows, macOS and Linux.
+Use Bun for everything (`packageManager` is pinned in `package.json`).
 
-```
-cargo xtask check          # format, clippy, tests, cargo-deny, rustdoc, dependency rules, docs files
-cargo xtask check --full   # the same, then cargo-machete, typos, taplo, zizmor, actionlint (the missing ones are skipped)
-cargo xtask ci             # what the `check` job of CI runs: format, clippy, tests, cargo-deny, rustdoc
-cargo xtask deps           # layering and dependency rules only
-cargo xtask docs-check     # AGENTS.md / CLAUDE.md files only
-cargo test -p wyck-domain  # one crate (doc-tests included); `cargo test --workspace` for all of them
-cargo run -p wyck          # the app; a debug build keeps its state apart from the installed app
-cargo run -p wyck-ctrader --example ctrader_prices   # the cTrader client against a demo account
-```
+- `bun run dev`: dev server on http://localhost:3000
+- `bun run check:fix`: Biome lint, format and import sorting, with safe fixes
+- `bun run typecheck`: `next typegen` then `tsc --noEmit`
+- `bun run verify`: everything CI runs (`check`, `typecheck`, `build`). Run it before finishing a task.
 
-Do not run `cargo build --release`: fat LTO is slow and CI builds the release.
-The window needs a signed-in account (a real cTrader login). Never type real credentials in a
-session; to see startup, run the debug binary for a few seconds with `WYCK_CONFIG_DIR`,
-`WYCK_DATA_DIR` and `WYCK_KEYRING_SERVICE` pointing at a temporary folder.
+Biome is only used through `biome check` (`check` / `check:fix`); there are no separate lint or
+format scripts.
 
-## The workspace
+## Conventions
 
-One crate per area in `crates/`, plus `xtask/`. An arrow goes down only; `cargo xtask deps` fails on
-any other.
+- All code, comments, docs, commit messages and UI text are in English.
+- Solo project: the maintainer commits directly. Pull requests are not accepted; only issues are.
+- Source lives in `src/`; the `~/*` alias maps to `src/*`.
+- Server Components by default; add `"use client"` only where needed.
+- Do not add `useMemo`/`useCallback` by reflex: the React Compiler is enabled.
+- No `any`, no non-null assertions, no barrel files (enforced by Biome).
+- Never commit secrets. Only `.env.example` is tracked; real values go in `.env.local`.
+- Do not hand-edit `bun.lock` or `next-env.d.ts`.
 
-| Crate | Owns |
-|---|---|
-| `wyck-clock` | the one wall-clock read of the workspace |
-| `wyck-domain` | the domain, one module each: `base` (shared vocabulary, `ta` arithmetic, appearance, text scale), `market` (symbols, bars, ticks, `Timeframe`), `trading` (orders, plans, the safety guard, margin, the account book, `atr_stop`), `drawings` (tools, the drawing book and its undo), `indicators` (the maths, the Rhai scripts engine), `chart` (the chart as a model: series, view, scene, export) |
-| `wyck-storage` | where files live, documents, migrations, backups, secrets, encryption, build facts |
-| `wyck-ctrader` | the cTrader Open API client (the only network code) |
-| `wyck-app` | gpui entities with no view: sign-in, account, alerts, workspace, updates, log files and the tokio runtime |
-| `wyck-ui` | the screens, one module each: `kit` (the design system, the only module that names `gpui-kit`), `chart`, `trading`, `editor`, `shell` |
-| `wyck` | the binary: `main` and packaging |
-| `xtask` | the developer commands above |
+<!-- BEGIN:nextjs-agent-rules -->
 
-```
-clock <- storage                     ctrader -> domain, clock
-domain: base <- market <- trading <- drawings <- indicators <- chart (modules)
-app -> domain, storage, ctrader, clock
-ui -> domain, app, clock (modules: kit < chart < trading, editor < shell)
-wyck -> ui, app, storage, domain, clock
-```
+## This is NOT the Next.js you know
 
-## Rules that hold everywhere
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-- **Layers.** The domain crate (`wyck-domain`) has no `gpui`, `tokio`, `reqwest`, `keyring` or
-  file access. Only `wyck-ctrader` talks to the network, only `wyck-storage` writes the user's files
-  and the keyring, only the `kit` module of `wyck-ui` names `gpui-kit`. A screen reaches the broker, the files and
-  the system through the `broker`, `storage` and `system` doors of `wyck-app`.
-- **Orders.** An order goes through `Account::place_with` (or `place_batch`) in `wyck-app`: validated,
-  cleared by the guard of `wyck_domain::trading`, never resent after a timeout. There is no way around it;
-  do not add one.
-- **Secrets.** No token, passphrase or account number in a log line, a panic report, a notice or an
-  error message. Credentials live in the keyring or encrypted files, never in `config.toml`.
-- **Saved formats are a promise.** A field has a serde default and is repaired in `normalized`; a
-  change of shape needs a `SCHEMA_VERSION`, a migration step and a fixture of the old file; a
-  `Tool` or `ChartKind` code is never renamed.
-- **Time.** Read it through `wyck-clock`; `clippy.toml` forbids `SystemTime::now`, `Utc::now` and
-  `Local::now`, and `thread::sleep`.
-- **Lints** (`[workspace.lints]`, every crate takes them): no `unwrap`, `expect`, `panic`, `todo`,
-  `dbg!` or unchecked indexing outside tests; `unsafe` is forbidden; pedantic clippy is on. Say why
-  in `#[expect(lint, reason = "...")]`; `#[allow]` is not used. Make an item `pub(crate)` unless
-  another crate needs it (`unreachable_pub` warns).
-- **Dependencies** are written once, in `[workspace.dependencies]` of the root `Cargo.toml`; a crate
-  says `name.workspace = true` and lists its own features. Errors are `thiserror` enums in
-  libraries; `anyhow` is only in `xtask` and in the `editor` module of `wyck-ui` (its completion provider returns it).
-- **Global state** is rare and listed in the `AGENTS.md` of the crate that holds it. Tests must not
-  set `wyck_domain::base::text_scale`: other tests read it.
-- **Writing.** English. Code, comments and committed text files use plain ASCII: no typographic
-  dashes or quotes, no accents. A module doc (`//!`) is 1 to 3 lines (role and invariants); `///` is
-  for a unit, an encoding, a panic or a reason, never for what the name already says.
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
-## Done means
-
-1. `cargo xtask check` passes (`--full` before a pull request).
-2. The `AGENTS.md` of every crate you touched is still true: its module map, its invariants, its
-   `Depends on` and `Used by` lines (`cargo xtask docs-check` checks the last two).
-3. A change to a saved format, an order path or a secret is said so in your answer.
-4. Nothing is pushed, no pull request is opened and no GitHub setting is changed without being asked.
-
-## Where to read
-
-| File | What it says |
-|---|---|
-| `README.md` | what the app is, how to install, run and build it |
-| `CONTRIBUTING.md` | how to report an issue (pull requests are closed to others for now) |
-| `SECURITY.md` | how to report a vulnerability, what is protected |
-| `SUPPORT.md` | where to ask for help |
-| `CODE_OF_CONDUCT.md` | the code of conduct |
-| `crates/wyck-clock`, `crates/wyck-domain` | `AGENTS.md` of each (the domain has one section per module) |
-| `crates/wyck-storage`, `crates/wyck-ctrader`, `crates/wyck-app` | `AGENTS.md` of each |
-| `crates/wyck-ui` | `AGENTS.md` (one section per module) |
-| `crates/wyck`, `xtask` | `AGENTS.md` of each |
-| `.claude/rules/` | rules that load when Claude Code reads files of one area |
-| `.github/workflows/` | CI (`ci.yml`), the weekly audit, the release (`release.yml`) |
+<!-- END:nextjs-agent-rules -->

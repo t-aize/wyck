@@ -1,234 +1,62 @@
 name: CI
 
-# `ci-ok` is the one check the main branch requires, so the jobs behind it can change without
-# touching the branch rules. No `paths-ignore` here: a pull request that only touches Markdown
-# would then never report `ci-ok` and could not be merged. The `changes` job decides instead which
-# jobs a pull request needs, and `ci-ok` counts a skipped job as fine.
-
 on:
   push:
-    branches: [ main ]
-  pull_request:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      save_cache:
-        description: >-
-          Write the cargo cache from this branch, so that the next run starts warm. Main always does;
-          this is how a change to the build is timed before it is merged.
-        type: boolean
-        default: false
 
+# Deny everything by default; each job declares what it needs.
 permissions: {}
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  # Incremental builds only add bookkeeping when every run starts from a restored cache.
-  CARGO_INCREMENTAL: 0
-  CARGO_TERM_COLOR: always
-  CARGO_NET_RETRY: 10
-  RUSTUP_MAX_RETRIES: 10
-  RUST_BACKTRACE: 1
-  # Nothing in CI is run under a debugger. Debug info is the biggest part of a dev target
-  # directory: dropping it makes builds faster and the cache smaller.
-  CARGO_PROFILE_DEV_DEBUG: 0
-  CARGO_PROFILE_TEST_DEBUG: 0
+  NEXT_TELEMETRY_DISABLED: "1"
 
-defaults:
-  run:
-    shell: bash
-
-# Action versions are pinned to a commit and updated by Dependabot, see .github/dependabot.yml.
 jobs:
-  changes:
-    name: Changed files
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # A pull request is checked out as a merge commit: its first parent is the base branch.
-          fetch-depth: 2
-
-      - name: Decide whether anything but documentation changed
-        id: filter
-        env:
-          EVENT: ${{ github.event_name }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" != "pull_request" ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            echo "Not a pull request: every job runs." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          changed=$(git diff --name-only HEAD^1 HEAD)
-          # Only these paths are documentation or editor settings. Anything else counts as code,
-          # so a file nobody thought of can never skip the build.
-          docs='^(docs/|.*\.md$|LICENSE$|\.vscode/|\.zed/|\.claude/|\.github/ISSUE_TEMPLATE/|\.github/FUNDING\.yml$)'
-          code=$(printf '%s\n' "$changed" | grep -Ev "$docs" || true)
-          if [ -n "$code" ]; then value=true; else value=false; fi
-          echo "code=$value" >> "$GITHUB_OUTPUT"
-          {
-            echo "### Changed files (code: $value)"
-            echo '```'
-            printf '%s\n' "$changed"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  lint:
-    name: Typos, TOML, dependencies
+  verify:
+    name: Check, typecheck and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: read # check out the repository
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Rust
-        uses: ./.github/actions/setup-rust
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          system-libraries: "false"
-          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
-          cache-key: lint
+          bun-version-file: package.json # reads the `packageManager` field
 
-      - name: Install the lint tools
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - name: Cache Bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          tool: typos,taplo,cargo-machete
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
 
-      - name: Check the format of the TOML files
-        run: taplo fmt --check
-
-      - name: Look for typos
-        run: typos
-
-      - name: Look for unused dependencies
-        run: cargo machete
-
-      - name: Check the dependency rules of the workspace
-        run: cargo run --locked --quiet --package xtask -- deps
-
-      - name: Check the AGENTS.md and CLAUDE.md files
-        run: cargo run --locked --quiet --package xtask -- docs-check
-
-  workflows:
-    name: Workflow security
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache Next.js build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          persist-credentials: false
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            nextjs-${{ runner.os }}-
 
-      - name: Install zizmor
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
-        with:
-          tool: zizmor
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-      - name: Audit the workflows
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: zizmor --format github .github
+      - name: Check (Biome)
+        run: bun run check
 
-  check:
-    name: Checks (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      - name: Typecheck
+        run: bun run typecheck
 
-      - name: Set up Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
-
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
-        with:
-          tool: cargo-deny
-
-      # Format, clippy, tests, cargo-deny and rustdoc, in this order, stopping at the first
-      # failure. The commands are in xtask/src/ci.rs and nowhere else, so a developer runs the
-      # very same thing with `cargo xtask ci`.
-      - name: Run the checks
-        run: cargo xtask ci
-
-  # Confirms the release profile still compiles. Not needed on every pull request, so it only runs
-  # on main. Fat LTO and one codegen unit turn it into a full relink of every dependency, so both
-  # are relaxed here; a real `cargo build --release` still gets the fully optimized profile.
-  release-build:
-    name: Release build
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    env:
-      CARGO_PROFILE_RELEASE_LTO: "false"
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          save-cache: ${{ github.ref == 'refs/heads/main' || inputs.save_cache }}
-          cache-key: release
-
-      - name: Build the app in release mode
-        run: cargo build --release --locked
-
-  # The single job to mark as required in branch protection. A skipped job (the build jobs on a
-  # pull request that only changes documentation) counts as fine; a failed or cancelled one does
-  # not, and neither does `changes` failing, which would leave the jobs behind it skipped.
-  ci-ok:
-    name: ci-ok
-    if: always()
-    needs: [ changes, lint, workflows, check, release-build ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Fail if a job did not pass
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-          CHANGES: ${{ needs.changes.result }}
-        run: |
-          echo "Results: $RESULTS"
-          if [ "$CHANGES" != "success" ]; then
-            echo "The job that looks at the changed files did not succeed." >&2
-            exit 1
-          fi
-          case " $RESULTS " in
-            *" failure "* | *" cancelled "*)
-              echo "A required job failed or was cancelled." >&2
-              exit 1
-              ;;
-          esac
+      - name: Build
+        run: bun run build

@@ -1,3 +1,0 @@
-[alias]
-# `cargo xtask <command>`: the developer commands of this workspace (see xtask/).
-xtask = "run --quiet --package xtask --"

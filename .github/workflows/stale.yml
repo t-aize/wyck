@@ -1,0 +1,34 @@
+name: Stale issues
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, 03:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stale:
+    name: Close issues waiting on the reporter
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write # label, comment on, and close stale issues
+    steps:
+      - name: Mark and close stale issues
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          # Only issues that are waiting on the reporter are touched.
+          any-of-labels: needs-info,ai-unverified
+          days-before-stale: 14
+          days-before-close: 7
+          # Pull requests are not accepted, so never process them.
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          stale-issue-message: >
+            This issue has been waiting for more information for 14 days.
+            It will be closed in 7 days if there is no reply.
+          close-issue-message: >
+            Closing because the requested information was not provided.
+            Feel free to open a new issue with the details.

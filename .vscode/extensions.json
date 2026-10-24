@@ -1,12 +1,11 @@
 {
   "recommendations": [
-    "rust-lang.rust-analyzer",
-    "tamasfe.even-better-toml",
+    "biomejs.biome",
+    "TypeScriptTeam.native-preview",
+    "bradlc.vscode-tailwindcss",
     "editorconfig.editorconfig",
-    "redhat.vscode-yaml",
     "github.vscode-github-actions",
-    "tekumara.typos-vscode",
-    "ms-vscode.cpptools",
-    "vadimcn.vscode-lldb"
-  ]
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
 }

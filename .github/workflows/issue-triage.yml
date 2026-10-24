@@ -1,0 +1,105 @@
+name: Issue triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions: {}
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-disclosure:
+    name: Label AI disclosure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write # create, add, and remove labels; comment on the triggering issue
+    steps:
+      # The issue body is untrusted input: it is only parsed as data here,
+      # never interpolated into a shell command or evaluated.
+      - name: Label issue from the AI assistance fields
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const MANAGED = {
+              "ai-assisted": { color: "5319e7", description: "AI helped write or investigate this issue" },
+              "ai-generated": { color: "b60205", description: "AI wrote most of this issue" },
+              "ai-unverified": { color: "fbca04", description: "AI was involved but the tool or verification is missing" },
+            };
+
+            const issue = context.payload.issue;
+            const { owner, repo } = context.repo;
+
+            // Issue forms render each field as "### Label" followed by its value.
+            const fields = new Map();
+            for (const section of (issue.body ?? "").split(/^### /m).slice(1)) {
+              const [heading, ...rest] = section.split("\n");
+              const value = rest.join("\n").trim();
+              fields.set(heading.trim().toLowerCase(), value === "_No response_" ? "" : value);
+            }
+            const field = (prefix) => {
+              for (const [heading, value] of fields) {
+                if (heading.startsWith(prefix)) {
+                  return value;
+                }
+              }
+              return undefined;
+            };
+
+            const usage = field("was ai involved");
+            if (usage === undefined) {
+              core.info("Not an issue form submission with an AI field; nothing to do.");
+              return;
+            }
+
+            const usedAi = !usage.toLowerCase().startsWith("no");
+            const generated = usage.toLowerCase().startsWith("ai wrote most");
+            const tool = field("ai tool and model") ?? "";
+            const verification = field("how did you verify") ?? "";
+
+            const wanted = new Set();
+            if (usedAi) {
+              wanted.add(generated ? "ai-generated" : "ai-assisted");
+            }
+            // Missing details, or a tool named while claiming no AI was used.
+            if ((usedAi && (!tool || !verification)) || (!usedAi && tool)) {
+              wanted.add("ai-unverified");
+            }
+
+            const current = new Set(issue.labels.map((label) => label.name));
+
+            for (const name of wanted) {
+              if (current.has(name)) {
+                continue;
+              }
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name, ...MANAGED[name] });
+              } catch (error) {
+                if (error.status !== 422) {
+                  throw error; // 422 means the label already exists
+                }
+              }
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: [name] });
+            }
+
+            for (const name of Object.keys(MANAGED)) {
+              if (current.has(name) && !wanted.has(name)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name });
+              }
+            }
+
+            if (wanted.has("ai-unverified") && !current.has("ai-unverified")) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: [
+                  "Thanks for the report. AI is mentioned here, but the AI tool and model or the verification notes are missing or inconsistent.",
+                  "",
+                  "Please edit the issue to say which tool and model you used and how you checked its output yourself. Issues that stay unclear are closed after about three weeks.",
+                ].join("\n"),
+              });
+            }

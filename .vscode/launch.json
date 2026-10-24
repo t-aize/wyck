@@ -2,25 +2,32 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // Windows: the Microsoft debugger reads the PDB files that Rust produces; CodeLLDB does not.
-      "name": "Debug wyck (Windows)",
-      "type": "cppvsdbg",
+      "name": "Next.js: debug server-side",
+      "type": "node-terminal",
       "request": "launch",
-      "program": "${workspaceFolder}/target/debug/wyck.exe",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "preLaunchTask": "cargo build wyck",
-      "console": "internalConsole"
+      "command": "bun run dev --inspect"
     },
     {
-      // macOS and Linux.
-      "name": "Debug wyck (LLDB)",
-      "type": "lldb",
+      "name": "Next.js: debug client-side",
+      "type": "chrome",
       "request": "launch",
-      "program": "${workspaceFolder}/target/debug/wyck",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "preLaunchTask": "cargo build wyck"
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "Next.js: debug full stack",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/next/dist/bin/next",
+      "args": ["dev"],
+      "runtimeArgs": ["--inspect"],
+      "skipFiles": ["<node_internals>/**"],
+      "serverReadyAction": {
+        "action": "debugWithChrome",
+        "killOnServerStop": true,
+        "pattern": "- Local:.+(https?://.+)",
+        "uriFormat": "%s",
+        "webRoot": "${workspaceFolder}"
+      }
     }
   ]
 }

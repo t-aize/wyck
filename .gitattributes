@@ -1,36 +1,38 @@
-# Auto detect text files and normalize line endings to LF on checkin.
+# Normalize line endings: LF in the repository and in working copies.
 * text=auto eol=lf
 
-# Source
-*.rs text eol=lf
-Cargo.toml text eol=lf
+# Windows scripts require CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
 
-# Docs / config
-*.md text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-.env.example text eol=lf
-*.editorconfig text eol=lf
-*.gitattributes text eol=lf
-*.gitignore text eol=lf
-
-# Lockfile: don't let Git generate diffs, and mark it as generated for GitHub
-Cargo.lock -diff linguist-generated=true
-
-# Binaries: never touch, never diff as text
-*.png binary
-*.jpg binary
-*.jpeg binary
+# Binary assets.
+*.avif binary
+*.eot binary
 *.gif binary
 *.ico binary
-*.icns binary
-*.wav binary
+*.jpeg binary
+*.jpg binary
+*.otf binary
+*.png binary
+*.ttf binary
+*.webp binary
 *.woff binary
 *.woff2 binary
-*.ttf binary
-*.eot binary
 
-# Exclude non-essential files from repository archives (git archive / GitHub release tarballs)
-.gitattributes export-ignore
-.gitignore export-ignore
+# Lockfiles are generated: collapse them in diffs and exclude them from language stats.
+bun.lock linguist-generated=true -diff
+bun.lockb binary linguist-generated=true
+package-lock.json linguist-generated=true -diff
+pnpm-lock.yaml linguist-generated=true -diff
+yarn.lock linguist-generated=true -diff
+
+# Exclude generated and vendored files from language stats.
+next-env.d.ts linguist-generated=true
+*.tsbuildinfo linguist-generated=true
+
+# Keep repository archives (git archive) free of dev-only files.
 .editorconfig export-ignore
+.gitattributes export-ignore
+.github export-ignore
+.vscode export-ignore
+.zed export-ignore

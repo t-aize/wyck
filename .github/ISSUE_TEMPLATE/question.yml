@@ -1,0 +1,77 @@
+name: Question
+description: Ask how something works
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [README](https://github.com/t-aize/wyck#readme) and [existing issues](https://github.com/t-aize/wyck/issues?q=is%3Aissue) first.
+
+        **Never paste API keys, tokens, passwords, or account numbers.**
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is this about?
+      options:
+        - Website (pages, layout, content)
+        - Download
+        - Connecting to the app
+        - Wyck app
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: What you already looked at or attempted.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## AI assistance
+
+        Using AI is fine, but I need to know about it. AI output can be confident and wrong, so whatever it told you must be checked by you before you report it.
+
+  - type: dropdown
+    id: ai_usage
+    attributes:
+      label: Was AI involved in this question?
+      options:
+        - No, I wrote this myself
+        - AI helped me write or translate the text
+        - AI helped me research the topic
+        - AI wrote most of this question
+    validations:
+      required: true
+
+  - type: input
+    id: ai_tool
+    attributes:
+      label: AI tool and model
+      description: Which tool and model, if any. Leave empty if no AI was involved.
+      placeholder: "e.g. Claude Sonnet 5.5, ChatGPT, GitHub Copilot"
+
+  - type: textarea
+    id: ai_verification
+    attributes:
+      label: How did you verify it?
+      description: Required if AI was involved. What did you check yourself, and what did the AI claim that you could not confirm? Leave empty if no AI was involved.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I removed all secrets, tokens, and personal or account data from this question.
+          required: true

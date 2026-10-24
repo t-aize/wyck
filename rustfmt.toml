@@ -1,5 +1,0 @@
-# Only options available on stable rustfmt: formatting must not depend on a nightly toolchain.
-edition = "2024"
-max_width = 100
-newline_style = "Unix"
-use_field_init_shorthand = true

@@ -1,8 +1,8 @@
 @AGENTS.md
 
-For Claude Code:
+## Claude Code
 
-- Use plan mode before a change that touches more than one crate or a saved format.
-- Run `cargo xtask check` before you say a change is done, and say what you did not run.
-- Ask before you push, open a pull request, merge or change a GitHub setting.
-- Do not run `cargo build --release`, and do not type real credentials into the app.
+- Prefer the dedicated file tools over shell commands. On Windows the shell may be PowerShell or Git Bash.
+- After code changes, run `bun run check:fix` and `bun run typecheck` before reporting the task as done.
+- Keep this file short. Shared guidance belongs in `AGENTS.md`; put only Claude-specific notes here.
+- Personal preferences go in `CLAUDE.local.md` (gitignored), not here.

@@ -1,88 +1,43 @@
 {
   "version": "2.0.0",
-  "inputs": [
-    {
-      "id": "crate",
-      "type": "pickString",
-      "description": "The crate",
-      "default": "wyck-domain",
-      "options": [
-        "wyck",
-        "wyck-app",
-        "wyck-clock",
-        "wyck-ctrader",
-        "wyck-domain",
-        "wyck-storage",
-        "wyck-ui",
-        "xtask"
-      ]
-    }
-  ],
   "tasks": [
     {
-      "label": "xtask check",
-      "detail": "Format, clippy, tests, cargo-deny, rustdoc, dependency rules, docs files",
+      "label": "dev",
       "type": "shell",
-      "command": "cargo xtask check",
-      "group": { "kind": "test", "isDefault": true },
-      "problemMatcher": "$rustc"
+      "command": "bun run dev",
+      "isBackground": true,
+      "problemMatcher": []
     },
     {
-      "label": "xtask check --full",
-      "detail": "The same, then machete, typos, taplo, zizmor, actionlint (before a pull request)",
+      "label": "build",
       "type": "shell",
-      "command": "cargo xtask check --full",
-      "problemMatcher": "$rustc"
-    },
-    {
-      "label": "cargo build wyck",
-      "type": "shell",
-      "command": "cargo build -p wyck",
+      "command": "bun run build",
       "group": { "kind": "build", "isDefault": true },
-      "problemMatcher": "$rustc"
+      "problemMatcher": []
     },
     {
-      "label": "cargo run wyck",
+      "label": "check",
       "type": "shell",
-      "command": "cargo run -p wyck",
-      "problemMatcher": "$rustc"
+      "command": "bun run check",
+      "problemMatcher": []
     },
     {
-      "label": "cargo test (one crate)",
+      "label": "check:fix",
       "type": "shell",
-      "command": "cargo test -p ${input:crate}",
+      "command": "bun run check:fix",
+      "problemMatcher": []
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "bun run typecheck",
+      "problemMatcher": []
+    },
+    {
+      "label": "verify",
+      "type": "shell",
+      "command": "bun run verify",
       "group": "test",
-      "problemMatcher": "$rustc"
-    },
-    {
-      "label": "cargo clippy (workspace)",
-      "type": "shell",
-      "command": "cargo clippy --workspace --all-targets --locked -- -D warnings",
-      "problemMatcher": "$rustc"
-    },
-    {
-      "label": "cargo doc (workspace)",
-      "type": "shell",
-      "command": "cargo doc --workspace --no-deps --locked",
-      "options": { "env": { "RUSTDOCFLAGS": "-D warnings" } },
-      "problemMatcher": "$rustc"
-    },
-    {
-      "label": "cargo deny",
-      "type": "shell",
-      "command": "cargo deny check",
-      "problemMatcher": []
-    },
-    {
-      "label": "xtask deps",
-      "type": "shell",
-      "command": "cargo xtask deps",
-      "problemMatcher": []
-    },
-    {
-      "label": "xtask docs-check",
-      "type": "shell",
-      "command": "cargo xtask docs-check",
       "problemMatcher": []
     }
   ]
