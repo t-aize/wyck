@@ -20,6 +20,14 @@ Use Bun for everything (`packageManager` is pinned in `package.json`).
 Biome is only used through `biome check` (`check` / `check:fix`); there are no separate lint or
 format scripts.
 
+## Structure
+
+- `src/app/`: routes, root layout, `fonts.ts` (next/font) and `globals.css` (Tailwind theme tokens).
+- `src/components/`: UI. Server Components by default; `mobile-nav.tsx` and
+  `hero/ascii-backdrop.tsx` are the only Client Components.
+- `src/lib/ascii/`: the hero's ASCII landscape renderer, framework-agnostic (canvas 2D).
+- `src/config/site.ts`: name, tagline, navigation and outbound links. Change links there only.
+
 ## Conventions
 
 - All code, comments, docs, commit messages and UI text are in English.

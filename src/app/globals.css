@@ -1,26 +1,180 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-ink: #11120e;
+  --color-ink-raised: #1c1d16;
+  --color-paper: #ece7da;
+  --color-paper-muted: #cfc9ba;
+  --color-paper-subtle: #a7a293;
+  --color-line: #2e2f27;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-sine: cubic-bezier(0.65, 0, 0.35, 1);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --animate-fade-up: fade-up 1.1s var(--ease-out-expo) both;
+  --animate-fade-in: fade-in 1.8s ease-out both;
+
+  @keyframes fade-up {
+    from {
+      translate: 0 18px;
+      opacity: 0;
+    }
+    to {
+      translate: 0 0;
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+@theme inline {
+  --font-sans: var(--font-host-grotesk), system-ui, sans-serif;
+  --font-display: var(--font-libre-caslon-display), var(--font-libre-caslon-text), Georgia, serif;
+  --font-serif: var(--font-libre-caslon-text), Georgia, serif;
+  --font-titling: var(--font-castoro-titling), var(--font-libre-caslon-text), Georgia, serif;
+  --font-mono: var(--font-fragment-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    /* Keeps anchored sections and focused elements clear of the fixed header. */
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-paper);
+    outline-offset: 4px;
+  }
+}
+
+/* Header: transparent over the hero, then a blurred bar once the page scrolls. */
+.site-header {
+  background: rgb(17 18 14 / 0.72);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 rgb(236 231 218 / 0.09);
+  animation: var(--animate-fade-up);
+  animation-delay: 0.35s;
+}
+
+/* Where scroll timelines exist, the header starts transparent (the hero's ASCII shows through)
+   and only turns into a bar as the page scrolls. With no scrollable content it stays clear. */
+@supports (animation-timeline: scroll()) {
+  .site-header {
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+    animation:
+      fade-up 1.1s var(--ease-out-expo) 0.35s both,
+      header-solidify linear both;
+    animation-timeline: auto, scroll(root);
+    animation-range:
+      normal,
+      0 140px;
+  }
+}
+
+@keyframes header-solidify {
+  from {
+    background: rgb(17 18 14 / 0);
+    backdrop-filter: blur(0);
+    box-shadow: 0 1px 0 rgb(236 231 218 / 0);
+  }
+  to {
+    background: rgb(17 18 14 / 0.72);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 1px 0 rgb(236 231 218 / 0.09);
+  }
+}
+
+/* Link underline that grows from the left on hover. */
+.link-underline {
+  position: relative;
+}
+
+.link-underline::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -5px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.55s var(--ease-out-expo);
+}
+
+.link-underline:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Heading words rise from a clipped line, one after another. */
+.reveal-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+.reveal-word > span {
+  display: inline-block;
+  animation: reveal-word 1.3s var(--ease-out-expo) both;
+}
+
+@keyframes reveal-word {
+  from {
+    translate: 0 108%;
+  }
+}
+
+/* Download arrow drops through on hover. */
+.arrow-drop {
+  display: block;
+}
+
+a:hover > .arrow-drop {
+  animation: arrow-drop 0.7s cubic-bezier(0.5, 0, 0.2, 1);
+}
+
+@keyframes arrow-drop {
+  45% {
+    translate: 0 8px;
+    opacity: 0;
+  }
+  46% {
+    translate: 0 -8px;
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: these overrides must beat every component animation, hence !important. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: the user's preference overrides all motion */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the user's preference overrides all motion */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the user's preference overrides all motion */
+    animation-delay: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the user's preference overrides all motion */
+    transition-duration: 0.01ms !important;
+  }
 }
